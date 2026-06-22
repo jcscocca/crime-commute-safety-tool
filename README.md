@@ -8,6 +8,8 @@ CSV that avoids raw GPS traces.
 ## What It Does
 
 - Imports Google Maps/Timeline JSON and CSV point files.
+- Imports privacy-light recurring-place CSV files.
+- Imports public commute scenario CSV files using generalized Seattle area centroids.
 - Includes minimal GeoJSON and GPX point adapters so those formats have clean seams.
 - Normalizes uploads into stop visits and recurring place clusters.
 - Marks home-like and work-like clusters for privacy suppression.
@@ -103,12 +105,50 @@ curl -H "X-Demo-User-Id: demo@example.com" \
   http://127.0.0.1:8000/exports/tableau/place-summary.csv
 ```
 
+## Three Input Modes
+
+The guided dashboard flow supports three input modes:
+
+1. **Personal timeline upload** for Google Timeline JSON, raw point CSV, GeoJSON, or GPX.
+   This is the highest-detail mode and should be presented with the strongest privacy language.
+2. **Generalized recurring places CSV** for users who want dashboard value without uploading
+   raw movement history.
+3. **Public commute scenario CSV** for neighborhood or transit-oriented scenarios that use
+   generalized Seattle area centroids instead of personal location data.
+
+Mode metadata is available from:
+
+```text
+GET /input-modes
+```
+
+Dashboard-ready summary data is available from:
+
+```text
+GET /dashboard/summary
+```
+
 ## Supported Upload Formats
 
 - Google Semantic Location History JSON with `timelineObjects`.
 - Google records-style JSON with `locations`, `latitudeE7`, and `longitudeE7`.
 - CSV with `timestamp`, `latitude`, `longitude`, and optional `accuracy_m`,
   `activity_type`, and `source`.
+- Recurring places CSV:
+
+```csv
+display_label,latitude,longitude,visit_count,total_dwell_minutes,median_dwell_minutes,typical_days,typical_hours,sensitivity_class
+Downtown transfer stop,47.609,-122.333,12,360,30,weekday,8-9,normal
+Library area,47.621,-122.321,6,420,70,weekend,afternoon,normal
+```
+
+- Public commute scenario CSV:
+
+```csv
+origin_area,destination_area,mode,usual_departure_time,frequency_per_week
+Capitol Hill,Downtown Seattle,transit,08:00,4
+```
+
 - Minimal GeoJSON Point/LineString support.
 - Minimal GPX track point support.
 

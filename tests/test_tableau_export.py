@@ -56,3 +56,26 @@ def test_tableau_export_excludes_sensitive_clusters_by_default_and_uses_display_
     assert "47.61" in csv_text
     assert "47.609512" not in csv_text
     assert "PROPERTY" in csv_text
+
+
+def test_tableau_export_accepts_direct_input_mode_clusters():
+    cluster = PlaceClusterData(
+        id="scenario-cluster",
+        user_id_hash="user-hash",
+        cluster_version="direct-1",
+        cluster_method="direct_user_input",
+        centroid_latitude=47.609,
+        centroid_longitude=-122.333,
+        display_latitude=47.609,
+        display_longitude=-122.333,
+        cluster_radius_m=100,
+        visit_count=4,
+        total_dwell_minutes=None,
+        median_dwell_minutes=None,
+        display_label="Downtown Seattle destination area",
+    )
+
+    csv_text = build_place_summary_csv([cluster], [], tableau_safe=True)
+
+    assert "Downtown Seattle destination area" in csv_text
+    assert "scenario-cluster" in csv_text
