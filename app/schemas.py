@@ -47,6 +47,30 @@ class ParseResult(BaseModel):
     source_stops: list[SourceStop] = Field(default_factory=list)
 
 
+class DirectPlaceClusterInput(BaseModel):
+    source_type: str
+    display_label: str
+    latitude: float
+    longitude: float
+    display_latitude: float | None = None
+    display_longitude: float | None = None
+    visit_count: int = 1
+    total_dwell_minutes: float | None = None
+    median_dwell_minutes: float | None = None
+    dominant_days: str | None = None
+    dominant_hours: str | None = None
+    inferred_place_type: str = "unknown"
+    sensitivity_class: str = "normal"
+    source_record_hash: str | None = None
+
+
+class DirectPlaceImportResult(BaseModel):
+    source_type: str
+    detected_schema: str
+    parser_version: str
+    direct_place_clusters: list[DirectPlaceClusterInput] = Field(default_factory=list)
+
+
 class StopVisitData(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 

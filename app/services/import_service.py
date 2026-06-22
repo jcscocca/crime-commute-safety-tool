@@ -12,13 +12,19 @@ from app.parsers.csv_points import CsvPointsParser
 from app.parsers.geojson_points import GeoJsonPointsParser
 from app.parsers.google_timeline import GoogleTimelineParser
 from app.parsers.gpx_points import GpxPointsParser
-from app.schemas import ParseResult
+from app.parsers.recurring_places import RecurringPlacesParser
+from app.schemas import DirectPlaceImportResult, ParseResult
+from app.services.direct_places_service import persist_direct_place_import
 
 PARSERS: list[SourceParser] = [
     GoogleTimelineParser(),
     CsvPointsParser(),
     GeoJsonPointsParser(),
     GpxPointsParser(),
+]
+
+DIRECT_PLACE_PARSERS: list[SourceParser] = [
+    RecurringPlacesParser(),
 ]
 
 
@@ -28,6 +34,9 @@ def create_import_batch(
     filename: str,
     user_id_hash: str,
 ) -> dict[str, object]:
+    direct_result = parse_direct_place_upload(payload, filename)
+    if direct_result is not None:
+        return persist_direct_place_import(session, direct_result, payload, filename, user_id_hash)
     result = parse_upload(payload, filename)
     times = _time_bounds(result)
     batch = ImportBatch(
@@ -89,6 +98,16 @@ def create_import_batch(
         "observation_count": len(result.observations),
         "source_stop_count": len(result.source_stops),
     }
+
+
+def parse_direct_place_upload(
+    payload: bytes,
+    filename: str,
+) -> DirectPlaceImportResult | None:
+    for parser in DIRECT_PLACE_PARSERS:
+        if parser.can_parse(payload, filename):
+            return parser.parse_bytes(payload, filename)
+    return None
 
 
 def parse_upload(payload: bytes, filename: str) -> ParseResult:
