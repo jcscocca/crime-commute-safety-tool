@@ -78,8 +78,8 @@ def build_statistical_comparison(
             option_a_label=candidate.option_label,
             option_b_id=other.option_id,
             option_b_label=other.option_label,
-            winner_option_id=candidate.option_id,
-            winner_label=candidate.option_label,
+            winner_option_id=None,
+            winner_label=None,
             decision_class=DecisionClass.NOT_STATISTICALLY_CLEAR,
             method=rate_test.method,
             incident_count_a=rate_test.count_a,
@@ -120,6 +120,16 @@ def build_statistical_comparison(
                 update={
                     "adjusted_p_value": adjusted_p_value,
                     "decision_class": decision_class,
+                    "winner_option_id": (
+                        pairwise.option_a_id
+                        if decision_class == DecisionClass.STATISTICALLY_LOWER
+                        else None
+                    ),
+                    "winner_label": (
+                        pairwise.option_a_label
+                        if decision_class == DecisionClass.STATISTICALLY_LOWER
+                        else None
+                    ),
                 },
             ),
         )
@@ -154,7 +164,9 @@ def build_statistical_comparison(
 
 
 def _combined_dispersion(counts_a: list[int], counts_b: list[int]):
-    combined = counts_a + counts_b
+    if len(counts_a) < 2 or len(counts_b) < 2 or len(counts_a) != len(counts_b):
+        return dispersion_status([])
+    combined = [count_a + count_b for count_a, count_b in zip(counts_a, counts_b, strict=True)]
     return dispersion_status(combined)
 
 
