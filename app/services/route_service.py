@@ -135,7 +135,12 @@ def create_route_alternatives(
 
     session.commit()
 
-    if route_request.analysis_start_date and route_request.analysis_end_date and request_payload.radii_m:
+    if (
+        route_request.analysis_start_date
+        and route_request.analysis_end_date
+        and request_payload.radii_m
+        and len(route_alternatives) >= 2
+    ):
         compare_route_request(
             session=session,
             user_id_hash=user_id_hash,

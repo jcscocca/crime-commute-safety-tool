@@ -314,3 +314,28 @@ def test_route_alternatives_are_sorted_with_statistical_winner_first(tmp_path):
     recommendation = payload["statistical_comparison"]["overview"]["recommendation_option_id"]
     if recommendation is not None:
         assert payload["alternatives"][0]["id"] == recommendation
+
+
+def test_route_alternatives_skips_statistical_comparison_for_single_alternative(tmp_path):
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    client = TestClient(app)
+    headers = {"X-Demo-User-Id": "route-stat-single-user@example.com"}
+    client.post("/crime/ingest/sample")
+
+    response = client.post(
+        "/routes/alternatives",
+        json={
+            "origin_label": "Capitol Hill",
+            "destination_label": "University District",
+            "mode": "transit",
+            "analysis_start_date": "2024-01-01",
+            "analysis_end_date": "2024-01-31",
+            "radii_m": [500],
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["alternatives"]) == 1
+    assert payload["statistical_comparison"] is None
