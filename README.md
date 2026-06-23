@@ -203,7 +203,10 @@ incident context, not as safe or unsafe route claims.
 
 The app compares public place buffers and route corridors using exposure-adjusted reported
 SPD incident rates. Statistical comparison dashboards have two modes: `Overview` for the
-public summary and `Analytical` for the audit view.
+public summary and `Analytical` for the audit view. `Overview` includes public summary
+text, the decision class, adjusted rates, and a short caveat. `Analytical` includes counts,
+exposure, rate ratio, confidence interval, p-values, method, overdispersion status,
+minimum-data status, filters, and full caveats.
 
 Endpoints:
 

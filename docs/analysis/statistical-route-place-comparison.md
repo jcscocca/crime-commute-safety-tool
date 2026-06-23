@@ -2,30 +2,53 @@
 
 ## What The App Can Claim
 
-The app can say that one route or site has a statistically lower reported-incident rate than another route or site for the selected date range, geography, radius, offense filter, and method.
+The app can say that one route or site has a statistically lower reported-incident rate
+than another route or site for the selected date range, geography, radius, offense filter,
+and method. This claim is scoped to the public SPD incident records and the exact analysis
+inputs used for the comparison.
+
 The app cannot say that a route is safe, unsafe, dangerous, risk-free, or that a route prevents crime.
 
 ## Why Raw Counts Are Not Enough
 
-Raw incident counts do not account for route length, buffer size, or analysis period. The app compares exposure-adjusted rates.
+Raw incident counts do not account for route length, buffer size, or analysis period. A
+longer route corridor or larger place buffer can include more incidents simply because it
+covers more area. A longer analysis period can include more incidents simply because it has
+more days. The app compares exposure-adjusted rates so that each option is evaluated against
+the amount of area and time included in that option's analysis.
 
 ## Exposure
 
-Place exposure is buffer area in square kilometers multiplied by analysis days.
-Route exposure is route corridor area in square kilometers multiplied by analysis days. Include this formula exactly:
-`route_corridor_area_square_km = (route_length_km * 2 * radius_km) + pi * radius_km^2`
+Place exposure is the selected place buffer area in square kilometers multiplied by the
+number of analysis days. Route exposure is the selected route corridor area in square
+kilometers multiplied by the number of analysis days.
+
+For route comparisons, the corridor area is calculated as:
+
+```text
+route_corridor_area_square_km = (route_length_km * 2 * radius_km) + pi * radius_km^2
+```
+
+The exposure unit for both place and route comparisons is square-kilometer-days.
 
 ## Incident Inclusion
 
-Coordinates, date range, offense filters, and selected place buffer/route corridor.
+An incident is included only when it has coordinates, falls within the selected date range,
+matches the selected offense filters, and falls inside the selected place buffer or route
+corridor. Incidents outside the selected geography, dates, or offense filters are excluded
+from the count and rate calculation.
 
 ## Statistical Test
 
-Default exact conditional Poisson comparison; if period counts are overdispersed, quasi-Poisson log-rate-ratio adjustment.
+The default test is an exact conditional Poisson comparison of exposure-adjusted incident
+rates. If period counts are overdispersed, the app uses a quasi-Poisson log-rate-ratio
+adjustment so the uncertainty estimate reflects extra variation in the observed counts.
 
 ## Multiple Comparisons
 
-Benjamini-Hochberg adjustment for more than two options; route recommended only when it passes conservative threshold against every relevant alternative.
+When more than two options are compared, the app applies a Benjamini-Hochberg adjustment to
+control the false discovery rate across pairwise comparisons. A route is recommended only
+when it passes the conservative threshold against every relevant alternative.
 
 ## Recommendation Threshold
 
@@ -38,11 +61,26 @@ Benjamini-Hochberg adjustment for more than two options; route recommended only 
 
 ## Dashboard Modes
 
-Overview is public summary. Analytical is audit view. Both modes read same backend result.
+Overview is the public summary view. It shows the reader-facing summary text, the decision
+class, adjusted rates, and a short caveat that keeps the claim tied to reported incidents
+and the selected inputs.
+
+Analytical is the audit view. It shows the supporting counts, exposure, rate ratio,
+confidence interval, p-values, method, overdispersion status, minimum-data status, filters,
+and full caveats.
+
+Both modes read the same backend result. They differ only in how much of the result they
+show.
 
 ## Decision Classes
 
-`statistically_lower` means one compared option has a statistically lower reported-incident rate under the selected filters and threshold.
-`not_statistically_clear` means the comparison does not identify a statistically clear lower reported-incident rate.
+`statistically_lower` means one compared option has a statistically lower reported-incident
+rate under the selected filters and threshold.
+
+`not_statistically_clear` means the comparison does not identify a statistically clear
+lower reported-incident rate.
+
 `insufficient_data` means the selected inputs do not meet the minimum data requirements.
-`model_warning` means the model produced a warning that should prevent a recommendation claim.
+
+`model_warning` means the model produced a warning that should prevent a recommendation
+claim.
