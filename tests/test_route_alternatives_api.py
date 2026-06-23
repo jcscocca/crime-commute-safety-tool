@@ -255,3 +255,62 @@ def test_route_comparison_context_summaries_are_public_and_ordered(tmp_path):
         (250, "A segment", "segment", "PROPERTY", "BURGLARY", "A"),
         (500, "B segment", "segment", "PROPERTY", "THEFT", "A"),
     ]
+
+
+def test_route_alternatives_response_includes_statistical_comparison_when_analyzable(tmp_path):
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    client = TestClient(app)
+    headers = {"X-Demo-User-Id": "route-stat-user@example.com"}
+    client.post("/crime/ingest/sample")
+
+    response = client.post(
+        "/routes/alternatives",
+        json={
+            "origin_label": "Capitol Hill",
+            "destination_label": "Downtown Seattle",
+            "mode": "transit",
+            "analysis_start_date": "2024-01-01",
+            "analysis_end_date": "2024-01-31",
+            "radii_m": [500],
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["statistical_comparison"]["overview"]["label"] == "Overview"
+    assert payload["statistical_comparison"]["analytical"]["label"] == "Analytical"
+
+    lookup = client.get(
+        f"/routes/requests/{payload['request']['id']}/comparison",
+        headers=headers,
+    )
+
+    assert lookup.status_code == 200
+    assert lookup.json()["statistical_comparison"]["id"] == payload["statistical_comparison"]["id"]
+
+
+def test_route_alternatives_are_sorted_with_statistical_winner_first(tmp_path):
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    client = TestClient(app)
+    headers = {"X-Demo-User-Id": "route-stat-sort-user@example.com"}
+    client.post("/crime/ingest/sample")
+
+    response = client.post(
+        "/routes/alternatives",
+        json={
+            "origin_label": "Capitol Hill",
+            "destination_label": "Downtown Seattle",
+            "mode": "transit",
+            "analysis_start_date": "2024-01-01",
+            "analysis_end_date": "2024-01-31",
+            "radii_m": [500],
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    recommendation = payload["statistical_comparison"]["overview"]["recommendation_option_id"]
+    if recommendation is not None:
+        assert payload["alternatives"][0]["id"] == recommendation

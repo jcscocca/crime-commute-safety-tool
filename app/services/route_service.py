@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.analysis.schemas import RouteComparisonRequest
 from app.models import (
     CrimeIncident,
     RouteAlternative,
@@ -18,6 +19,7 @@ from app.routing.place_resolver import resolve_route_place
 from app.routing.providers import get_routing_provider
 from app.routing.schemas import RouteContextSummaryData, RouteRequestCreate, RouteRequestData
 from app.schemas import CrimeIncidentData
+from app.services.analysis_service import compare_route_request, latest_route_comparison_payload
 
 
 def create_route_alternatives(
@@ -132,6 +134,16 @@ def create_route_alternatives(
         session.add_all([_context_summary_model(summary) for summary in summaries])
 
     session.commit()
+
+    if route_request.analysis_start_date and route_request.analysis_end_date and request_payload.radii_m:
+        compare_route_request(
+            session=session,
+            user_id_hash=user_id_hash,
+            request=RouteComparisonRequest(
+                route_request_id=route_request.id,
+                radius_m=request_payload.radii_m[0],
+            ),
+        )
     return get_route_comparison(session, route_request.id, user_id_hash) or {}
 
 
@@ -155,15 +167,41 @@ def get_route_comparison(
     alternative_ids = [alternative.id for alternative in alternatives]
     segments = _segments_by_alternative_id(session, alternative_ids, user_id_hash)
     summaries = _context_summaries(session, alternative_ids, user_id_hash)
+    statistical_comparison = latest_route_comparison_payload(session, request_id, user_id_hash)
 
-    return {
+    payload = {
         "request": _request_to_dict(route_request),
-        "alternatives": [
-            _alternative_to_dict(alternative, segments.get(alternative.id, []))
-            for alternative in alternatives
-        ],
+        "alternatives": _sort_alternatives_for_payload(
+            [
+                _alternative_to_dict(alternative, segments.get(alternative.id, []))
+                for alternative in alternatives
+            ],
+            statistical_comparison,
+        ),
         "context_summaries": summaries,
+        "statistical_comparison": statistical_comparison,
     }
+    return payload
+
+
+def _sort_alternatives_for_payload(
+    alternatives: list[dict[str, Any]],
+    statistical_comparison: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    recommendation_id = None
+    if statistical_comparison:
+        recommendation_id = statistical_comparison["overview"].get("recommendation_option_id")
+    return sorted(
+        alternatives,
+        key=lambda alternative: (
+            alternative["id"] != recommendation_id if recommendation_id else False,
+            alternative.get("duration_minutes") is None,
+            alternative.get("duration_minutes") or 0,
+            alternative.get("transfer_count") or 0,
+            alternative.get("walking_distance_m") or 0,
+            alternative.get("rank") or 0,
+        ),
+    )
 
 
 def _segments_by_alternative_id(
