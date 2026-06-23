@@ -368,10 +368,15 @@ git commit -m "feat: add route resolver and mock provider"
 Create `tests/test_route_models_migration.py`:
 
 ```python
+from app.db import get_sessionmaker
+from app.main import create_app
 from app.models import RouteAlternative, RouteRequest, RouteSegment
 
 
-def test_route_models_persist_with_relationship_ids(client_session):
+def test_route_models_persist_with_relationship_ids(tmp_path):
+    create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    session = get_sessionmaker()()
+
     request = RouteRequest(
         user_id_hash="route-user",
         origin_label="Capitol Hill",
@@ -385,8 +390,8 @@ def test_route_models_persist_with_relationship_ids(client_session):
         privacy_level="generalized",
         status="ready",
     )
-    client_session.add(request)
-    client_session.flush()
+    session.add(request)
+    session.flush()
 
     alternative = RouteAlternative(
         route_request_id=request.id,
@@ -401,8 +406,8 @@ def test_route_models_persist_with_relationship_ids(client_session):
         mode_mix="walk,transit",
         provider="mock",
     )
-    client_session.add(alternative)
-    client_session.flush()
+    session.add(alternative)
+    session.flush()
 
     segment = RouteSegment(
         route_alternative_id=alternative.id,
@@ -417,12 +422,14 @@ def test_route_models_persist_with_relationship_ids(client_session):
         end_latitude=47.619,
         end_longitude=-122.321,
     )
-    client_session.add(segment)
-    client_session.commit()
+    session.add(segment)
+    session.commit()
 
     assert request.id
     assert alternative.route_request_id == request.id
     assert segment.route_alternative_id == alternative.id
+
+    session.close()
 ```
 
 - [ ] **Step 2: Run the model test and verify it fails**
