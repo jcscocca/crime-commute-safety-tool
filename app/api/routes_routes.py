@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import current_user_hash
 from app.db import get_session
 from app.routing.place_resolver import UnknownRoutePlaceError
+from app.routing.providers import UnsupportedRoutingProviderError
 from app.routing.schemas import RouteRequestCreate
 from app.services.route_service import (
-    UnsupportedRoutingProviderError,
     create_route_alternatives,
     get_route_comparison,
 )

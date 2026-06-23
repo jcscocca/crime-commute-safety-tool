@@ -42,7 +42,7 @@ def test_route_tableau_exports_include_route_alternatives_segments_and_context(t
             "mode": "transit",
             "analysis_start_date": "2024-01-01",
             "analysis_end_date": "2024-01-31",
-            "radii_m": [20000],
+            "radii_m": [500],
         },
         headers=other_headers,
     )

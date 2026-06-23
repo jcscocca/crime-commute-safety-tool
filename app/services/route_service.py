@@ -14,14 +14,10 @@ from app.models import (
     RouteSegment,
 )
 from app.routing.context import summarize_route_context
-from app.routing.mock_provider import MockRoutingProvider
 from app.routing.place_resolver import resolve_route_place
+from app.routing.providers import get_routing_provider
 from app.routing.schemas import RouteContextSummaryData, RouteRequestCreate, RouteRequestData
 from app.schemas import CrimeIncidentData
-
-
-class UnsupportedRoutingProviderError(ValueError):
-    pass
 
 
 def create_route_alternatives(
@@ -29,13 +25,9 @@ def create_route_alternatives(
     request_payload: RouteRequestCreate,
     user_id_hash: str,
 ) -> dict[str, object]:
-    if request_payload.provider != "mock":
-        raise UnsupportedRoutingProviderError(
-            f"Unsupported routing provider: {request_payload.provider}"
-        )
-
     origin = resolve_route_place(request_payload.origin_label)
     destination = resolve_route_place(request_payload.destination_label)
+    routing_provider = get_routing_provider(request_payload.provider)
 
     route_request = RouteRequest(
         user_id_hash=user_id_hash,
@@ -82,7 +74,7 @@ def create_route_alternatives(
         created_at=route_request.created_at,
     )
 
-    route_alternatives = MockRoutingProvider().get_routes(provider_request)
+    route_alternatives = routing_provider.get_routes(provider_request)
     for route_data in route_alternatives:
         route_data.route_request_id = route_request.id
         alternative = RouteAlternative(

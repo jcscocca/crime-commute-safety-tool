@@ -1,6 +1,13 @@
 from app.routing.mock_provider import MockRoutingProvider
 from app.routing.place_resolver import resolve_route_place
+from app.routing.providers import get_routing_provider
 from app.routing.schemas import RouteRequestData
+
+
+def test_routing_provider_registry_returns_mock_provider():
+    provider = get_routing_provider("mock")
+
+    assert isinstance(provider, MockRoutingProvider)
 
 
 def test_mock_provider_returns_ranked_route_alternatives_with_segments():

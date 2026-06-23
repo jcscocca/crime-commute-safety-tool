@@ -178,7 +178,8 @@ GET /routes/requests/{request_id}/comparison
 `POST /routes/alternatives` accepts generalized Seattle origin and destination labels,
 route mode, optional departure details, and optional `analysis_start_date`,
 `analysis_end_date`, and `radii_m` values. When analysis dates are provided, the response
-and persisted comparison include reported incident context summaries near route segments.
+and persisted comparison include reported incident context summaries near route points
+including segment starts and ends.
 
 Tableau route exports are available at:
 
@@ -195,8 +196,8 @@ OpenTripPlanner is the planned provider for live route alternatives. Until that 
 implemented, the mock provider supplies deterministic Stage 1 route alternatives for local
 development, tests, and Tableau dashboard prototyping.
 
-Product language for route dashboards should describe these rows as reported incident context,
-not as safe or unsafe route claims.
+Product language for route dashboards should describe these rows as reported route-point
+incident context, not as safe or unsafe route claims.
 
 ## Data Caveats
 

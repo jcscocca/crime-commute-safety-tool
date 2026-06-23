@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
 from app.schemas import new_id
+
+SupportedRouteMode = Literal["transit", "walk", "bike", "drive"]
+SupportedRoutePrivacyLevel = Literal["generalized"]
+RouteRadiusMeters = Annotated[int, Field(gt=0, le=5000)]
 
 
 class RouteLocation(BaseModel):
@@ -20,16 +25,16 @@ class RouteLocation(BaseModel):
 class RouteRequestCreate(BaseModel):
     origin_label: str
     destination_label: str
-    mode: str = "transit"
+    mode: SupportedRouteMode = "transit"
     departure_date: date | None = None
     departure_time: str | None = None
     time_window: str | None = None
     preferences: list[str] = Field(default_factory=list)
-    privacy_level: str = "generalized"
+    privacy_level: SupportedRoutePrivacyLevel = "generalized"
     provider: str = "mock"
     analysis_start_date: date | None = None
     analysis_end_date: date | None = None
-    radii_m: list[int] = Field(default_factory=lambda: [250, 500])
+    radii_m: list[RouteRadiusMeters] = Field(default_factory=lambda: [250, 500], min_length=1)
 
 
 class RouteSegmentData(BaseModel):
@@ -89,12 +94,12 @@ class RouteRequestData(BaseModel):
     user_id_hash: str
     origin: RouteLocation
     destination: RouteLocation
-    mode: str
+    mode: SupportedRouteMode
     departure_date: date | None = None
     departure_time: str | None = None
     time_window: str | None = None
     preferences: list[str] = Field(default_factory=list)
-    privacy_level: str = "generalized"
+    privacy_level: SupportedRoutePrivacyLevel = "generalized"
     provider: str = "mock"
     status: str = "ready"
     created_at: datetime | None = None

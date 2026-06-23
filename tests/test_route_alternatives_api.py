@@ -90,6 +90,29 @@ def test_route_alternatives_api_rejects_unsupported_provider(tmp_path):
     assert "Unsupported routing provider" in response.json()["detail"]
 
 
+def test_route_alternatives_api_validates_route_request_values(tmp_path):
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    client = TestClient(app)
+
+    response = client.post(
+        "/routes/alternatives",
+        json={
+            "origin_label": "Capitol Hill",
+            "destination_label": "Downtown Seattle",
+            "mode": "teleport",
+            "privacy_level": "precise",
+            "radii_m": [0],
+        },
+        headers={"X-Demo-User-Id": "route-user@example.com"},
+    )
+
+    assert response.status_code == 422
+    invalid_fields = {tuple(error["loc"]) for error in response.json()["detail"]}
+    assert ("body", "mode") in invalid_fields
+    assert ("body", "privacy_level") in invalid_fields
+    assert ("body", "radii_m", 0) in invalid_fields
+
+
 def test_route_comparison_is_scoped_to_request_user(tmp_path):
     app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
     client = TestClient(app)
