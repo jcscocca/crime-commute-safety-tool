@@ -22,9 +22,8 @@ def test_mock_provider_returns_ranked_route_alternatives_with_segments():
     assert alternatives[0].segments
     assert alternatives[0].segments[0].sequence == 1
     assert alternatives[0].segments[0].start_label == "Capitol Hill"
-    assert alternatives[0].segments[-1].end_label == request.destination.label
-    assert str(request.destination.latitude) in alternatives[0].summary_geometry
-    assert str(request.destination.longitude) in alternatives[0].summary_geometry
+    for alternative in alternatives:
+        _assert_route_ends_at_destination(alternative, request)
 
 
 def test_mock_provider_returns_generic_fallback_for_other_places():
@@ -40,4 +39,21 @@ def test_mock_provider_returns_generic_fallback_for_other_places():
     assert len(alternatives) == 1
     assert alternatives[0].provider_route_id == "mock-generic-direct"
     assert alternatives[0].mode_mix == "bike"
-    assert alternatives[0].segments[-1].end_label == "University District"
+    _assert_route_ends_at_destination(alternatives[0], request)
+
+
+def _assert_route_ends_at_destination(alternative, request):
+    last_segment = alternative.segments[-1]
+    assert last_segment.end_label == request.destination.label
+    assert last_segment.end_latitude == request.destination.latitude
+    assert last_segment.end_longitude == request.destination.longitude
+    assert _last_geometry_pair(alternative.summary_geometry) == (
+        request.destination.latitude,
+        request.destination.longitude,
+    )
+
+
+def _last_geometry_pair(geometry: str | None) -> tuple[float, float]:
+    assert geometry is not None
+    lat, lon = geometry.split(";")[-1].split(",")
+    return float(lat), float(lon)
