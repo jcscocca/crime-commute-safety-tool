@@ -199,6 +199,24 @@ development, tests, and Tableau dashboard prototyping.
 Product language for route dashboards should describe these rows as reported route-point
 incident context, not as safe or unsafe route claims.
 
+## Statistical Route And Place Comparison
+
+The app compares public place buffers and route corridors using exposure-adjusted reported
+SPD incident rates. Statistical comparison dashboards have two modes: `Overview` for the
+public summary and `Analytical` for the audit view.
+
+Endpoints:
+
+```text
+POST /analysis/sites/compare
+POST /analysis/routes/compare
+GET /analysis/comparisons/{comparison_id}
+GET /exports/tableau/statistical-comparisons.csv
+```
+
+Language constraint: the app may say "lower reported-incident rate" and must not say a
+route is safe, unsafe, dangerous, risk-free, or crime-preventing.
+
 ## Data Caveats
 
 Seattle SPD open data contains reported incidents. Reported crime data can be incomplete,
