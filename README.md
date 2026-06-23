@@ -154,7 +154,7 @@ Capitol Hill,Downtown Seattle,transit,08:00,4
 
 ## Tableau Export
 
-The export is available at:
+The recurring-place export is available at:
 
 ```text
 GET /exports/tableau/place-summary.csv
@@ -165,6 +165,35 @@ crime grouping fields, incident counts, nearest incident distance, incidents per
 incidents per hour of dwell. Product language should describe rows as:
 
 > Reported SPD incidents within 500m of this recurring location during the selected date range.
+
+## Route Alternatives
+
+Route comparison is available in Stage 1 with the current mock routing provider:
+
+```text
+POST /routes/alternatives
+GET /routes/requests/{request_id}/comparison
+```
+
+`POST /routes/alternatives` accepts generalized Seattle origin and destination labels,
+route mode, optional departure details, and optional `analysis_start_date`,
+`analysis_end_date`, and `radii_m` values. When analysis dates are provided, the response
+and persisted comparison include reported incident context summaries near route segments.
+
+Tableau route exports are available at:
+
+```text
+GET /exports/tableau/route-alternatives.csv
+GET /exports/tableau/route-segments.csv
+GET /exports/tableau/route-context.csv
+```
+
+OpenTripPlanner is the planned provider for live route alternatives. Until that provider is
+implemented, the mock provider supplies deterministic Stage 1 route alternatives for local
+development, tests, and Tableau dashboard prototyping.
+
+Product language for route dashboards should describe these rows as reported incident context,
+not as safe or unsafe route claims.
 
 ## Data Caveats
 

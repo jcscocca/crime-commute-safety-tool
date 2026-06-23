@@ -8,6 +8,11 @@ from sqlalchemy.orm import Session
 from app.api.deps import current_user_hash
 from app.db import get_session
 from app.services.export_service import tableau_place_summary_csv
+from app.services.route_export_service import (
+    tableau_route_alternatives_csv,
+    tableau_route_context_csv,
+    tableau_route_segments_csv,
+)
 
 router = APIRouter()
 
@@ -21,4 +26,40 @@ def export_place_summary(
         content=tableau_place_summary_csv(session, user_id_hash),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=place-summary.csv"},
+    )
+
+
+@router.get("/exports/tableau/route-alternatives.csv")
+def export_route_alternatives(
+    user_id_hash: Annotated[str, Depends(current_user_hash)],
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    return Response(
+        content=tableau_route_alternatives_csv(session, user_id_hash),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=route-alternatives.csv"},
+    )
+
+
+@router.get("/exports/tableau/route-segments.csv")
+def export_route_segments(
+    user_id_hash: Annotated[str, Depends(current_user_hash)],
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    return Response(
+        content=tableau_route_segments_csv(session, user_id_hash),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=route-segments.csv"},
+    )
+
+
+@router.get("/exports/tableau/route-context.csv")
+def export_route_context(
+    user_id_hash: Annotated[str, Depends(current_user_hash)],
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    return Response(
+        content=tableau_route_context_csv(session, user_id_hash),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=route-context.csv"},
     )
