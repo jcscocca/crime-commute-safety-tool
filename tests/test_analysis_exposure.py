@@ -80,6 +80,24 @@ def test_count_incidents_in_route_corridor_filters_dates_coordinates_and_offense
             latitude=47.6200,
             longitude=-122.3500,
         ),
+        CrimeIncidentData(
+            id="out-of-date",
+            offense_start_utc=datetime(2023, 12, 31, tzinfo=UTC),
+            offense_category="PROPERTY",
+            offense_subcategory="LARCENY",
+            nibrs_group="A",
+            latitude=47.6103,
+            longitude=-122.3361,
+        ),
+        CrimeIncidentData(
+            id="missing-coordinate",
+            offense_start_utc=datetime(2024, 1, 15, tzinfo=UTC),
+            offense_category="PROPERTY",
+            offense_subcategory="LARCENY",
+            nibrs_group="A",
+            latitude=None,
+            longitude=-122.3361,
+        ),
     ]
 
     result = count_incidents_in_route_corridor(
