@@ -9,6 +9,7 @@ from app.api.routes_health import router as health_router
 from app.api.routes_imports import router as imports_router
 from app.api.routes_input_modes import router as input_modes_router
 from app.api.routes_places import router as places_router
+from app.api.routes_routes import router as routes_router
 from app.db import configure_database, init_db
 
 
@@ -25,6 +26,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app.include_router(input_modes_router)
     app.include_router(places_router)
     app.include_router(crime_router)
+    app.include_router(routes_router)
     app.include_router(dashboard_router)
     app.include_router(exports_router)
     return app
