@@ -21,8 +21,14 @@ def compare_incident_rates(
     exposure_b: float,
     overdispersion_phi: float | None = None,
 ) -> RateTestResult:
+    if not _is_nonnegative_integer(count_a) or not _is_nonnegative_integer(count_b):
+        raise ValueError("Incident counts must be nonnegative integers.")
     if exposure_a <= 0 or exposure_b <= 0:
         raise ValueError("Exposure values must be positive.")
+    if overdispersion_phi is not None and (
+        not math.isfinite(overdispersion_phi) or overdispersion_phi < 0
+    ):
+        raise ValueError("Overdispersion phi must be finite and nonnegative.")
 
     raw_rate_a = count_a / exposure_a
     raw_rate_b = count_b / exposure_b
@@ -78,6 +84,10 @@ def compare_incident_rates(
     )
 
 
+def _is_nonnegative_integer(value: object) -> bool:
+    return type(value) is int and value >= 0
+
+
 def _exact_conditional_poisson_p_value(
     *,
     count_a: int,
@@ -117,6 +127,8 @@ def _binomial_probability(trials: int, successes: int, probability: float) -> fl
 
 
 def dispersion_status(period_counts: Sequence[int]) -> DispersionResult:
+    if any(count < 0 for count in period_counts):
+        raise ValueError("Period counts must be nonnegative.")
     if len(period_counts) < 2:
         return DispersionResult(phi=None, status="insufficient_periods")
     mean = sum(period_counts) / len(period_counts)
@@ -129,6 +141,8 @@ def dispersion_status(period_counts: Sequence[int]) -> DispersionResult:
 
 
 def benjamini_hochberg(p_values: Sequence[float]) -> list[float]:
+    if any(not math.isfinite(p_value) or p_value < 0 or p_value > 1 for p_value in p_values):
+        raise ValueError("P-values must be finite values between 0 and 1.")
     count = len(p_values)
     indexed = sorted(enumerate(p_values), key=lambda item: item[1], reverse=True)
     adjusted = [1.0] * count

@@ -1,3 +1,7 @@
+import math
+
+import pytest
+
 from app.analysis.rate_tests import (
     DecisionClass,
     benjamini_hochberg,
@@ -37,6 +41,37 @@ def test_compare_incident_rates_handles_zero_count_with_continuity_correction():
     assert "continuity correction" in result.caveat_text
 
 
+@pytest.mark.parametrize(
+    ("count_a", "count_b"),
+    [
+        (-1, 12),
+        (8, -1),
+        (1.5, 12),
+        (8, 2.5),
+    ],
+)
+def test_compare_incident_rates_rejects_invalid_counts(count_a, count_b):
+    with pytest.raises(ValueError, match="Incident counts must be nonnegative integers"):
+        compare_incident_rates(
+            count_a=count_a,
+            exposure_a=30.0,
+            count_b=count_b,
+            exposure_b=30.0,
+        )
+
+
+@pytest.mark.parametrize("phi", [-1.0, math.inf, math.nan])
+def test_compare_incident_rates_rejects_invalid_overdispersion_phi(phi):
+    with pytest.raises(ValueError, match="Overdispersion phi must be finite and nonnegative"):
+        compare_incident_rates(
+            count_a=8,
+            exposure_a=30.0,
+            count_b=28,
+            exposure_b=30.0,
+            overdispersion_phi=phi,
+        )
+
+
 def test_dispersion_status_marks_high_variance_periods_as_overdispersed():
     status = dispersion_status([0, 0, 0, 12, 0, 12])
 
@@ -49,6 +84,11 @@ def test_dispersion_status_marks_short_series_as_insufficient_periods():
 
     assert status.status == "insufficient_periods"
     assert status.phi is None
+
+
+def test_dispersion_status_rejects_negative_period_counts():
+    with pytest.raises(ValueError, match="Period counts must be nonnegative"):
+        dispersion_status([1, -1, 2])
 
 
 def test_quasi_poisson_adjustment_weakens_high_dispersion_significance():
@@ -80,6 +120,12 @@ def test_benjamini_hochberg_adjusts_p_values_monotonically():
     assert adjusted == [0.03, 0.04, 0.04]
 
 
+@pytest.mark.parametrize("p_value", [-0.01, 1.01, math.inf, math.nan])
+def test_benjamini_hochberg_rejects_invalid_p_values(p_value):
+    with pytest.raises(ValueError, match="P-values must be finite values between 0 and 1"):
+        benjamini_hochberg([0.01, p_value])
+
+
 def test_classify_requires_statistical_and_practical_thresholds():
     statistically_lower = classify_pairwise_result(
         rate_ratio=0.5,
@@ -103,3 +149,25 @@ def test_classify_requires_statistical_and_practical_thresholds():
     assert statistically_lower == DecisionClass.STATISTICALLY_LOWER
     assert weak_practical_difference == DecisionClass.NOT_STATISTICALLY_CLEAR
     assert weak_statistical_difference == DecisionClass.NOT_STATISTICALLY_CLEAR
+
+
+def test_classify_returns_insufficient_data_before_other_decisions():
+    result = classify_pairwise_result(
+        rate_ratio=0.5,
+        adjusted_p_value=0.01,
+        minimum_data_met=False,
+        model_warning=True,
+    )
+
+    assert result == DecisionClass.INSUFFICIENT_DATA
+
+
+def test_classify_returns_model_warning_when_data_is_sufficient():
+    result = classify_pairwise_result(
+        rate_ratio=0.5,
+        adjusted_p_value=0.01,
+        minimum_data_met=True,
+        model_warning=True,
+    )
+
+    assert result == DecisionClass.MODEL_WARNING
