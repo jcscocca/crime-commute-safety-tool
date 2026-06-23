@@ -12,11 +12,20 @@ from app.routing.place_resolver import resolve_route_place
 from app.routing.schemas import RouteRequestCreate, RouteRequestData
 
 
+class UnsupportedRoutingProviderError(ValueError):
+    pass
+
+
 def create_route_alternatives(
     session: Session,
     request_payload: RouteRequestCreate,
     user_id_hash: str,
 ) -> dict[str, object]:
+    if request_payload.provider != "mock":
+        raise UnsupportedRoutingProviderError(
+            f"Unsupported routing provider: {request_payload.provider}"
+        )
+
     origin = resolve_route_place(request_payload.origin_label)
     destination = resolve_route_place(request_payload.destination_label)
 
@@ -175,7 +184,15 @@ def _context_summaries(
         select(RouteContextSummary)
         .where(RouteContextSummary.route_alternative_id.in_(alternative_ids))
         .where(RouteContextSummary.user_id_hash == user_id_hash)
-        .order_by(RouteContextSummary.route_alternative_id, RouteContextSummary.radius_m)
+        .order_by(
+            RouteContextSummary.route_alternative_id,
+            RouteContextSummary.radius_m,
+            RouteContextSummary.context_label,
+            RouteContextSummary.context_type,
+            RouteContextSummary.offense_category,
+            RouteContextSummary.offense_subcategory,
+            RouteContextSummary.nibrs_group,
+        )
     )
     return [_context_summary_to_dict(row) for row in rows]
 
@@ -183,7 +200,6 @@ def _context_summaries(
 def _request_to_dict(route_request: RouteRequest) -> dict[str, Any]:
     return {
         "id": route_request.id,
-        "user_id_hash": route_request.user_id_hash,
         "origin": {
             "label": route_request.origin_label,
             "latitude": route_request.origin_latitude,
@@ -232,7 +248,7 @@ def _alternative_to_dict(
         "mode_mix": alternative.mode_mix,
         "summary_geometry": alternative.summary_geometry,
         "provider": alternative.provider,
-        "provider_metadata_json": alternative.provider_metadata_json,
+        "provider_metadata": _json_dict(alternative.provider_metadata_json),
         "segments": [_segment_to_dict(segment) for segment in segments],
     }
 
@@ -259,7 +275,6 @@ def _segment_to_dict(segment: RouteSegment) -> dict[str, Any]:
 def _context_summary_to_dict(summary: RouteContextSummary) -> dict[str, Any]:
     return {
         "id": summary.id,
-        "user_id_hash": summary.user_id_hash,
         "route_alternative_id": summary.route_alternative_id,
         "route_segment_id": summary.route_segment_id,
         "context_label": summary.context_label,
@@ -283,3 +298,12 @@ def _json_list(value: str | None) -> list[Any]:
     if isinstance(parsed, list):
         return parsed
     return []
+
+
+def _json_dict(value: str | None) -> dict[str, Any]:
+    if not value:
+        return {}
+    parsed = json.loads(value)
+    if isinstance(parsed, dict):
+        return parsed
+    return {}

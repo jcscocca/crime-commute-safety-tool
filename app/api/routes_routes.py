@@ -9,7 +9,11 @@ from app.api.deps import current_user_hash
 from app.db import get_session
 from app.routing.place_resolver import UnknownRoutePlaceError
 from app.routing.schemas import RouteRequestCreate
-from app.services.route_service import create_route_alternatives, get_route_comparison
+from app.services.route_service import (
+    UnsupportedRoutingProviderError,
+    create_route_alternatives,
+    get_route_comparison,
+)
 
 router = APIRouter()
 
@@ -22,7 +26,7 @@ def alternatives(
 ) -> dict[str, object]:
     try:
         return create_route_alternatives(session, request, user_id_hash)
-    except UnknownRoutePlaceError as exc:
+    except (UnknownRoutePlaceError, UnsupportedRoutingProviderError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
