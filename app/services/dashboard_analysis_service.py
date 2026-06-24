@@ -67,8 +67,12 @@ def compare_selected_places(
             AnalysisSiteOption(
                 id=cluster.id,
                 label=cluster.display_label or "Selected place",
-                latitude=cluster.centroid_latitude,
-                longitude=cluster.centroid_longitude,
+                latitude=cluster.display_latitude
+                if cluster.display_latitude is not None
+                else cluster.centroid_latitude,
+                longitude=cluster.display_longitude
+                if cluster.display_longitude is not None
+                else cluster.centroid_longitude,
                 radius_m=radius_m,
             )
             for cluster in clusters

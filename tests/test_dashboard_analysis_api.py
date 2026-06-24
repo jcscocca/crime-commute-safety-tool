@@ -33,8 +33,8 @@ def _client_with_places_and_crime(tmp_path) -> TestClient:
     session.commit()
     session.close()
     for label, lat, lon, visits in [
-        ("Downtown transfer stop", 47.609, -122.333, 12),
-        ("Library area", 47.621, -122.321, 6),
+        ("Downtown transfer stop", 47.6094, -122.3334, 12),
+        ("Library area", 47.6206, -122.3206, 6),
     ]:
         response = client.post(
             "/places",
@@ -89,6 +89,30 @@ def test_dashboard_compare_selected_places(tmp_path):
     assert response.status_code == 200
     assert response.json()["overview"]["label"] == "Overview"
     assert len(response.json()["overview"]["options"]) == 2
+
+
+def test_dashboard_compare_uses_public_place_display_coordinates(tmp_path):
+    client = _client_with_places_and_crime(tmp_path)
+    places_by_id = {place["id"]: place for place in client.get("/places").json()["places"]}
+
+    response = client.post(
+        "/dashboard/compare",
+        json={
+            "place_ids": list(places_by_id),
+            "analysis_start_date": "2024-01-01",
+            "analysis_end_date": "2024-01-31",
+            "radius_m": 250,
+            "offense_category": "PROPERTY",
+        },
+    )
+
+    assert response.status_code == 200
+    for option in response.json()["overview"]["options"]:
+        place = places_by_id[option["id"]]
+        assert option["geometry_metadata"]["center"] == {
+            "latitude": place["latitude"],
+            "longitude": place["longitude"],
+        }
 
 
 def test_dashboard_analysis_actions_require_public_session_cookie(tmp_path):
