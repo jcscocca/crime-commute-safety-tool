@@ -14,9 +14,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY pyproject.toml README.md ./
+COPY app ./app
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir .
 
-COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 COPY --from=frontend /app/static/dashboard ./app/static/dashboard
