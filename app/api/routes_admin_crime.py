@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -17,8 +17,8 @@ router = APIRouter()
 def ingest_socrata(
     session: Annotated[Session, Depends(get_session)],
     x_admin_token: Annotated[str | None, Header()] = None,
-    limit: int = 5000,
-    offset: int = 0,
+    limit: Annotated[int, Query(ge=1, le=5000)] = 5000,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> dict[str, int]:
     settings = get_settings()
     if not settings.admin_ingest_token or x_admin_token != settings.admin_ingest_token:

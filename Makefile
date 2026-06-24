@@ -20,5 +20,9 @@ demo:
 	curl -s http://127.0.0.1:8000/health
 
 ingest-crime:
-	curl -s -X POST -H "X-Admin-Token: $$MCA_ADMIN_INGEST_TOKEN" \
+	@if [ -z "$$MCA_ADMIN_INGEST_TOKEN" ]; then \
+		echo "MCA_ADMIN_INGEST_TOKEN is required"; \
+		exit 1; \
+	fi
+	curl --fail --show-error -s -X POST -H "X-Admin-Token: $$MCA_ADMIN_INGEST_TOKEN" \
 		"http://127.0.0.1:8000/admin/crime/ingest/socrata?limit=5000&offset=0"
