@@ -198,6 +198,38 @@ def test_bulk_place_entry_reports_invalid_rows(tmp_path):
     assert response.json()["skipped_count"] == 1
 
 
+def test_bulk_place_entry_skips_oversized_field_without_partial_failure(tmp_path):
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    client = TestClient(app, raise_server_exceptions=False)
+    client.post("/sessions")
+    oversized_label = "x" * 140_000
+
+    response = client.post(
+        "/places/bulk",
+        json={
+            "csv_text": (
+                "display_label,latitude,longitude,visit_count\n"
+                "First valid place,47.609,-122.333,3\n"
+                f"{oversized_label},47.610,-122.334,4\n"
+                "Second valid place,47.621,-122.321,5\n"
+            )
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["created_count"] == 2
+    assert response.json()["skipped_count"] == 1
+    created_labels = [place["display_label"] for place in response.json()["places"]]
+    assert created_labels == ["First valid place", "Second valid place"]
+
+    list_response = client.get("/places")
+    assert list_response.status_code == 200
+    assert list_response.json()["count"] == response.json()["created_count"]
+    assert sorted(place["display_label"] for place in list_response.json()["places"]) == sorted(
+        created_labels
+    )
+
+
 def test_bulk_place_entry_defaults_blank_display_labels(tmp_path):
     client = _client(tmp_path)
 
