@@ -71,6 +71,48 @@ def test_ingest_crime_incidents_skips_missing_external_incident_ids(tmp_path):
     session.close()
 
 
+def test_ingest_crime_incidents_skips_existing_external_incident_ids(tmp_path):
+    create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    session = get_sessionmaker()()
+    session.add(
+        CrimeIncident(
+            external_incident_id="spd-existing",
+            offense_start_utc=datetime(2024, 1, 9, tzinfo=UTC),
+            offense_category="PROPERTY",
+            latitude=47.608,
+            longitude=-122.332,
+        )
+    )
+    session.commit()
+
+    result = ingest_crime_incidents(
+        session,
+        [
+            CrimeIncidentData(
+                external_incident_id="spd-existing",
+                offense_start_utc=datetime(2024, 1, 10, tzinfo=UTC),
+                offense_category="PROPERTY",
+                latitude=47.609,
+                longitude=-122.333,
+            ),
+            CrimeIncidentData(
+                external_incident_id="spd-new",
+                offense_start_utc=datetime(2024, 1, 11, tzinfo=UTC),
+                offense_category="PERSON",
+                latitude=47.61,
+                longitude=-122.34,
+            ),
+        ],
+    )
+
+    assert result == {"inserted_count": 1, "skipped_count": 1}
+    external_ids = session.scalars(
+        select(CrimeIncident.external_incident_id).order_by(CrimeIncident.external_incident_id)
+    ).all()
+    assert external_ids == ["spd-existing", "spd-new"]
+    session.close()
+
+
 def test_ingest_crime_incidents_skips_insert_conflicts_without_rolling_back_new_rows(
     tmp_path,
     monkeypatch,
@@ -241,6 +283,7 @@ def test_admin_socrata_ingest_fetches_page_and_returns_ingestion_result(
     monkeypatch,
 ):
     monkeypatch.setenv("MCA_ADMIN_INGEST_TOKEN", "secret-token")
+    monkeypatch.delenv("SOCRATA_APP_TOKEN", raising=False)
     calls = []
 
     def fake_fetch_page(self, limit: int, offset: int) -> list[CrimeIncidentData]:
