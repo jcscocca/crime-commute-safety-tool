@@ -1,6 +1,12 @@
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from app.api.deps import required_public_user_hash
+from app.db import get_sessionmaker
 from app.main import create_app
+from app.models import PlaceCluster
+from app.sessions import _sign, public_user_hash, session_id_from_token
 
 
 def test_public_session_endpoint_sets_cookie(tmp_path):
@@ -22,10 +28,50 @@ def test_cookie_session_scopes_dashboard_data(tmp_path):
 
     first.post("/sessions")
     second.post("/sessions")
+    first_user_hash = public_user_hash(first.cookies.get("mca_session"))
+    assert first_user_hash is not None
+    with get_sessionmaker()() as session:
+        session.add(
+            PlaceCluster(
+                user_id_hash=first_user_hash,
+                cluster_version="test",
+                cluster_method="manual",
+                centroid_latitude=47.6062,
+                centroid_longitude=-122.3321,
+                display_latitude=47.6062,
+                display_longitude=-122.3321,
+                cluster_radius_m=100,
+                visit_count=5,
+                total_dwell_minutes=300,
+                median_dwell_minutes=60,
+                inferred_place_type="unknown",
+                sensitivity_class="normal",
+                display_label="First session place",
+                label_source="test",
+            )
+        )
+        session.commit()
 
     first_response = first.get("/dashboard/summary")
     second_response = second.get("/dashboard/summary")
 
     assert first_response.status_code == 200
     assert second_response.status_code == 200
-    assert first.cookies.get("mca_session") != second.cookies.get("mca_session")
+    assert first_response.json()["totals"]["place_count"] == 1
+    assert second_response.json()["totals"]["place_count"] == 0
+
+
+def test_required_public_user_hash_rejects_missing_or_invalid_session():
+    for token in (None, "invalid-token"):
+        with pytest.raises(HTTPException) as exc_info:
+            required_public_user_hash(token)
+
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.detail == "Public session required"
+
+
+def test_session_id_from_token_rejects_expired_token():
+    expired_payload = "expired-session:1"
+    expired_token = f"{expired_payload}.{_sign(expired_payload)}"
+
+    assert session_id_from_token(expired_token) is None
