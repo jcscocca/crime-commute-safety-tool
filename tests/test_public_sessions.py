@@ -12,6 +12,7 @@ def test_public_session_endpoint_sets_cookie(tmp_path):
     assert response.status_code == 200
     assert response.json()["session_state"] == "created"
     assert "mca_session" in response.cookies
+    assert "Max-Age=86400" in response.headers["set-cookie"]
 
 
 def test_cookie_session_scopes_dashboard_data(tmp_path):
