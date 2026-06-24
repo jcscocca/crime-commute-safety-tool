@@ -1,25 +1,90 @@
 import {
-  BarChart3,
   Download,
-  FileUp,
-  MapPin,
-  Route,
   ShieldAlert
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
-const places = [
-  { name: "Capitol Hill Station", detail: "Transit hub", status: "Ready" },
-  { name: "Pike Place Market", detail: "Errand stop", status: "Ready" },
-  { name: "South Lake Union", detail: "Work area", status: "Queued" }
-];
-
-const metrics = [
-  { label: "Saved places", value: "3", tone: "cyan" },
-  { label: "Input modes", value: "2", tone: "green" },
-  { label: "Export formats", value: "CSV", tone: "amber" }
-];
+import {
+  createBulkPlaces,
+  createPlace,
+  createSession,
+  deletePlace,
+  getDashboardSummary,
+} from "./api/client";
+import { BulkPlaceEntry } from "./components/BulkPlaceEntry";
+import { PlaceForm } from "./components/PlaceForm";
+import { PlaceTable } from "./components/PlaceTable";
+import type { DashboardSummary, Place, PlaceCreate } from "./types";
 
 export default function App() {
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [error, setError] = useState("");
+
+  const refresh = async () => {
+    const nextSummary = await getDashboardSummary();
+    setSummary(nextSummary);
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    createSession()
+      .then(() => getDashboardSummary())
+      .then((nextSummary) => {
+        if (isMounted) {
+          setSummary(nextSummary);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setError("Unable to start a dashboard session. Try again shortly.");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const places: Place[] = useMemo(() => summary?.places ?? [], [summary]);
+
+  const handleCreatePlace = async (place: PlaceCreate) => {
+    await createPlace(place);
+    await refresh();
+  };
+
+  const handleBulk = async (csvText: string) => {
+    await createBulkPlaces(csvText);
+    await refresh();
+  };
+
+  const handleDelete = async (placeId: string) => {
+    try {
+      await deletePlace(placeId);
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        next.delete(placeId);
+        return next;
+      });
+      await refresh();
+    } catch {
+      setError("Unable to remove place. Try again.");
+    }
+  };
+
+  const handleToggle = (placeId: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(placeId)) {
+        next.delete(placeId);
+      } else {
+        next.add(placeId);
+      }
+      return next;
+    });
+  };
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -44,67 +109,34 @@ export default function App() {
             reported incident context without uploading personal location
             history.
           </p>
+          {error ? <p className="error" role="status">{error}</p> : null}
         </div>
 
-        <div className="actions" aria-label="Dashboard actions">
-          <button type="button">
-            <MapPin size={18} />
-            Manual place
-          </button>
-          <button type="button">
-            <FileUp size={18} />
-            Bulk places
-          </button>
-          <button type="button">
-            <Route size={18} />
-            Compare routes
-          </button>
+        <div className="summary-strip" aria-label="Dashboard totals">
+          <div>
+            <span>Places</span>
+            <strong>{summary?.totals.place_count ?? places.length}</strong>
+          </div>
+          <div>
+            <span>Visits</span>
+            <strong>{summary?.totals.visit_count ?? 0}</strong>
+          </div>
+          <div>
+            <span>Selected</span>
+            <strong>{selectedIds.size}</strong>
+          </div>
         </div>
       </section>
 
-      <section className="dashboard-grid" aria-label="Dashboard preview">
-        <div className="panel span-two">
-          <div className="panel-heading">
-            <div>
-              <p className="panel-label">Places</p>
-              <h2>Review list</h2>
-            </div>
-            <MapPin size={20} />
-          </div>
-          <ul className="place-list">
-            {places.map((place) => (
-              <li key={place.name}>
-                <div>
-                  <strong>{place.name}</strong>
-                  <span>{place.detail}</span>
-                </div>
-                <small>{place.status}</small>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="panel-label">Analysis</p>
-              <h2>Context summary</h2>
-            </div>
-            <BarChart3 size={20} />
-          </div>
-          <div className="summary-bars" aria-label="Incident context bars">
-            <span style={{ width: "74%" }} />
-            <span style={{ width: "56%" }} />
-            <span style={{ width: "38%" }} />
-          </div>
-        </div>
-
-        {metrics.map((metric) => (
-          <div className={`stat panel ${metric.tone}`} key={metric.label}>
-            <span>{metric.label}</span>
-            <strong>{metric.value}</strong>
-          </div>
-        ))}
+      <section className="dashboard-grid" aria-label="Place dashboard">
+        <PlaceForm onSubmit={handleCreatePlace} />
+        <BulkPlaceEntry onSubmit={handleBulk} />
+        <PlaceTable
+          places={places}
+          selectedIds={selectedIds}
+          onToggle={handleToggle}
+          onDelete={handleDelete}
+        />
       </section>
     </main>
   );
