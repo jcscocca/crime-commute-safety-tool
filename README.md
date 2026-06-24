@@ -135,8 +135,8 @@ curl -b demo.cookies http://127.0.0.1:8000/exports/tableau/place-summary.csv
 The public dashboard flow exposes upload-free modes first:
 
 1. **Enter places manually** for approximate places, visit frequency, and optional dwell time.
-2. **Paste a place list** for rows with `display_label`, `latitude`, `longitude`, and optional
-   visit or dwell fields.
+2. **Paste a place list** for rows with `latitude` and `longitude`, plus optional display
+   labels, visit counts, or dwell fields.
 3. **Public commute scenario** for neighborhood or transit-oriented scenarios that use
    generalized Seattle area centroids instead of personal location data.
 

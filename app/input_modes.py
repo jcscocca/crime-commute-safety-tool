@@ -16,9 +16,12 @@ def supported_input_modes(include_personal_uploads: bool = False) -> list[dict[s
             "id": "bulk_places",
             "label": "Paste a place list",
             "privacy_level": "low",
-            "description": "Paste rows with display_label, latitude, longitude, and visit_count.",
-            "required_columns": ["display_label", "latitude", "longitude"],
+            "description": (
+                "Paste rows with latitude and longitude, plus optional labels and visit fields."
+            ),
+            "required_columns": ["latitude", "longitude"],
             "optional_columns": [
+                "display_label",
                 "visit_count",
                 "total_dwell_minutes",
                 "median_dwell_minutes",
