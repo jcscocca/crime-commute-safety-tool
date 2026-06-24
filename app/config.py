@@ -9,6 +9,9 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite+pysqlite:///./localagent-output/mobility.sqlite3"
     user_hash_salt: str = "local-demo-salt"
+    session_secret: str = "local-dashboard-session-secret"
+    public_enable_personal_uploads: bool = False
+    admin_ingest_token: str | None = None
     minimum_stop_duration_minutes: int = 10
     stop_radius_m: float = 75
     cluster_radius_m: float = 100

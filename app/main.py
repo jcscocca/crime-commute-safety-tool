@@ -11,6 +11,7 @@ from app.api.routes_imports import router as imports_router
 from app.api.routes_input_modes import router as input_modes_router
 from app.api.routes_places import router as places_router
 from app.api.routes_routes import router as routes_router
+from app.api.routes_sessions import router as sessions_router
 from app.db import configure_database, init_db
 
 
@@ -23,6 +24,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
         description="Privacy-first recurring-place and Seattle crime context API.",
     )
     app.include_router(health_router)
+    app.include_router(sessions_router)
     app.include_router(imports_router)
     app.include_router(input_modes_router)
     app.include_router(places_router)
