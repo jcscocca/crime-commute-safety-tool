@@ -67,6 +67,59 @@ The sheet supports at least two visual states:
 
 The design should avoid wizard-only navigation. Users should be able to jump between tabs because this tool will have repeat use after the first successful run.
 
+## Visual Design
+
+A static visual target lives at `docs/superpowers/specs/2026-06-24-map-first-dashboard-mockup.html`. Open it in a browser and match its look. The CSS in that file is the source of truth for the tokens below; this section records the intent so values are not guessed. The basemap in the mock is hand-drawn SVG for portability — the real app renders a live Leaflet tile map (see Map And Search Providers); match the *look*, not the drawing technique.
+
+### Aesthetic direction
+
+"Calm civic instrument." This is reported-incident data, so the interface must read as a precise, trustworthy cartographic tool — never alarmist, playful, or marketing-flashy. A pale, muted basemap carries the data; graphite "instrument" panels float above it. The pale-map / dark-panel contrast is the primary signal that this is a real location product.
+
+### Typography
+
+Three families (Google Fonts):
+
+- `Fraunces` (serif) — the product wordmark only. A human, editorial signature.
+- `Archivo` (grotesque) — all UI text.
+- `IBM Plex Mono` — every number: incident counts, coordinates, radii, dates. Monospaced numerics make the tool read as an instrument, not a form.
+
+Fallbacks: Archivo → 'Helvetica Neue', system-ui, sans-serif; Fraunces → 'Iowan Old Style', Georgia, serif; IBM Plex Mono → ui-monospace, Menlo, monospace.
+
+### Color tokens
+
+Map surface (pale, desaturated — tiles supply most of this; these style the chrome that sits on the map): paper `#ECEAE3`, water `#D6DFE1`, park `#DEE6D6`, road `#FFFFFF`, map label `#9C988B`.
+
+Instrument panels (dark graphite): ink `#1B1E22`, ink-raise `#23272D`, ink-soft `#2B3036`; hairlines `rgba(255,255,255,0.08)` and `rgba(255,255,255,0.14)`; text `#F3F1EB`, dim `#A7ACB2`, faint `#777D84`.
+
+Accent + semantics: clay (action / selection) `#CD6A45`, clay-deep (buttons) `#B5512F`, clay-soft fill `rgba(205,106,69,0.15)`, clay-halo `rgba(205,106,69,0.32)`; slate (uncertainty / low-data) `#74858E`, slate-soft `rgba(116,133,142,0.20)`; graphite pin (default place) `#3A3F46`. One warm accent (clay) for action/selection, one cool accent (slate) for uncertainty — nothing else competes.
+
+### Marker system (color is never the only signal)
+
+- Saved place (default): graphite teardrop with a white center dot.
+- Selected: clay teardrop, scaled up, with a pulsing clay halo and a name tag above.
+- Analyzed: graphite teardrop plus a translucent clay radius ring (fill `rgba(205,106,69,0.15)`, `1.5px solid rgba(205,106,69,0.45)`) and a white count badge showing the incident count in IBM Plex Mono.
+- Low data: slate teardrop with a white "?" glyph and a dashed slate ring (`1.5px dashed rgba(116,133,142,0.6)`).
+
+Each state differs by shape/affordance (dot vs "?" glyph, solid vs dashed ring, halo, badge), not color alone — this satisfies the accessibility rule. A map legend ("Map key") documents all four.
+
+### Chrome
+
+- Top bar: translucent, fading to transparent; Fraunces wordmark left, a status pill ("Public session · Seattle") right.
+- Map controls (top-left): a search field and a primary "Add pin" button. When add-pin is armed, the button shows a clay focus ring + pulse, and a helper toast reads "Click the map to drop a pin · Esc to cancel."
+- Legend (top-right) and basemap attribution (required, bottom) are always visible.
+- Bottom sheet: graphite gradient (`#23272D` → `#1B1E22`), rounded top (20px), top hairline + soft upward shadow, a drag handle, and visible snap-state indicators (Peek / Half / Full). Tabs (Places / Analyze / Compare / Export) use a clay active underline.
+
+### Spacing, radius, motion
+
+- Radii: frame edges square (full-viewport), cards ~12–13px, controls ~10–11px, pills 999px, sheet top 20px.
+- Motion (subtle, purposeful): markers drop in (0.5s `cubic-bezier(.2,.9,.25,1.1)`, staggered); selected halo pulse (2.3s ease-out, infinite); sheet slide-up on load (0.55s `cubic-bezier(.2,.8,.2,1)`); panel cross-fade on tab change (0.3s). Honor `prefers-reduced-motion`.
+
+### Where the implementation intentionally diverges from the mock
+
+- The mock's radius **slider** is illustrative. Implement radius as a **segmented control** bound to `DashboardSummary.analysis.available_radii_m` (fallback 250 / 500 / 1000 m) so the app never requests an unsupported radius.
+- The mock's category chips (Theft / Vehicle / …) are illustrative. Use the real categories: All / Property / Person / Society (`offense_category` values `""`, `"PROPERTY"`, `"PERSON"`, `"SOCIETY"`).
+- Counts in the mock are sample numbers; real counts come from `DashboardSummary.crime_summaries` after analysis.
+
 ## Frontend Architecture
 
 Introduce focused frontend modules rather than continuing to grow `App.tsx`.
@@ -95,6 +148,8 @@ The current components can be reused where they still fit:
 ## Map And Search Providers
 
 Use Leaflet with React bindings for the first implementation because it fits the current React stack and supports the needed primitives: map click handling, markers, circles, popups, and tile layers.
+
+**The live map must be a real interactive tile map, not a static image.** Click-to-drop, search-to-pin, radius rings, and pan/zoom all depend on a real map projection that converts between screen pixels and latitude/longitude, so the basemap must be rendered as a Leaflet `TileLayer`. The static SVG basemap in the visual mockup (`docs/superpowers/specs/2026-06-24-map-first-dashboard-mockup.html`) is a look-and-feel reference only: match its muted palette, marker states, radius rings, count badges, bottom-sheet chrome, and typography, but do not ship the SVG as the map. A muted basemap style such as Carto Positron or Stadia Alidade Smooth reproduces the mockup's look with real tiles.
 
 Create provider boundaries so tile and search services are not hardcoded throughout the UI:
 
