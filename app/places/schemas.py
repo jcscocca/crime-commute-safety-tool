@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 SensitivityClass = Literal[
     "normal",
@@ -25,6 +25,11 @@ class ManualPlaceCreate(BaseModel):
     typical_hours: str | None = Field(default=None, max_length=120)
     sensitivity_class: SensitivityClass = "normal"
 
+    @field_validator("display_label")
+    @classmethod
+    def display_label_must_not_be_blank(cls, value: str) -> str:
+        return _strip_non_empty_label(value)
+
 
 class ManualPlaceUpdate(BaseModel):
     display_label: str | None = Field(default=None, min_length=1, max_length=120)
@@ -36,6 +41,13 @@ class ManualPlaceUpdate(BaseModel):
     typical_days: str | None = Field(default=None, max_length=120)
     typical_hours: str | None = Field(default=None, max_length=120)
     sensitivity_class: SensitivityClass | None = None
+
+    @field_validator("display_label")
+    @classmethod
+    def display_label_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _strip_non_empty_label(value)
 
 
 class ManualPlaceResponse(BaseModel):
@@ -50,3 +62,10 @@ class ManualPlaceResponse(BaseModel):
     typical_hours: str | None
     inferred_place_type: str
     sensitivity_class: SensitivityClass
+
+
+def _strip_non_empty_label(value: str) -> str:
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("display_label must not be blank")
+    return stripped

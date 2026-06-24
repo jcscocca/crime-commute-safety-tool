@@ -96,6 +96,8 @@ def _get_user_place(session: Session, user_id_hash: str, place_id: str) -> Place
         select(PlaceCluster).where(
             PlaceCluster.id == place_id,
             PlaceCluster.user_id_hash == user_id_hash,
+            PlaceCluster.cluster_method == MANUAL_CLUSTER_METHOD,
+            PlaceCluster.label_source == "manual",
         )
     )
 

@@ -1,6 +1,9 @@
 from fastapi.testclient import TestClient
 
+from app.db import get_sessionmaker
 from app.main import create_app
+from app.models import PlaceCluster
+from app.sessions import SESSION_COOKIE_NAME, public_user_hash
 
 
 def _client(tmp_path) -> TestClient:
@@ -90,3 +93,64 @@ def test_public_place_write_requires_session_cookie(tmp_path):
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Public session required"
+
+
+def test_public_place_write_does_not_mutate_non_manual_cluster(tmp_path):
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    client = TestClient(app)
+    client.post("/sessions")
+    user_id_hash = public_user_hash(client.cookies.get(SESSION_COOKIE_NAME))
+    assert user_id_hash is not None
+
+    session_factory = get_sessionmaker()
+    with session_factory() as session:
+        cluster = PlaceCluster(
+            user_id_hash=user_id_hash,
+            cluster_version="places-v1",
+            cluster_method="dbscan",
+            centroid_latitude=47.6,
+            centroid_longitude=-122.3,
+            display_latitude=47.6,
+            display_longitude=-122.3,
+            cluster_radius_m=75,
+            visit_count=7,
+            total_dwell_minutes=240,
+            median_dwell_minutes=30,
+            inferred_place_type="recurring_place",
+            sensitivity_class="normal",
+            display_label="Imported cluster",
+            label_source="inferred",
+        )
+        session.add(cluster)
+        session.commit()
+        cluster_id = cluster.id
+
+    patch_response = client.patch(
+        f"/places/{cluster_id}",
+        json={"display_label": "Mutated by public write", "visit_count": 99},
+    )
+    delete_response = client.delete(f"/places/{cluster_id}")
+
+    assert patch_response.status_code == 404
+    assert delete_response.status_code == 404
+    with session_factory() as session:
+        cluster = session.get(PlaceCluster, cluster_id)
+        assert cluster is not None
+        assert cluster.display_label == "Imported cluster"
+        assert cluster.visit_count == 7
+
+
+def test_public_place_create_rejects_whitespace_label(tmp_path):
+    client = _client(tmp_path)
+
+    response = client.post(
+        "/places",
+        json={
+            "display_label": "   ",
+            "latitude": 47.621,
+            "longitude": -122.321,
+            "visit_count": 4,
+        },
+    )
+
+    assert response.status_code == 422
