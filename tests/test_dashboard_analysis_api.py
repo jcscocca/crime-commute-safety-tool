@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from app.db import get_sessionmaker
 from app.main import create_app
-from app.models import CrimeIncident
+from app.models import CrimeIncident, PlaceCluster
 
 
 def _client_with_places_and_crime(tmp_path) -> TestClient:
@@ -113,6 +113,44 @@ def test_dashboard_compare_uses_public_place_display_coordinates(tmp_path):
             "latitude": place["latitude"],
             "longitude": place["longitude"],
         }
+
+
+def test_dashboard_compare_rejects_selected_place_without_display_coordinates(tmp_path):
+    client = _client_with_places_and_crime(tmp_path)
+    places = client.get("/places").json()["places"]
+    selected_ids = [place["id"] for place in places]
+
+    session = get_sessionmaker()()
+    cluster = session.get(PlaceCluster, selected_ids[0])
+    assert cluster is not None
+    raw_centroid = {
+        "latitude": cluster.centroid_latitude,
+        "longitude": cluster.centroid_longitude,
+    }
+    cluster.display_latitude = None
+    cluster.display_longitude = None
+    session.commit()
+    session.close()
+
+    response = client.post(
+        "/dashboard/compare",
+        json={
+            "place_ids": selected_ids,
+            "analysis_start_date": "2024-01-01",
+            "analysis_end_date": "2024-01-31",
+            "radius_m": 250,
+            "offense_category": "PROPERTY",
+        },
+    )
+
+    if response.status_code == 200:
+        centers = [
+            option["geometry_metadata"]["center"]
+            for option in response.json()["overview"]["options"]
+        ]
+        assert raw_centroid not in centers
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Selected places require display coordinates."
 
 
 def test_dashboard_analysis_actions_require_public_session_cookie(tmp_path):
