@@ -1,4 +1,4 @@
-.PHONY: install test lint run migrate demo
+.PHONY: install test lint run migrate demo ingest-crime
 
 install:
 	python3.11 -m venv .venv
@@ -18,3 +18,7 @@ migrate:
 
 demo:
 	curl -s http://127.0.0.1:8000/health
+
+ingest-crime:
+	curl -s -X POST -H "X-Admin-Token: $$MCA_ADMIN_INGEST_TOKEN" \
+		"http://127.0.0.1:8000/admin/crime/ingest/socrata?limit=5000&offset=0"

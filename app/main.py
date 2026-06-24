@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from app.api.routes_admin_crime import router as admin_crime_router
 from app.api.routes_analysis import router as analysis_router
 from app.api.routes_crime import router as crime_router
 from app.api.routes_dashboard import router as dashboard_router
@@ -32,6 +33,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app.include_router(places_router)
     app.include_router(public_places_router)
     app.include_router(crime_router)
+    app.include_router(admin_crime_router)
     app.include_router(routes_router)
     app.include_router(dashboard_router)
     app.include_router(public_dashboard_router)
