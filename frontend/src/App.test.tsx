@@ -7,6 +7,7 @@ describe("App", () => {
   it("renders the dashboard shell copy", () => {
     render(<App />);
 
+    expect(screen.getByText("Seattle reported incident context")).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Compare places you visit" })
     ).toBeInTheDocument();
