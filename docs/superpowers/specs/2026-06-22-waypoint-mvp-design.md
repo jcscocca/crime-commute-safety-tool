@@ -1,4 +1,4 @@
-# Mobility Context Analyzer MVP Design
+# Waypoint MVP Design
 
 ## Scope
 

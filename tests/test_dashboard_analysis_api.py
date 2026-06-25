@@ -168,6 +168,59 @@ def test_dashboard_analyze_rejects_duplicate_radii(tmp_path):
     assert "radii_m values must be unique" in response.text
 
 
+def test_dashboard_incidents_returns_selected_place_rows(tmp_path):
+    client = _client_with_places_and_crime(tmp_path)
+    places = client.get("/places").json()["places"]
+
+    response = client.post(
+        "/dashboard/incidents",
+        json={
+            "place_ids": [places[0]["id"]],
+            "analysis_start_date": "2024-01-01",
+            "analysis_end_date": "2024-01-31",
+            "radii_m": [250],
+            "offense_category": "PROPERTY",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["radius_m"] == 250
+    assert body["total_count"] == 1
+    assert body["returned_count"] == 1
+    assert body["limit"] == 100
+    assert body["incidents"][0]["place_id"] == places[0]["id"]
+    assert body["incidents"][0]["place_label"] == "Downtown transfer stop"
+    assert body["incidents"][0]["incident_id"] == "incident-a"
+    assert body["incidents"][0]["occurred_at"] == "2024-01-10T00:00:00Z"
+    assert body["incidents"][0]["reported_at"] is None
+    assert body["incidents"][0]["offense_category"] == "PROPERTY"
+    assert body["incidents"][0]["distance_m"] < 70
+
+
+def test_dashboard_incidents_respects_limit_and_total_count(tmp_path):
+    client = _client_with_places_and_crime(tmp_path)
+    places = client.get("/places").json()["places"]
+
+    response = client.post(
+        "/dashboard/incidents",
+        json={
+            "place_ids": [place["id"] for place in places],
+            "analysis_start_date": "2024-01-01",
+            "analysis_end_date": "2024-01-31",
+            "radii_m": [250],
+            "offense_category": "PROPERTY",
+            "limit": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_count"] == 2
+    assert body["returned_count"] == 1
+    assert len(body["incidents"]) == 1
+
+
 def test_dashboard_compare_selected_places(tmp_path):
     client = _client_with_places_and_crime(tmp_path)
     places = client.get("/places").json()["places"]
@@ -271,6 +324,15 @@ def test_dashboard_analysis_actions_require_public_session_cookie(tmp_path):
                 "analysis_start_date": "2024-01-01",
                 "analysis_end_date": "2024-01-31",
                 "radius_m": 250,
+            },
+        ),
+        (
+            "/dashboard/incidents",
+            {
+                "place_ids": ["selected-place"],
+                "analysis_start_date": "2024-01-01",
+                "analysis_end_date": "2024-01-31",
+                "radii_m": [250],
             },
         ),
     ]:

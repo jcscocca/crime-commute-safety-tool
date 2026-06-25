@@ -46,7 +46,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     configure_database(database_url)
     init_db()
     app = FastAPI(
-        title="Mobility Context Analyzer",
+        title="Waypoint",
         version="0.1.0",
         description="Privacy-first recurring-place and Seattle crime context API.",
     )

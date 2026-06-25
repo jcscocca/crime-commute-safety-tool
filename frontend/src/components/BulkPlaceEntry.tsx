@@ -6,7 +6,7 @@ type Props = {
 };
 
 const initialCsvText =
-  "display_label,latitude,longitude,visit_count,total_dwell_minutes\n";
+  "display_label,latitude,longitude\n";
 
 export function BulkPlaceEntry({ onSubmit }: Props) {
   const [csvText, setCsvText] = useState(initialCsvText);

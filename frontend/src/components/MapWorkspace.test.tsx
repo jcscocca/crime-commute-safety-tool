@@ -21,13 +21,14 @@ vi.mock("../api/client", () => ({
   createPlace: vi.fn(),
   createSession: vi.fn(),
   deletePlace: vi.fn(),
+  getIncidentDetails: vi.fn(),
   getDashboardSummary: vi.fn(),
 }));
 
 import { MapWorkspace } from "./MapWorkspace";
-import { analyzePlaces, createBulkPlaces, createPlace, createSession, getDashboardSummary } from "../api/client";
+import { analyzePlaces, createBulkPlaces, createPlace, createSession, getDashboardSummary, getIncidentDetails } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
-import type { DashboardSummary, Place } from "../types";
+import type { DashboardSummary, IncidentDetailsResponse, Place } from "../types";
 
 const home: Place = {
   id: "p1", display_label: "Home", latitude: 47.61, longitude: -122.33, visit_count: 5,
@@ -49,6 +50,31 @@ function makeSummary(places: Place[] = []): DashboardSummary {
   };
 }
 
+function makeIncidentDetails(): IncidentDetailsResponse {
+  return {
+    incidents: [
+      {
+        place_id: "p1",
+        place_label: "Home",
+        incident_id: "incident-1",
+        external_incident_id: null,
+        report_number: "R-100",
+        occurred_at: "2026-01-02T10:00:00Z",
+        reported_at: null,
+        offense_category: null,
+        offense_subcategory: "THEFT",
+        nibrs_group: "A",
+        block_address: "100 BLOCK MAIN ST",
+        distance_m: 42.4,
+      },
+    ],
+    returned_count: 1,
+    total_count: 1,
+    limit: 100,
+    radius_m: 250,
+  };
+}
+
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("MapWorkspace", () => {
@@ -60,7 +86,7 @@ describe("MapWorkspace", () => {
 
     expect(await screen.findByText("Home")).toBeInTheDocument();
     expect(createSession).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Mobility Context")).toBeInTheDocument();
+    expect(screen.getByText("Waypoint")).toBeInTheDocument();
   });
 
   it("drops a pin from a map click and saves it", async () => {
@@ -75,12 +101,11 @@ describe("MapWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /add pin/i }));
     fireEvent.click(screen.getByTestId("fire-map-click"));
-    fireEvent.change(screen.getByLabelText("Label"), { target: { value: "Home" } });
     fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
 
     await waitFor(() => {
       expect(createPlace).toHaveBeenCalledWith({
-        display_label: "Home",
+        display_label: "Test location",
         latitude: 47.6,
         longitude: -122.3,
         visit_count: 1,
@@ -103,7 +128,7 @@ describe("MapWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /add pin/i }));
     fireEvent.click(screen.getByTestId("fire-map-click"));
-    fireEvent.change(screen.getByLabelText("Label"), { target: { value: "Home" } });
+    fireEvent.change(screen.getByLabelText(/label/i), { target: { value: "Home" } });
     fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
 
     expect(await screen.findByRole("checkbox", { name: "Select Home" })).toHaveAttribute("aria-checked", "true");
@@ -117,7 +142,7 @@ describe("MapWorkspace", () => {
         analysis_start_date: window.analysis_start_date,
         analysis_end_date: window.analysis_end_date,
         radii_m: [250],
-        offense_category: "PROPERTY",
+        offense_category: null,
       });
     });
   });
@@ -136,7 +161,7 @@ describe("MapWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Import" }));
     fireEvent.change(screen.getByLabelText("CSV rows"), {
-      target: { value: "display_label,latitude,longitude,visit_count\nHome,47.61,-122.33,5\nWork,47.62,-122.34,3" },
+      target: { value: "display_label,latitude,longitude\nHome,47.61,-122.33\nWork,47.62,-122.34" },
     });
     fireEvent.click(screen.getByRole("button", { name: /import rows/i }));
 
@@ -152,7 +177,7 @@ describe("MapWorkspace", () => {
         analysis_start_date: window.analysis_start_date,
         analysis_end_date: window.analysis_end_date,
         radii_m: [250],
-        offense_category: "PROPERTY",
+        offense_category: null,
       });
     });
   });
@@ -174,7 +199,7 @@ describe("MapWorkspace", () => {
 
     expect(container.querySelector(".mc-frame")).not.toHaveClass("is-placing-pin");
     expect(container.querySelector(".mc-workspace-panel")).toHaveClass("is-half");
-    expect(screen.getByLabelText("Label")).toBeInTheDocument();
+    expect(screen.getByLabelText(/label/i)).toBeInTheDocument();
   });
 
   it("runs analysis for a selected place", async () => {
@@ -196,9 +221,55 @@ describe("MapWorkspace", () => {
         analysis_start_date: window.analysis_start_date,
         analysis_end_date: window.analysis_end_date,
         radii_m: [250],
-        offense_category: "PROPERTY",
+        offense_category: null,
       });
     });
+  });
+
+  it("fetches incident details after analysis succeeds", async () => {
+    const window = currentYearAnalysisWindow();
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home]));
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 1 });
+    vi.mocked(getIncidentDetails).mockResolvedValue(makeIncidentDetails());
+
+    render(<MapWorkspace />);
+    await screen.findByText("Home");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Home" }));
+    fireEvent.click(screen.getByRole("tab", { name: /analyze/i }));
+    fireEvent.click(screen.getByRole("button", { name: /run analysis/i }));
+
+    await waitFor(() => {
+      expect(getIncidentDetails).toHaveBeenCalledWith({
+        place_ids: ["p1"],
+        analysis_start_date: window.analysis_start_date,
+        analysis_end_date: window.analysis_end_date,
+        radii_m: [250],
+        offense_category: null,
+      });
+    });
+    expect(await screen.findByText("100 BLOCK MAIN ST")).toBeInTheDocument();
+  });
+
+  it("clears stale incident details when analysis controls change", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home]));
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 1 });
+    vi.mocked(getIncidentDetails).mockResolvedValue(makeIncidentDetails());
+
+    render(<MapWorkspace />);
+    await screen.findByText("Home");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Home" }));
+    fireEvent.click(screen.getByRole("tab", { name: /analyze/i }));
+    fireEvent.click(screen.getByRole("button", { name: /run analysis/i }));
+
+    expect(await screen.findByText("100 BLOCK MAIN ST")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "500 m" }));
+
+    expect(screen.queryByText("100 BLOCK MAIN ST")).not.toBeInTheDocument();
   });
 
   it("shows an error when the session cannot start", async () => {

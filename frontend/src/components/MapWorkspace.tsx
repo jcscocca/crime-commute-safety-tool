@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { analyzePlaces, comparePlaces, createBulkPlaces, createPlace, createSession, deletePlace, getDashboardSummary } from "../api/client";
+import { analyzePlaces, comparePlaces, createBulkPlaces, createPlace, createSession, deletePlace, getDashboardSummary, getIncidentDetails } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
 import { geocodingProvider } from "../lib/geocoding";
 import { defaultTileConfig } from "../lib/mapTiles";
+import { labelOrDefault } from "../lib/placeDefaults";
 import { AnalyzeTab } from "./AnalyzeTab";
 import { BottomSheet } from "./BottomSheet";
 import { CompareTab } from "./CompareTab";
@@ -13,7 +14,7 @@ import { MapLegend } from "./MapLegend";
 import { PinDraftPopover } from "./PinDraftPopover";
 import { PlaceSearch } from "./PlaceSearch";
 import { PlacesTab } from "./PlacesTab";
-import type { AnalysisSettings, DashboardSummary, DraftPin, GeocodeResult, LatLng, Place, PlaceCreate, SheetState, TabKey } from "../types";
+import type { AnalysisSettings, DashboardSummary, DraftPin, GeocodeResult, IncidentDetailsResponse, LatLng, Place, PlaceCreate, SheetState, TabKey } from "../types";
 
 const DEFAULT_EXPORT = "/exports/tableau/place-summary.csv";
 
@@ -21,6 +22,7 @@ export function MapWorkspace() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [comparison, setComparison] = useState<Record<string, unknown> | null>(null);
+  const [incidentDetails, setIncidentDetails] = useState<IncidentDetailsResponse | null>(null);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("places");
   const [sheetState, setSheetState] = useState<SheetState>("half");
@@ -33,9 +35,10 @@ export function MapWorkspace() {
   const [comparing, setComparing] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisSettings>(() => {
     const window = currentYearAnalysisWindow();
-    return { startDate: window.analysis_start_date, endDate: window.analysis_end_date, radiusM: 250, offenseCategory: "PROPERTY" };
+    return { startDate: window.analysis_start_date, endDate: window.analysis_end_date, radiusM: 250, offenseCategory: "" };
   });
   const comparisonVersionRef = useRef(0);
+  const incidentDetailsVersionRef = useRef(0);
 
   const refresh = async () => {
     setSummary(await getDashboardSummary());
@@ -76,9 +79,19 @@ export function MapWorkspace() {
     setComparison(null);
   }
 
+  function invalidateIncidentDetails() {
+    incidentDetailsVersionRef.current += 1;
+    setIncidentDetails(null);
+  }
+
+  function invalidateAnalysisContext() {
+    invalidateComparison();
+    invalidateIncidentDetails();
+  }
+
   function selectPlaceIds(ids: string[]) {
     if (ids.length === 0) return;
-    invalidateComparison();
+    invalidateAnalysisContext();
     setSelectedIds((current) => {
       const next = new Set(current);
       ids.forEach((id) => next.add(id));
@@ -109,15 +122,15 @@ export function MapWorkspace() {
   }
 
   async function handleSaveDraft() {
-    if (!draft || !draft.display_label.trim()) return;
+    if (!draft) return;
     setDraftSaving(true);
     setDraftError("");
     try {
       const created = await createPlace({
-        display_label: draft.display_label.trim(),
+        display_label: labelOrDefault(draft.display_label),
         latitude: draft.latitude,
         longitude: draft.longitude,
-        visit_count: draft.visit_count >= 1 ? draft.visit_count : 1,
+        visit_count: 1,
         sensitivity_class: "normal",
       });
       selectPlaceIds([created.id]);
@@ -131,7 +144,7 @@ export function MapWorkspace() {
   }
 
   function handleToggleSelect(id: string) {
-    invalidateComparison();
+    invalidateAnalysisContext();
     setSelectedIds((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -141,7 +154,7 @@ export function MapWorkspace() {
 
   async function handleDelete(id: string) {
     setError("");
-    invalidateComparison();
+    invalidateAnalysisContext();
     try {
       await deletePlace(id);
       setSelectedIds((current) => { const next = new Set(current); next.delete(id); return next; });
@@ -165,18 +178,29 @@ export function MapWorkspace() {
     await refreshWithFallback("Imported rows, but dashboard totals could not refresh.");
   }
 
+  function handleAnalysisChange(patch: Partial<AnalysisSettings>) {
+    invalidateAnalysisContext();
+    setAnalysis((current) => ({ ...current, ...patch }));
+  }
+
   async function handleAnalyze() {
     if (selectedIds.size < 1) return;
     setError("");
     setAnalyzing(true);
+    const version = incidentDetailsVersionRef.current + 1;
+    incidentDetailsVersionRef.current = version;
+    setIncidentDetails(null);
+    const payload = {
+      place_ids: Array.from(selectedIds),
+      analysis_start_date: analysis.startDate,
+      analysis_end_date: analysis.endDate,
+      radii_m: [analysis.radiusM],
+      offense_category: analysis.offenseCategory || null,
+    };
     try {
-      await analyzePlaces({
-        place_ids: Array.from(selectedIds),
-        analysis_start_date: analysis.startDate,
-        analysis_end_date: analysis.endDate,
-        radii_m: [analysis.radiusM],
-        offense_category: analysis.offenseCategory || null,
-      });
+      await analyzePlaces(payload);
+      const details = await getIncidentDetails(payload);
+      if (incidentDetailsVersionRef.current === version) setIncidentDetails(details);
       await refreshWithFallback("Analysis ran, but dashboard totals could not refresh.");
     } catch {
       setError("Unable to run analysis. Try again.");
@@ -228,7 +252,7 @@ export function MapWorkspace() {
             <span className="mc-logo">
               <svg width="16" height="16" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.2 0 11.6 0 20 12 32 12 32s12-12 12-20.4C24 5.2 18.6 0 12 0z" fill="#CD6A45" /><circle cx="12" cy="11.5" r="4.4" fill="#fff" /></svg>
             </span>
-            <span className="mc-wordmark">Mobility&nbsp;Context</span>
+            <span className="mc-wordmark">Waypoint</span>
           </div>
           <div className="mc-status"><span className="dot" />Public session - Seattle</div>
         </header>
@@ -300,7 +324,8 @@ export function MapWorkspace() {
               summary={summary}
               availableRadii={availableRadii}
               running={analyzing}
-              onChange={(patch) => setAnalysis((current) => ({ ...current, ...patch }))}
+              incidentDetails={incidentDetails}
+              onChange={handleAnalysisChange}
               onRun={handleAnalyze}
             />
           ) : null}

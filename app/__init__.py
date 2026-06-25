@@ -1,1 +1,1 @@
-"""Mobility Context Analyzer application package."""
+"""Waypoint application package."""

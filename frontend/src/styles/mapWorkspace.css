@@ -158,9 +158,29 @@
 .mc-findings-head h4{margin:0;font-size:13px;font-weight:700;color:var(--text);}
 .mc-findings-head span{flex:none;font-family:var(--f-mono);font-size:11px;color:var(--clay);}
 .mc-findings ul{display:grid;gap:8px;margin:0;padding:0;list-style:none;}
-.mc-findings li{position:relative;padding-left:14px;font-size:12.5px;line-height:1.45;color:var(--dim);overflow-wrap:anywhere;}
+.mc-findings li{position:relative;padding-left:14px;font-size:12.5px;line-height:1.45;color:var(--text);overflow-wrap:anywhere;}
 .mc-findings li::before{content:"";position:absolute;left:0;top:.65em;width:5px;height:5px;border-radius:50%;background:var(--clay);}
-.mc-findings p{margin:0;font-size:11.5px;line-height:1.45;color:var(--faint);}
+.mc-findings p{margin:0;font-size:11.5px;line-height:1.45;color:var(--text);}
+.mc-analysis-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 16px;}
+.mc-chart-card{display:grid;gap:10px;padding:12px;border-radius:12px;background:var(--ink-raise);border:1px solid var(--line);}
+.mc-chart-bars{display:grid;gap:9px;}
+.mc-chart-row{display:grid;gap:5px;}
+.mc-chart-label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:var(--text);}
+.mc-chart-label span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mc-chart-label strong{flex:none;font-family:var(--f-mono);font-size:12px;font-weight:600;color:#fff;}
+.mc-chart-track{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;}
+.mc-chart-fill{display:block;height:100%;min-width:2px;border-radius:inherit;background:var(--clay);}
+.mc-chart-row.tone-person .mc-chart-fill{background:#D98A6B;}
+.mc-chart-row.tone-property .mc-chart-fill{background:var(--clay);}
+.mc-chart-row.tone-other .mc-chart-fill{background:var(--slate);}
+.mc-incident-details{display:grid;gap:8px;margin:0 0 16px;}
+.mc-incident-count{margin:0;font-size:12.5px;line-height:1.45;color:var(--text);}
+.mc-incident-table-wrap{overflow:auto;border-radius:12px;border:1px solid var(--line-2);background:#1F2328;}
+.mc-incident-table{width:100%;min-width:680px;border-collapse:collapse;font-size:13px;color:var(--text);}
+.mc-incident-table th,.mc-incident-table td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;white-space:nowrap;color:var(--text);}
+.mc-incident-table th{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.08);}
+.mc-incident-table tbody tr:last-child td{border-bottom:0;}
+.mc-incident-table td:nth-child(6){white-space:normal;min-width:150px;overflow-wrap:anywhere;}
 
 .mc-field{margin-bottom:14px;}
 .mc-field label{display:block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:7px;}
@@ -185,8 +205,8 @@
 .mc-cmpmeta{font-family:var(--f-mono);font-size:10.5px;line-height:1.45;color:var(--dim);margin-top:6px;}
 .mc-breakdown{display:grid;gap:8px;margin:12px 0 14px;}
 .mc-breakdown-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-.mc-breakdown-head h5{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);}
-.mc-breakdown-head span{font-family:var(--f-mono);font-size:11px;color:var(--faint);}
+.mc-breakdown-head h5{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text);}
+.mc-breakdown-head span{font-family:var(--f-mono);font-size:11px;color:var(--text);}
 .mc-breakdown-row{display:grid;gap:10px;padding:11px 12px;border-radius:12px;background:var(--ink-raise);border:1px solid var(--line);}
 .mc-breakdown-label{display:grid;gap:4px;}
 .mc-breakdown-label strong{font-size:13px;color:var(--text);}
@@ -330,6 +350,7 @@ input.mc-inp:focus{outline:2px solid var(--clay-soft);outline-offset:1px;}
   .mc-panel{padding:14px 18px;}
   .mc-panel-head{align-items:flex-start;gap:10px;}
   .mc-head-actions{justify-content:flex-start;}
+  .mc-analysis-charts{grid-template-columns:1fr;}
   .mc-search{height:auto;min-height:44px;}
   .mc-search-go{height:34px;}
 }

@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import { FormEvent, useState } from "react";
 
+import { labelOrDefault } from "../lib/placeDefaults";
 import type { PlaceCreate } from "../types";
 
 type Props = {
@@ -11,21 +12,13 @@ export function PlaceForm({ onSubmit }: Props) {
   const [displayLabel, setDisplayLabel] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
-  const [visitCount, setVisitCount] = useState("1");
   const [error, setError] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const trimmedLabel = displayLabel.trim();
     const numericLatitude = Number(latitude);
     const numericLongitude = Number(longitude);
-    const numericVisitCount = Number(visitCount);
-
-    if (!trimmedLabel) {
-      setError("Enter a place label.");
-      return;
-    }
 
     if (
       !latitude.trim() ||
@@ -47,26 +40,20 @@ export function PlaceForm({ onSubmit }: Props) {
       return;
     }
 
-    if (!Number.isInteger(numericVisitCount) || numericVisitCount < 1) {
-      setError("Weekly visit count must be at least 1.");
-      return;
-    }
-
     setError("");
 
     try {
       await onSubmit({
-        display_label: trimmedLabel,
+        display_label: labelOrDefault(displayLabel),
         latitude: numericLatitude,
         longitude: numericLongitude,
-        visit_count: numericVisitCount,
+        visit_count: 1,
         sensitivity_class: "normal",
       });
 
       setDisplayLabel("");
       setLatitude("");
       setLongitude("");
-      setVisitCount("1");
     } catch {
       setError("Unable to add place. Try again.");
     }
@@ -82,13 +69,13 @@ export function PlaceForm({ onSubmit }: Props) {
       </div>
 
       <form onSubmit={handleSubmit}>
-        <label htmlFor="display-label">Label</label>
+        <label htmlFor="display-label">Label (optional)</label>
         <input
           id="display-label"
           name="display-label"
           value={displayLabel}
           onChange={(event) => setDisplayLabel(event.target.value)}
-          placeholder="Library"
+          placeholder="Test location"
         />
 
         <div className="form-grid">
@@ -112,16 +99,6 @@ export function PlaceForm({ onSubmit }: Props) {
               value={longitude}
               onChange={(event) => setLongitude(event.target.value)}
               placeholder="-122.321"
-            />
-          </div>
-          <div>
-            <label htmlFor="visit-count">Visits per week</label>
-            <input
-              id="visit-count"
-              name="visit-count"
-              inputMode="numeric"
-              value={visitCount}
-              onChange={(event) => setVisitCount(event.target.value)}
             />
           </div>
         </div>

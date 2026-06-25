@@ -25,24 +25,17 @@ export function PinDraftPopover({ draft, saving, error, onChange, onSave, onCanc
           {draft.latitude.toFixed(4)}, {draft.longitude.toFixed(4)} · from {draft.source}
         </span>
       </div>
-      <label htmlFor="draft-label">Label</label>
+      <label htmlFor="draft-label">Label (optional)</label>
       <input
         id="draft-label"
         value={draft.display_label}
-        placeholder="Home, Office, Gym..."
+        placeholder="Test location"
         onChange={(event) => onChange({ display_label: event.target.value })}
-      />
-      <label htmlFor="draft-visits">Visits per week</label>
-      <input
-        id="draft-visits"
-        inputMode="numeric"
-        value={String(draft.visit_count)}
-        onChange={(event) => onChange({ visit_count: Number(event.target.value) || 0 })}
       />
       {error ? <p className="mc-draft-error" role="alert">{error}</p> : null}
       <div className="mc-draft-actions">
         <button type="button" className="mc-ghost" onClick={onCancel} disabled={saving}>Cancel</button>
-        <button type="submit" className="mc-cta" disabled={saving || !draft.display_label.trim()}>
+        <button type="submit" className="mc-cta" disabled={saving}>
           {saving ? "Saving..." : "Save pin"}
         </button>
       </div>
