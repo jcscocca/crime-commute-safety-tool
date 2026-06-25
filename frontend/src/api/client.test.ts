@@ -1,10 +1,25 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createPlace, deletePlace, getDashboardSummary } from "./client";
+import { createPlace, deletePlace, getDashboardSummary, streamAssistantChat } from "./client";
+import type { AssistantDashboardState } from "../types";
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
+
+const emptyDashboardState: AssistantDashboardState = {
+  selected_place_ids: [],
+  analysis_start_date: null,
+  analysis_end_date: null,
+  radii_m: [],
+  offense_category: null,
+  offense_subcategory: null,
+  nibrs_group: null,
+};
+
+function sseResponse(text: string): Response {
+  return new Response(text, { status: 200, headers: { "Content-Type": "text/event-stream" } });
+}
 
 describe("api client", () => {
   it("creates places with JSON and cookie credentials", async () => {
@@ -54,5 +69,30 @@ describe("api client", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 500 }));
 
     await expect(getDashboardSummary()).rejects.toThrow("Request failed with status 500");
+  });
+
+  it("skips a malformed assistant SSE frame and still delivers later valid events", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      sseResponse(
+        "event: token\ndata: not-json\n\n" +
+          'event: token\ndata: {"delta":"ok"}\n\n' +
+          "event: done\ndata: {}\n\n",
+      ),
+    );
+
+    const deltas: string[] = [];
+    let sawDone = false;
+    await streamAssistantChat(
+      { messages: [{ role: "user", content: "hi" }], dashboard_state: emptyDashboardState },
+      {
+        onEvent: (event) => {
+          if (event.event === "token") deltas.push(event.data.delta ?? "");
+          if (event.event === "done") sawDone = true;
+        },
+      },
+    );
+
+    expect(deltas).toEqual(["ok"]);
+    expect(sawDone).toBe(true);
   });
 });
