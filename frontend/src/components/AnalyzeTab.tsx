@@ -11,6 +11,12 @@ type Props = {
   running: boolean;
   incidentDetails?: IncidentDetailsResponse | null;
   error?: string;
+  /**
+   * Current expanded drawer width in pixels, used to choose the incident
+   * layout (cards below {@link INCIDENT_TABLE_MIN}, table at/above) and the
+   * chart column count. When omitted it is treated as infinitely wide (table +
+   * 2-up charts); MapWorkspace always passes the live width.
+   */
   panelWidthPx?: number;
   onChange: (patch: Partial<AnalysisSettings>) => void;
   onRun: () => void;
@@ -377,9 +383,9 @@ export function AnalyzeTab({ selected, analysis, summary, availableRadii, runnin
       {running ? (
         <div className="mc-analysis-loading" aria-live="polite" aria-busy="true">
           <span className="mc-sr">Running analysis…</span>
-          <div className="mc-skeleton" style={{ height: 84 }} />
-          <div className="mc-skeleton" style={{ height: 132 }} />
-          <div className="mc-skeleton" style={{ height: 168 }} />
+          <div className="mc-skeleton" style={{ height: 84 }} />{/* findings */}
+          <div className="mc-skeleton" style={{ height: 132 }} />{/* charts */}
+          <div className="mc-skeleton" style={{ height: 168 }} />{/* incidents */}
         </div>
       ) : (
         <>
