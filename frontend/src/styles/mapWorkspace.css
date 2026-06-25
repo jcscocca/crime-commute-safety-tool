@@ -153,6 +153,15 @@
 .mc-cta{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 18px;border:0;cursor:pointer;border-radius:11px;
   font-family:var(--f-ui);font-weight:600;font-size:13.5px;color:#fff;background:var(--clay-deep);box-shadow:0 12px 24px -12px rgba(181,81,47,.7);}
 
+.mc-findings{display:grid;gap:10px;margin-bottom:16px;padding:13px;border-radius:13px;background:rgba(205,106,69,.10);border:1px solid rgba(205,106,69,.24);}
+.mc-findings-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.mc-findings-head h4{margin:0;font-size:13px;font-weight:700;color:var(--text);}
+.mc-findings-head span{flex:none;font-family:var(--f-mono);font-size:11px;color:var(--clay);}
+.mc-findings ul{display:grid;gap:8px;margin:0;padding:0;list-style:none;}
+.mc-findings li{position:relative;padding-left:14px;font-size:12.5px;line-height:1.45;color:var(--dim);overflow-wrap:anywhere;}
+.mc-findings li::before{content:"";position:absolute;left:0;top:.65em;width:5px;height:5px;border-radius:50%;background:var(--clay);}
+.mc-findings p{margin:0;font-size:11.5px;line-height:1.45;color:var(--faint);}
+
 .mc-field{margin-bottom:14px;}
 .mc-field label{display:block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:7px;}
 .mc-inputs{display:flex;gap:10px;}

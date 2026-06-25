@@ -297,6 +297,7 @@ export function MapWorkspace() {
             <AnalyzeTab
               selected={selected}
               analysis={analysis}
+              summary={summary}
               availableRadii={availableRadii}
               running={analyzing}
               onChange={(patch) => setAnalysis((current) => ({ ...current, ...patch }))}
