@@ -76,6 +76,16 @@ export function MapWorkspace() {
     setComparison(null);
   }
 
+  function selectPlaceIds(ids: string[]) {
+    if (ids.length === 0) return;
+    invalidateComparison();
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
   function handleStartAddPin() {
     setAddPinMode(true);
     setActiveTab("places");
@@ -103,13 +113,14 @@ export function MapWorkspace() {
     setDraftSaving(true);
     setDraftError("");
     try {
-      await createPlace({
+      const created = await createPlace({
         display_label: draft.display_label.trim(),
         latitude: draft.latitude,
         longitude: draft.longitude,
         visit_count: draft.visit_count >= 1 ? draft.visit_count : 1,
         sensitivity_class: "normal",
       });
+      selectPlaceIds([created.id]);
       setDraft(null);
       await refreshWithFallback("Saved, but dashboard totals could not refresh.");
     } catch {
@@ -142,13 +153,15 @@ export function MapWorkspace() {
 
   async function handleManualSubmit(place: PlaceCreate) {
     setError("");
-    await createPlace(place);
+    const created = await createPlace(place);
+    selectPlaceIds([created.id]);
     await refreshWithFallback("Saved, but dashboard totals could not refresh.");
   }
 
   async function handleImport(csv: string) {
     setError("");
-    await createBulkPlaces(csv);
+    const result = await createBulkPlaces(csv);
+    selectPlaceIds(result.places.map((place) => place.id));
     await refreshWithFallback("Imported rows, but dashboard totals could not refresh.");
   }
 
