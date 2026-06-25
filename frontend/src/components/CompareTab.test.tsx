@@ -15,8 +15,10 @@ const summary: DashboardSummary = {
   privacy: { normal: 0, home_candidate: 0, work_candidate: 0, suppressed: 0 },
   places: [home, office],
   crime_summaries: [
-    { place_cluster_id: "p1", radius_m: 250, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-24", offense_category: null, offense_subcategory: null, nibrs_group: null, incident_count: 38, nearest_incident_m: null, incidents_per_visit: null, incidents_per_hour_dwell: null },
-    { place_cluster_id: "p2", radius_m: 250, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-24", offense_category: null, offense_subcategory: null, nibrs_group: null, incident_count: 142, nearest_incident_m: null, incidents_per_visit: null, incidents_per_hour_dwell: null },
+    { place_cluster_id: "p1", radius_m: 250, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-24", offense_category: "PROPERTY", offense_subcategory: "THEFT", nibrs_group: "A", incident_count: 30, nearest_incident_m: 42, incidents_per_visit: 6, incidents_per_hour_dwell: null },
+    { place_cluster_id: "p1", radius_m: 250, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-24", offense_category: "PERSON", offense_subcategory: "ASSAULT", nibrs_group: "A", incident_count: 8, nearest_incident_m: 71, incidents_per_visit: 1.6, incidents_per_hour_dwell: null },
+    { place_cluster_id: "p2", radius_m: 250, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-24", offense_category: "PROPERTY", offense_subcategory: "THEFT", nibrs_group: "A", incident_count: 120, nearest_incident_m: 18, incidents_per_visit: 24, incidents_per_hour_dwell: null },
+    { place_cluster_id: "p2", radius_m: 250, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-24", offense_category: "PERSON", offense_subcategory: "ASSAULT", nibrs_group: "A", incident_count: 22, nearest_incident_m: 36, incidents_per_visit: 4.4, incidents_per_hour_dwell: null },
   ],
   analysis: { available_radii_m: [250] },
   exports: { tableau_place_summary_csv: "/x.csv" },
@@ -36,9 +38,24 @@ describe("CompareTab", () => {
 
     expect(screen.getByText("38")).toBeInTheDocument();
     expect(screen.getByText("142")).toBeInTheDocument();
-    expect(screen.getByText(/does not identify one as statistically lower-incident/i)).toBeInTheDocument();
+    expect(screen.getByText(/reported incident exposure, not a personal risk prediction/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /compare places/i }));
     expect(onRun).toHaveBeenCalled();
+  });
+
+  it("shows incident-type breakdowns without presenting them as personal risk predictions", () => {
+    render(<CompareTab selected={[home, office]} analysis={{ ...analysis, offenseCategory: "" }} summary={summary} comparison={null} running={false} onRun={vi.fn()} />);
+
+    expect(screen.getByText("Person / Assault")).toBeInTheDocument();
+    expect(screen.getByText("Office has 14 more reported Person / Assault incidents than Home.")).toBeInTheDocument();
+    expect(screen.getByText(/reported incident exposure, not a personal risk prediction/i)).toBeInTheDocument();
+    expect(screen.queryByText(/more likely to experience assault/i)).not.toBeInTheDocument();
+  });
+
+  it("explains when the current filter cannot answer assault or person-incident questions", () => {
+    render(<CompareTab selected={[home, office]} analysis={analysis} summary={summary} comparison={null} running={false} onRun={vi.fn()} />);
+
+    expect(screen.getByText(/run Analyze with All reported or Person to compare assault/i)).toBeInTheDocument();
   });
 });
