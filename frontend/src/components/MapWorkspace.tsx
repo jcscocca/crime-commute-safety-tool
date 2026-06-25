@@ -308,7 +308,7 @@ export function MapWorkspace() {
 
         <MapLegend />
 
-        {error && activeTab !== "analyze" ? <p className="mc-error" role="status">{error}</p> : null}
+        {error && activeTab !== "analyze" ? <p className="mc-error" role="alert">{error}</p> : null}
 
         {places.length === 0 && !draft ? (
           <div className="mc-empty">

@@ -324,7 +324,7 @@ export function AnalyzeTab({ selected, analysis, summary, availableRadii, runnin
         </div>
       </div>
 
-      {error ? <p className="mc-inline-error" role="status">{error}</p> : null}
+      {error ? <p className="mc-inline-error" role="alert">{error}</p> : null}
 
       <section className="mc-findings" aria-label="Findings summary">
         <div className="mc-findings-head">

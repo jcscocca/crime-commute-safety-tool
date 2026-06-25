@@ -150,11 +150,13 @@
 .mc-card .ico{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--dim);background:rgba(255,255,255,.04);border:1px solid var(--line);}
 .mc-card .ico svg{width:15px;height:15px;}
 
+/* .mc-footer is used by CompareTab until its sticky action bar lands (Task 5). */
 .mc-footer{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;
   gap:12px;padding:13px 18px;background:linear-gradient(180deg,rgba(27,30,34,0),var(--ink) 38%);}
 .mc-footer .note{font-size:12px;color:var(--dim);}
 .mc-cta{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 18px;border:0;cursor:pointer;border-radius:11px;
   font-family:var(--f-ui);font-weight:600;font-size:13.5px;color:#fff;background:var(--clay-deep);box-shadow:0 12px 24px -12px rgba(181,81,47,.7);}
+.mc-cta:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
 
 .mc-findings{display:grid;gap:10px;margin-bottom:16px;padding:13px;border-radius:13px;background:rgba(205,106,69,.10);border:1px solid rgba(205,106,69,.24);}
 .mc-findings-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
@@ -350,6 +352,7 @@ input.mc-inp:focus{outline:2px solid var(--clay-soft);outline-offset:1px;}
   .mc-workspace-panel.is-collapsed .mc-tab .pill{position:absolute;right:4px;top:4px;font-size:10px;padding:0 5px;}
   .mc-frame .leaflet-bottom.leaflet-right{right:calc(var(--panel-width) + 14px);bottom:18px;z-index:1100;}
   .mc-panel{padding:14px 18px;}
+  .mc-querybar{margin:-14px -18px 16px;}
   .mc-panel-head{align-items:flex-start;gap:10px;}
   .mc-head-actions{justify-content:flex-start;}
   .mc-analysis-charts{grid-template-columns:1fr;}

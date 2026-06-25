@@ -169,8 +169,8 @@ describe("AnalyzeTab", () => {
     expect(queryBar.contains(screen.getByRole("button", { name: /run analysis/i }))).toBe(true);
   });
 
-  it("renders an inline error when one is provided", () => {
+  it("renders an inline error with an assertive alert role when one is provided", () => {
     render(<AnalyzeTab selected={[home]} analysis={analysis} summary={analyzedSummary} availableRadii={[250]} running={false} error="Unable to run analysis. Try again." onChange={vi.fn()} onRun={vi.fn()} />);
-    expect(screen.getByText("Unable to run analysis. Try again.")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Unable to run analysis. Try again.");
   });
 });
