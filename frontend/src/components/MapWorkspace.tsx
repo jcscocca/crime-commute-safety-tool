@@ -8,6 +8,7 @@ import { geocodingProvider } from "../lib/geocoding";
 import { defaultTileConfig } from "../lib/mapTiles";
 import { labelOrDefault } from "../lib/placeDefaults";
 import { AnalyzeTab } from "./AnalyzeTab";
+import { AssistantPanel } from "./AssistantPanel";
 import { BottomSheet } from "./BottomSheet";
 import { CompareTab } from "./CompareTab";
 import { ExportTab } from "./ExportTab";
@@ -16,7 +17,7 @@ import { MapLegend } from "./MapLegend";
 import { PinDraftPopover } from "./PinDraftPopover";
 import { PlaceSearch } from "./PlaceSearch";
 import { PlacesTab } from "./PlacesTab";
-import type { AnalysisSettings, DashboardSummary, DrawerState, DraftPin, GeocodeResult, IncidentDetailsResponse, LatLng, Place, PlaceCreate, TabKey } from "../types";
+import type { AnalysisSettings, AssistantDashboardState, DashboardSummary, DrawerState, DraftPin, GeocodeResult, IncidentDetailsResponse, LatLng, Place, PlaceCreate, TabKey } from "../types";
 
 const DEFAULT_EXPORT = "/exports/tableau/place-summary.csv";
 
@@ -102,6 +103,15 @@ export function MapWorkspace() {
   const selected = useMemo(() => places.filter((place) => selectedIds.has(place.id)), [places, selectedIds]);
   const availableRadii = summary?.analysis.available_radii_m ?? [];
   const exportHref = summary?.exports.tableau_place_summary_csv || DEFAULT_EXPORT;
+  const assistantState: AssistantDashboardState = useMemo(() => ({
+    selected_place_ids: Array.from(selectedIds),
+    analysis_start_date: analysis.startDate || null,
+    analysis_end_date: analysis.endDate || null,
+    radii_m: [analysis.radiusM],
+    offense_category: analysis.offenseCategory || null,
+    offense_subcategory: null,
+    nibrs_group: null,
+  }), [analysis, selectedIds]);
 
   function invalidateComparison() {
     comparisonVersionRef.current += 1;
@@ -307,6 +317,8 @@ export function MapWorkspace() {
         </div>
 
         <MapLegend />
+
+        <AssistantPanel dashboardState={assistantState} />
 
         {error && activeTab !== "analyze" ? <p className="mc-error" role="alert">{error}</p> : null}
 
