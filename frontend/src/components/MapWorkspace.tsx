@@ -196,7 +196,7 @@ export function MapWorkspace() {
 
   return (
     <div className="mc-scope">
-      <div className="mc-frame">
+      <div className={`mc-frame${addPinMode ? " is-placing-pin" : ""}`}>
         <MapCanvas
           places={places}
           selectedIds={selectedIds}

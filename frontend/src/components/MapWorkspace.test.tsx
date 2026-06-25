@@ -94,11 +94,13 @@ describe("MapWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /add pin/i }));
 
+    expect(container.querySelector(".mc-frame")).toHaveClass("is-placing-pin");
     expect(container.querySelector(".mc-workspace-panel")).toHaveClass("is-peek");
     expect(container.querySelector(".mc-sheet")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("fire-map-click"));
 
+    expect(container.querySelector(".mc-frame")).not.toHaveClass("is-placing-pin");
     expect(container.querySelector(".mc-workspace-panel")).toHaveClass("is-half");
     expect(screen.getByLabelText("Label")).toBeInTheDocument();
   });
