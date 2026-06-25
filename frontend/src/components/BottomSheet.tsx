@@ -139,7 +139,7 @@ export function BottomSheet({
       onResize(drawerMax());
     } else if (event.key === "End") {
       event.preventDefault();
-      onResize(0);
+      onResize(DRAWER_MIN);
     }
   }
 
@@ -155,7 +155,7 @@ export function BottomSheet({
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize workspace panel"
-        aria-valuemin={DRAWER_MIN}
+        aria-valuemin={DRAWER_PEEK}
         aria-valuemax={drawerMax()}
         aria-valuenow={collapsed ? DRAWER_PEEK : widthPx}
         tabIndex={0}

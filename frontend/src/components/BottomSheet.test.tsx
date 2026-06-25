@@ -84,6 +84,15 @@ describe("BottomSheet", () => {
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 600 });
     fireEvent.pointerMove(handle, { pointerId: 1, clientX: 520 });
     expect(props.onResize).toHaveBeenCalledWith(480);
+    fireEvent.pointerUp(handle, { pointerId: 1, clientX: 520 });
+    expect(props.onToggleCollapsed).not.toHaveBeenCalled();
+  });
+
+  it("does not resize with arrow keys while collapsed", () => {
+    const { props } = renderSheet({ collapsed: true });
+    const handle = screen.getByRole("separator", { name: /resize workspace panel/i });
+    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    expect(props.onResize).not.toHaveBeenCalled();
   });
 
   it("renders the panel open with an inline width, collapsed without one", () => {

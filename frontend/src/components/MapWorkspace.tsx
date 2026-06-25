@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import { analyzePlaces, comparePlaces, createBulkPlaces, createPlace, createSession, deletePlace, getDashboardSummary, getIncidentDetails } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
@@ -264,7 +264,7 @@ export function MapWorkspace() {
     <div className="mc-scope">
       <div
         className={`mc-frame${addPinMode ? " is-placing-pin" : ""}`}
-        style={{ "--panel-width": `${drawer.collapsed ? DRAWER_PEEK : drawer.widthPx}px` } as React.CSSProperties}
+        style={{ "--panel-width": `${drawer.collapsed ? DRAWER_PEEK : drawer.widthPx}px` } as CSSProperties}
       >
         <MapCanvas
           places={places}
