@@ -173,4 +173,42 @@ describe("AnalyzeTab", () => {
     render(<AnalyzeTab selected={[home]} analysis={analysis} summary={analyzedSummary} availableRadii={[250]} running={false} error="Unable to run analysis. Try again." onChange={vi.fn()} onRun={vi.fn()} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Unable to run analysis. Try again.");
   });
+
+  const oneIncident = {
+    incidents: [
+      {
+        place_id: "p1", place_label: "Home", incident_id: "incident-1", external_incident_id: "ext-1",
+        report_number: "R-100", occurred_at: "2026-01-02T10:00:00Z", reported_at: null,
+        offense_category: "PROPERTY", offense_subcategory: "THEFT", nibrs_group: "A",
+        block_address: "100 BLOCK MAIN ST", distance_m: 42.4,
+      },
+    ],
+    returned_count: 1, total_count: 1, limit: 100, radius_m: 250,
+  };
+
+  it("renders incidents as cards (no table) when the panel is narrow", () => {
+    render(<AnalyzeTab selected={[home]} analysis={analysis} summary={analyzedSummary} availableRadii={[250]} running={false} panelWidthPx={380} incidentDetails={oneIncident} onChange={vi.fn()} onRun={vi.fn()} />);
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByText("100 BLOCK MAIN ST", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText("42 m")).toBeInTheDocument();
+  });
+
+  it("renders incidents as a full table when the panel is wide", () => {
+    render(<AnalyzeTab selected={[home]} analysis={analysis} summary={analyzedSummary} availableRadii={[250]} running={false} panelWidthPx={640} incidentDetails={oneIncident} onChange={vi.fn()} onRun={vi.fn()} />);
+    expect(screen.getByRole("table")).toBeInTheDocument();
+  });
+
+  it("renders 2-up charts only when the panel is wide enough", () => {
+    const { container, rerender } = render(<AnalyzeTab selected={[home, office]} analysis={{ ...analysis, offenseCategory: "" }} summary={analyzedSummary} availableRadii={[250]} running={false} panelWidthPx={380} onChange={vi.fn()} onRun={vi.fn()} />);
+    expect(container.querySelector(".mc-analysis-charts")).not.toHaveClass("is-2up");
+    rerender(<AnalyzeTab selected={[home, office]} analysis={{ ...analysis, offenseCategory: "" }} summary={analyzedSummary} availableRadii={[250]} running={false} panelWidthPx={640} onChange={vi.fn()} onRun={vi.fn()} />);
+    expect(container.querySelector(".mc-analysis-charts")).toHaveClass("is-2up");
+  });
+
+  it("shows loading skeletons while analysis is running", () => {
+    const { container } = render(<AnalyzeTab selected={[home]} analysis={analysis} summary={analyzedSummary} availableRadii={[250]} running={true} onChange={vi.fn()} onRun={vi.fn()} />);
+    expect(screen.getByText("Running analysis…")).toBeInTheDocument();
+    expect(container.querySelector(".mc-skeleton")).toBeInTheDocument();
+    expect(screen.queryByText("Findings summary")).not.toBeInTheDocument();
+  });
 });

@@ -361,6 +361,7 @@ export function MapWorkspace() {
               running={analyzing}
               incidentDetails={incidentDetails}
               error={error}
+              panelWidthPx={drawer.widthPx}
               onChange={handleAnalysisChange}
               onRun={handleAnalyze}
             />

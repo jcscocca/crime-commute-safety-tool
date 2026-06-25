@@ -1,5 +1,8 @@
 import type { AnalysisSettings, CrimeSummary, DashboardSummary, IncidentDetail, IncidentDetailsResponse, Place } from "../types";
 
+const INCIDENT_TABLE_MIN = 560;
+const CHARTS_TWO_UP_MIN = 460;
+
 type Props = {
   selected: Place[];
   analysis: AnalysisSettings;
@@ -8,6 +11,7 @@ type Props = {
   running: boolean;
   incidentDetails?: IncidentDetailsResponse | null;
   error?: string;
+  panelWidthPx?: number;
   onChange: (patch: Partial<AnalysisSettings>) => void;
   onRun: () => void;
 };
@@ -140,13 +144,13 @@ function BarList({ rows }: { rows: ChartRow[] }) {
   );
 }
 
-function IncidentCharts({ entries }: { entries: CrimeSummary[] }) {
+function IncidentCharts({ entries, wide }: { entries: CrimeSummary[]; wide: boolean }) {
   if (entries.length === 0) return null;
 
   const offenseRows = buildOffenseRows(entries);
 
   return (
-    <section className="mc-analysis-charts" aria-label="Reported incident charts">
+    <section className={`mc-analysis-charts${wide ? " is-2up" : ""}`} aria-label="Reported incident charts">
       <div className="mc-chart-card">
         <div className="mc-breakdown-head">
           <h5>Crime mix</h5>
@@ -279,11 +283,55 @@ function IncidentDetailsTable({ details }: { details: IncidentDetailsResponse | 
   );
 }
 
-export function AnalyzeTab({ selected, analysis, summary, availableRadii, running, incidentDetails, error, onChange, onRun }: Props) {
+function IncidentDetailsCards({ details }: { details: IncidentDetailsResponse | null | undefined }) {
+  if (!details) return null;
+
+  const isCapped = details.total_count > details.returned_count;
+  const countText = isCapped
+    ? `Showing nearest ${details.returned_count} of ${details.total_count} matching reported incidents.`
+    : `${details.total_count} matching reported incident${details.total_count === 1 ? "" : "s"}.`;
+
+  return (
+    <section className="mc-incident-details" aria-label="Reported incident details">
+      <div className="mc-breakdown-head">
+        <h5>Reported incidents near selected places</h5>
+        <span>{details.radius_m} m</span>
+      </div>
+      {details.incidents.length === 0 ? (
+        <p className="mc-empty-list">No matching reported incidents for the selected filters.</p>
+      ) : (
+        <>
+          <p className="mc-incident-count">{countText}</p>
+          <div className="mc-incident-cards">
+            {details.incidents.map((incident) => (
+              <article className="mc-icard" key={`${incident.place_id}-${incident.incident_id}`}>
+                <div className="mc-icard-top">
+                  <strong>{incident.place_label}</strong>
+                  <em>{formatDistanceMeters(incident.distance_m)}</em>
+                </div>
+                <div className="mc-icard-tags">
+                  <span>{incidentCategoryLabel(incident)}</span>
+                  <span>{incidentSubtypeLabel(incident)}</span>
+                  <span>{formatIncidentTime(incident.occurred_at || incident.reported_at)}</span>
+                </div>
+                <p className="mc-icard-addr"><span>{incident.block_address || "Unavailable"}</span> · <span>{incidentIdentifier(incident)}</span></p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+export function AnalyzeTab({ selected, analysis, summary, availableRadii, running, incidentDetails, error, panelWidthPx, onChange, onRun }: Props) {
   const radii = availableRadii.length > 0 ? availableRadii : [250, 500, 1000];
   const canRun = selected.length >= 1 && !running;
   const entries = findingEntries(summary, selected, analysis.radiusM);
   const findings = buildFindings(summary, selected, analysis.radiusM);
+  const width = panelWidthPx ?? Infinity;
+  const incidentLayout = width >= INCIDENT_TABLE_MIN ? "table" : "cards";
+  const chartsWide = width >= CHARTS_TWO_UP_MIN;
 
   return (
     <div className="mc-panel is-active" role="tabpanel" aria-label="Analyze">
@@ -326,20 +374,35 @@ export function AnalyzeTab({ selected, analysis, summary, availableRadii, runnin
 
       {error ? <p className="mc-inline-error" role="alert">{error}</p> : null}
 
-      <section className="mc-findings" aria-label="Findings summary">
-        <div className="mc-findings-head">
-          <h4>Findings summary</h4>
-          <span>{analysis.radiusM} m</span>
+      {running ? (
+        <div className="mc-analysis-loading" aria-live="polite" aria-busy="true">
+          <span className="mc-sr">Running analysis…</span>
+          <div className="mc-skeleton" style={{ height: 84 }} />
+          <div className="mc-skeleton" style={{ height: 132 }} />
+          <div className="mc-skeleton" style={{ height: 168 }} />
         </div>
-        <ul>
-          {findings.map((finding) => <li key={finding}>{finding}</li>)}
-        </ul>
-        <p>Reported incident patterns do not predict personal risk.</p>
-      </section>
+      ) : (
+        <>
+          <section className="mc-findings" aria-label="Findings summary">
+            <div className="mc-findings-head">
+              <h4>Findings summary</h4>
+              <span>{analysis.radiusM} m</span>
+            </div>
+            <ul>
+              {findings.map((finding) => <li key={finding}>{finding}</li>)}
+            </ul>
+            <p>Reported incident patterns do not predict personal risk.</p>
+          </section>
 
-      <IncidentCharts entries={entries} />
+          <IncidentCharts entries={entries} wide={chartsWide} />
 
-      <IncidentDetailsTable details={incidentDetails} />
+          {incidentLayout === "table" ? (
+            <IncidentDetailsTable details={incidentDetails} />
+          ) : (
+            <IncidentDetailsCards details={incidentDetails} />
+          )}
+        </>
+      )}
     </div>
   );
 }
