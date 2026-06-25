@@ -79,7 +79,7 @@ export function MapWorkspace() {
   function handleStartAddPin() {
     setAddPinMode(true);
     setActiveTab("places");
-    if (sheetState === "peek") setSheetState("half");
+    setSheetState("peek");
   }
 
   function handleMapClick(latlng: LatLng) {
@@ -88,7 +88,7 @@ export function MapWorkspace() {
     setDraftError("");
     setAddPinMode(false);
     setActiveTab("places");
-    if (sheetState === "peek") setSheetState("half");
+    setSheetState("half");
   }
 
   function handleSearchSelect(result: GeocodeResult) {

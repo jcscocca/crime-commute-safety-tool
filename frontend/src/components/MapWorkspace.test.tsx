@@ -85,6 +85,23 @@ describe("MapWorkspace", () => {
     });
   });
 
+  it("keeps the bottom sheet minimized while choosing where to drop a pin", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary());
+
+    const { container } = render(<MapWorkspace />);
+    await screen.findByText(/Map your places/i);
+
+    fireEvent.click(screen.getByRole("button", { name: /add pin/i }));
+
+    expect(container.querySelector(".mc-sheet")).toHaveClass("is-peek");
+
+    fireEvent.click(screen.getByTestId("fire-map-click"));
+
+    expect(container.querySelector(".mc-sheet")).toHaveClass("is-half");
+    expect(screen.getByLabelText("Label")).toBeInTheDocument();
+  });
+
   it("runs analysis for a selected place", async () => {
     const window = currentYearAnalysisWindow();
     vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
