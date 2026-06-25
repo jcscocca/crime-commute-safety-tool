@@ -1,8 +1,8 @@
-# Mobility Context Analyzer Implementation Plan
+# Waypoint Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the backend-first MVP described in `mobility_context_codex_build_prompt.md`.
+**Goal:** Build the backend-first MVP described in `waypoint_codex_build_prompt.md`.
 
 **Architecture:** FastAPI routes delegate to service modules. Parser adapters produce canonical
 Pydantic objects. Pure normalization and crime-summary functions stay independent of the

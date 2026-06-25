@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The mobility dashboard should give users agency after showing reported incident context. A user
+The Waypoint dashboard should give users agency after showing reported incident context. A user
 should be able to enter an origin, destination, travel mode, and departure window, then compare
 realistic route alternatives. The product must remain careful: it compares reported incident context
 and route tradeoffs, but it does not label a route safe or unsafe.

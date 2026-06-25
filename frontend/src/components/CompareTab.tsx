@@ -11,7 +11,7 @@ type Props = {
 };
 
 const REVISED_CAVEAT =
-  "Reported incident exposure, not a personal risk prediction. Results use reported Seattle incident data, which can be incomplete, delayed, corrected, or geographically generalized.";
+  "Reported incident context, not a personal risk prediction. Results use reported Seattle incident data, which can be incomplete, delayed, corrected, or geographically generalized.";
 
 type BreakdownRow = {
   key: string;
@@ -47,14 +47,6 @@ function nearestIncidentText(entries: CrimeSummary[]) {
     .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
     .sort((a, b) => a - b)[0];
   return nearest === undefined ? "nearest unavailable" : `nearest ${Math.round(nearest)} m`;
-}
-
-function rateText(entries: CrimeSummary[]) {
-  const perVisit = entries
-    .map((entry) => entry.incidents_per_visit)
-    .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
-    .reduce((total, value) => total + value, 0);
-  return perVisit > 0 ? `${perVisit.toFixed(2)} per expected visit` : "rate unavailable";
 }
 
 function breakdownRows(summary: DashboardSummary | null, selected: Place[], radiusM: number): BreakdownRow[] {
@@ -123,7 +115,7 @@ export function CompareTab({ selected, analysis, summary, comparison, running, o
               </div>
               <div className="big">{count ?? "N/A"}</div>
               <div className="cap">{count === null ? "not analyzed yet" : "reported incidents in range"}</div>
-              {count !== null ? <div className="mc-cmpmeta">{nearestIncidentText(entries)} - {rateText(entries)}</div> : null}
+              {count !== null ? <div className="mc-cmpmeta">{nearestIncidentText(entries)}</div> : null}
             </div>
           );
         })}

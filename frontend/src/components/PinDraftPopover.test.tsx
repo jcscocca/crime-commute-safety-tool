@@ -11,12 +11,13 @@ const draft: DraftPin = { latitude: 47.6097, longitude: -122.3331, display_label
 afterEach(cleanup);
 
 describe("PinDraftPopover", () => {
-  it("disables save until a label is entered and emits label changes", () => {
+  it("lets blank-label pins save and still emits optional label changes", () => {
     const onChange = vi.fn();
     render(<PinDraftPopover draft={draft} saving={false} onChange={onChange} onSave={vi.fn()} onCancel={vi.fn()} />);
 
-    expect(screen.getByRole("button", { name: /save pin/i })).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Label"), { target: { value: "Home" } });
+    expect(screen.queryByLabelText(/visits per week/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /save pin/i })).toBeEnabled();
+    fireEvent.change(screen.getByLabelText(/label/i), { target: { value: "Home" } });
     expect(onChange).toHaveBeenCalledWith({ display_label: "Home" });
   });
 

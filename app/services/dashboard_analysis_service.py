@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.analysis.schemas import AnalysisSiteOption
 from app.crime.summaries import summarize_place_crime
 from app.models import CrimeIncident, PlaceCluster, PlaceCrimeSummary
+from app.normalization.geo import haversine_m
 from app.schemas import CrimeIncidentData, PlaceClusterData
 from app.services.analysis_service import compare_site_options
 from app.services.crime_service import _cluster_data, _incident_data, _summary_model
@@ -91,6 +92,45 @@ def compare_selected_places(
         offense_subcategory=offense_subcategory,
         nibrs_group=nibrs_group,
     )
+
+
+def incident_details_for_places(
+    session: Session,
+    user_id_hash: str,
+    place_ids: list[str],
+    radii_m: list[int],
+    analysis_start_date: date,
+    analysis_end_date: date,
+    offense_category: str | None,
+    offense_subcategory: str | None,
+    nibrs_group: str | None,
+    limit: int,
+) -> dict[str, object]:
+    _validate_date_range(analysis_start_date, analysis_end_date)
+    if not radii_m:
+        return {"incidents": [], "returned_count": 0, "total_count": 0, "limit": limit, "radius_m": None}
+
+    radius_m = radii_m[0]
+    clusters = [_cluster_data(row) for row in _selected_clusters(session, user_id_hash, place_ids)]
+    incidents = _filtered_incidents(
+        session,
+        clusters=clusters,
+        radii_m=[radius_m],
+        analysis_start_date=analysis_start_date,
+        analysis_end_date=analysis_end_date,
+        offense_category=offense_category,
+        offense_subcategory=offense_subcategory,
+        nibrs_group=nibrs_group,
+    )
+    rows = _incident_detail_rows(clusters, incidents, radius_m)
+    limited_rows = rows[:limit]
+    return {
+        "incidents": limited_rows,
+        "returned_count": len(limited_rows),
+        "total_count": len(rows),
+        "limit": limit,
+        "radius_m": radius_m,
+    }
 
 
 def _selected_clusters(
@@ -186,6 +226,63 @@ def _display_coordinates(cluster: PlaceClusterData) -> tuple[float, float] | Non
     if cluster.display_latitude is None or cluster.display_longitude is None:
         return None
     return cluster.display_latitude, cluster.display_longitude
+
+
+def _incident_detail_rows(
+    clusters: list[PlaceClusterData],
+    incidents: list[CrimeIncidentData],
+    radius_m: int,
+) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for cluster in clusters:
+        coordinates = _display_coordinates(cluster)
+        if coordinates is None:
+            continue
+        cluster_latitude, cluster_longitude = coordinates
+        for incident in incidents:
+            if incident.latitude is None or incident.longitude is None:
+                continue
+            distance_m = haversine_m(
+                cluster_latitude,
+                cluster_longitude,
+                incident.latitude,
+                incident.longitude,
+            )
+            if distance_m > radius_m:
+                continue
+            rows.append(
+                {
+                    "place_id": cluster.id,
+                    "place_label": cluster.display_label or "Selected place",
+                    "incident_id": incident.id,
+                    "external_incident_id": incident.external_incident_id,
+                    "report_number": incident.report_number,
+                    "occurred_at": _utc_json_datetime(incident.offense_start_utc),
+                    "reported_at": _utc_json_datetime(incident.report_utc),
+                    "offense_category": incident.offense_category,
+                    "offense_subcategory": incident.offense_subcategory,
+                    "nibrs_group": incident.nibrs_group,
+                    "block_address": incident.block_address,
+                    "distance_m": distance_m,
+                }
+            )
+    return sorted(
+        rows,
+        key=lambda row: (
+            str(row["place_label"]).lower(),
+            float(row["distance_m"]),
+            str(row["occurred_at"] or row["reported_at"] or ""),
+            str(row["incident_id"]),
+        ),
+    )
+
+
+def _utc_json_datetime(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _validate_date_range(analysis_start_date: date, analysis_end_date: date) -> None:

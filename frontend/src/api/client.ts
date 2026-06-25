@@ -1,4 +1,4 @@
-import type { DashboardSummary, Place, PlaceCreate } from "../types";
+import type { DashboardSummary, IncidentDetailsResponse, Place, PlaceCreate } from "../types";
 
 type AnalyzePlacesPayload = {
   place_ids: string[];
@@ -18,6 +18,10 @@ type ComparePlacesPayload = {
   offense_category?: string | null;
   offense_subcategory?: string | null;
   nibrs_group?: string | null;
+};
+
+type IncidentDetailsPayload = AnalyzePlacesPayload & {
+  limit?: number;
 };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -74,6 +78,15 @@ export function analyzePlaces(
   payload: AnalyzePlacesPayload,
 ): Promise<{ summary_count: number }> {
   return request("/dashboard/analyze", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getIncidentDetails(
+  payload: IncidentDetailsPayload,
+): Promise<IncidentDetailsResponse> {
+  return request("/dashboard/incidents", {
     method: "POST",
     body: JSON.stringify(payload),
   });

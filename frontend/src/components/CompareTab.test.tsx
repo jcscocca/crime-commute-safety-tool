@@ -38,7 +38,9 @@ describe("CompareTab", () => {
 
     expect(screen.getByText("38")).toBeInTheDocument();
     expect(screen.getByText("142")).toBeInTheDocument();
-    expect(screen.getByText(/reported incident exposure, not a personal risk prediction/i)).toBeInTheDocument();
+    expect(screen.getByText(/nearest 42 m/i)).toBeInTheDocument();
+    expect(screen.queryByText(/per expected visit/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/reported incident context, not a personal risk prediction/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /compare places/i }));
     expect(onRun).toHaveBeenCalled();
@@ -49,7 +51,7 @@ describe("CompareTab", () => {
 
     expect(screen.getByText("Person / Assault")).toBeInTheDocument();
     expect(screen.getByText("Office has 14 more reported Person / Assault incidents than Home.")).toBeInTheDocument();
-    expect(screen.getByText(/reported incident exposure, not a personal risk prediction/i)).toBeInTheDocument();
+    expect(screen.getByText(/reported incident context, not a personal risk prediction/i)).toBeInTheDocument();
     expect(screen.queryByText(/more likely to experience assault/i)).not.toBeInTheDocument();
   });
 

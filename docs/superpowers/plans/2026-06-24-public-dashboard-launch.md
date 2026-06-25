@@ -1589,7 +1589,7 @@ Create `frontend/package.json`:
 
 ```json
 {
-  "name": "mobility-context-dashboard",
+  "name": "waypoint-dashboard",
   "private": true,
   "version": "0.1.0",
   "type": "module",

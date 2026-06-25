@@ -52,6 +52,7 @@ describe("PlacesTab", () => {
     renderTab();
     expect(screen.getByText("Home")).toBeInTheDocument();
     expect(screen.getByText("9 inc.")).toBeInTheDocument();
+    expect(screen.queryByText(/visits\/week/i)).not.toBeInTheDocument();
   });
 
   it("toggles selection and deletion through callbacks", () => {
@@ -66,6 +67,6 @@ describe("PlacesTab", () => {
     renderTab();
     fireEvent.click(screen.getByRole("button", { name: /add manually/i }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByLabelText("Label")).toBeInTheDocument();
+    expect(screen.getByLabelText(/label/i)).toBeInTheDocument();
   });
 });

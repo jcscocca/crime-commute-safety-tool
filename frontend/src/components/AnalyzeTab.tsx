@@ -1,4 +1,4 @@
-import type { AnalysisSettings, CrimeSummary, DashboardSummary, Place } from "../types";
+import type { AnalysisSettings, CrimeSummary, DashboardSummary, IncidentDetail, IncidentDetailsResponse, Place } from "../types";
 
 type Props = {
   selected: Place[];
@@ -6,6 +6,7 @@ type Props = {
   summary: DashboardSummary | null;
   availableRadii: number[];
   running: boolean;
+  incidentDetails?: IncidentDetailsResponse | null;
   onChange: (patch: Partial<AnalysisSettings>) => void;
   onRun: () => void;
 };
@@ -32,10 +33,134 @@ function incidentTypeLabel(summary: Pick<CrimeSummary, "offense_category" | "off
   return summary.nibrs_group ? `NIBRS ${summary.nibrs_group}` : "All reported";
 }
 
+function incidentCategoryLabel(incident: IncidentDetail) {
+  return incident.offense_category ? titleCase(incident.offense_category) : "Uncategorized";
+}
+
+function incidentSubtypeLabel(incident: IncidentDetail) {
+  if (incident.offense_subcategory) return titleCase(incident.offense_subcategory);
+  return incident.nibrs_group ? `NIBRS ${incident.nibrs_group}` : "All reported";
+}
+
+function incidentIdentifier(incident: IncidentDetail) {
+  return incident.report_number || incident.external_incident_id || incident.incident_id;
+}
+
+function formatIncidentTime(value: string | null) {
+  if (!value) return "Unknown";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  const date = [
+    parsed.getUTCFullYear(),
+    String(parsed.getUTCMonth() + 1).padStart(2, "0"),
+    String(parsed.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+  const time = [
+    String(parsed.getUTCHours()).padStart(2, "0"),
+    String(parsed.getUTCMinutes()).padStart(2, "0"),
+  ].join(":");
+  return `${date} ${time} UTC`;
+}
+
+function formatDistanceMeters(value: number) {
+  return `${Math.round(value)} m`;
+}
+
 function findingEntries(summary: DashboardSummary | null, selected: Place[], radiusM: number) {
   const selectedIds = new Set(selected.map((place) => place.id));
   return (summary?.crime_summaries ?? []).filter(
     (entry) => selectedIds.has(entry.place_cluster_id) && entry.radius_m === radiusM,
+  );
+}
+
+type ChartRow = {
+  label: string;
+  total: number;
+  percent: number;
+  tone: "person" | "property" | "other";
+};
+
+function percentOf(total: number, value: number) {
+  return total > 0 ? Math.round((value / total) * 100) : 0;
+}
+
+function offenseLabel(entry: CrimeSummary) {
+  if (entry.offense_subcategory) return titleCase(entry.offense_subcategory);
+  if (entry.offense_category) return titleCase(entry.offense_category);
+  return entry.nibrs_group ? `NIBRS ${entry.nibrs_group}` : "Uncategorized";
+}
+
+function buildCrimeMixRows(entries: CrimeSummary[]): ChartRow[] {
+  const buckets: ChartRow[] = [
+    { label: "Person / violent", total: 0, percent: 0, tone: "person" },
+    { label: "Property", total: 0, percent: 0, tone: "property" },
+    { label: "Other non-violent", total: 0, percent: 0, tone: "other" },
+  ];
+
+  for (const entry of entries) {
+    if (entry.offense_category === "PERSON") buckets[0].total += entry.incident_count;
+    else if (entry.offense_category === "PROPERTY") buckets[1].total += entry.incident_count;
+    else buckets[2].total += entry.incident_count;
+  }
+
+  const total = buckets.reduce((sum, row) => sum + row.total, 0);
+  return buckets.map((row) => ({ ...row, percent: percentOf(total, row.total) }));
+}
+
+function buildOffenseRows(entries: CrimeSummary[]): ChartRow[] {
+  const totals = new Map<string, number>();
+  for (const entry of entries) {
+    const label = offenseLabel(entry);
+    totals.set(label, (totals.get(label) ?? 0) + entry.incident_count);
+  }
+
+  const max = Math.max(0, ...totals.values());
+  return Array.from(totals.entries())
+    .map(([label, total]) => ({ label, total, percent: percentOf(max, total), tone: "property" as const }))
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label))
+    .slice(0, 6);
+}
+
+function BarList({ rows }: { rows: ChartRow[] }) {
+  return (
+    <div className="mc-chart-bars">
+      {rows.map((row) => (
+        <div className={`mc-chart-row tone-${row.tone}`} key={row.label}>
+          <div className="mc-chart-label">
+            <span>{row.label}</span>
+            <strong>{row.total}</strong>
+          </div>
+          <div className="mc-chart-track" aria-hidden="true">
+            <span className="mc-chart-fill" style={{ width: `${row.percent}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function IncidentCharts({ entries }: { entries: CrimeSummary[] }) {
+  if (entries.length === 0) return null;
+
+  const offenseRows = buildOffenseRows(entries);
+
+  return (
+    <section className="mc-analysis-charts" aria-label="Reported incident charts">
+      <div className="mc-chart-card">
+        <div className="mc-breakdown-head">
+          <h5>Crime mix</h5>
+          <span>count</span>
+        </div>
+        <BarList rows={buildCrimeMixRows(entries)} />
+      </div>
+      <div className="mc-chart-card">
+        <div className="mc-breakdown-head">
+          <h5>Specific offenses</h5>
+          <span>top {offenseRows.length}</span>
+        </div>
+        <BarList rows={offenseRows} />
+      </div>
+    </section>
   );
 }
 
@@ -68,15 +193,24 @@ function buildFindings(summary: DashboardSummary | null, selected: Place[], radi
   }
 
   const findings: string[] = [];
-  const highestPlace = Array.from(placeTotals.entries())
-    .map(([placeId, total]) => ({ place: selectedById.get(placeId), total }))
-    .filter((entry): entry is { place: Place; total: number } => Boolean(entry.place))
-    .sort((a, b) => b.total - a.total)[0];
 
-  if (highestPlace) {
+  if (selected.length === 1) {
+    const [place] = selected;
+    const total = placeTotals.get(place.id) ?? 0;
     findings.push(
-      `${highestPlace.place.display_label} has the highest reported incident exposure in the selected radius (${highestPlace.total} reported incidents).`,
+      `${place.display_label} has ${total} matching reported incident${total === 1 ? "" : "s"} within ${radiusM} m for the selected filters.`,
     );
+  } else {
+    const highestPlace = Array.from(placeTotals.entries())
+      .map(([placeId, total]) => ({ place: selectedById.get(placeId), total }))
+      .filter((entry): entry is { place: Place; total: number } => Boolean(entry.place))
+      .sort((a, b) => b.total - a.total)[0];
+
+    if (highestPlace) {
+      findings.push(
+        `${highestPlace.place.display_label} has the highest reported incident count in the selected radius (${highestPlace.total} reported incidents).`,
+      );
+    }
   }
 
   const largestType = Array.from(typeTotals.values()).sort((a, b) => b.total - a.total)[0];
@@ -91,9 +225,63 @@ function buildFindings(summary: DashboardSummary | null, selected: Place[], radi
   return findings;
 }
 
-export function AnalyzeTab({ selected, analysis, summary, availableRadii, running, onChange, onRun }: Props) {
+function IncidentDetailsTable({ details }: { details: IncidentDetailsResponse | null | undefined }) {
+  if (!details) return null;
+
+  const isCapped = details.total_count > details.returned_count;
+  const countText = isCapped
+    ? `Showing nearest ${details.returned_count} of ${details.total_count} matching reported incidents.`
+    : `${details.total_count} matching reported incident${details.total_count === 1 ? "" : "s"}.`;
+
+  return (
+    <section className="mc-incident-details" aria-label="Reported incident details">
+      <div className="mc-breakdown-head">
+        <h5>Reported incidents near selected places</h5>
+        <span>{details.radius_m} m</span>
+      </div>
+      {details.incidents.length === 0 ? (
+        <p className="mc-empty-list">No matching reported incidents for the selected filters.</p>
+      ) : (
+        <>
+          <p className="mc-incident-count">{countText}</p>
+          <div className="mc-incident-table-wrap">
+            <table className="mc-incident-table">
+              <thead>
+                <tr>
+                  <th scope="col">Place</th>
+                  <th scope="col">Date/time</th>
+                  <th scope="col">Category</th>
+                  <th scope="col">Subcategory</th>
+                  <th scope="col">Distance</th>
+                  <th scope="col">Block/address</th>
+                  <th scope="col">ID</th>
+                </tr>
+              </thead>
+              <tbody>
+                {details.incidents.map((incident) => (
+                  <tr key={`${incident.place_id}-${incident.incident_id}`}>
+                    <td>{incident.place_label}</td>
+                    <td>{formatIncidentTime(incident.occurred_at || incident.reported_at)}</td>
+                    <td>{incidentCategoryLabel(incident)}</td>
+                    <td>{incidentSubtypeLabel(incident)}</td>
+                    <td>{formatDistanceMeters(incident.distance_m)}</td>
+                    <td>{incident.block_address || "Unavailable"}</td>
+                    <td>{incidentIdentifier(incident)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+export function AnalyzeTab({ selected, analysis, summary, availableRadii, running, incidentDetails, onChange, onRun }: Props) {
   const radii = availableRadii.length > 0 ? availableRadii : [250, 500, 1000];
   const canRun = selected.length >= 1 && !running;
+  const entries = findingEntries(summary, selected, analysis.radiusM);
   const findings = buildFindings(summary, selected, analysis.radiusM);
 
   return (
@@ -108,6 +296,10 @@ export function AnalyzeTab({ selected, analysis, summary, availableRadii, runnin
         </ul>
         <p>Reported incident patterns do not predict personal risk.</p>
       </section>
+
+      <IncidentCharts entries={entries} />
+
+      <IncidentDetailsTable details={incidentDetails} />
 
       <div className="mc-field">
         <label htmlFor="analysis-start-date">Date range</label>

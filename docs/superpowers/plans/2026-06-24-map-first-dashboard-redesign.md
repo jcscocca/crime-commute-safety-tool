@@ -2176,7 +2176,7 @@ describe("MapWorkspace", () => {
 
     expect(await screen.findByText("Home")).toBeInTheDocument();
     expect(createSession).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Mobility Context")).toBeInTheDocument();
+    expect(screen.getByText("Waypoint")).toBeInTheDocument();
   });
 
   it("drops a pin from a map click and saves it", async () => {
@@ -2464,7 +2464,7 @@ export function MapWorkspace() {
             <span className="mc-logo">
               <svg width="16" height="16" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.2 0 11.6 0 20 12 32 12 32s12-12 12-20.4C24 5.2 18.6 0 12 0z" fill="#CD6A45" /><circle cx="12" cy="11.5" r="4.4" fill="#fff" /></svg>
             </span>
-            <span className="mc-wordmark">Mobility&nbsp;Context</span>
+            <span className="mc-wordmark">Waypoint</span>
           </div>
           <div className="mc-status"><span className="dot" />Public session · Seattle</div>
         </header>
@@ -2613,7 +2613,7 @@ afterEach(cleanup);
 describe("App", () => {
   it("renders the map-first workspace shell", async () => {
     render(<App />);
-    expect(await screen.findByText("Mobility Context")).toBeInTheDocument();
+    expect(await screen.findByText("Waypoint")).toBeInTheDocument();
     expect(screen.getAllByRole("tab")).toHaveLength(4);
   });
 });
@@ -2622,7 +2622,7 @@ describe("App", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/App.test.tsx`
-Expected: FAIL — the old `App` renders the legacy shell, so "Mobility Context" is not found.
+Expected: FAIL — the old `App` renders the legacy shell, so "Waypoint" is not found.
 
 - [ ] **Step 3: Replace `App.tsx`**
 
@@ -2758,4 +2758,3 @@ git commit -m "chore: responsive and accessibility polish for map workspace"
 - **Start clean:** commit or stash current working-tree changes first. `src/lib/analysisDefaults.ts` is reused by Tasks 13/16 but is currently untracked — `git add` it with the first task that imports it (or commit it up front).
 - **External services in the browser:** Carto tiles and Nominatim search are cross-origin calls from the browser; no proxy needed. They are fine for dev. Before public production traffic, swap `defaultTileConfig` and `geocodingProvider` for keyed providers (the module boundaries exist precisely for this).
 - **Leaflet default import:** the canvas uses `import * as L from "leaflet"`. If your tsconfig has `esModuleInterop`, `import L from "leaflet"` also works — keep the namespace import to be safe.
-

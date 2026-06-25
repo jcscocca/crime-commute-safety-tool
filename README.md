@@ -1,15 +1,17 @@
-# Mobility Context Analyzer
+# Waypoint
 
-Privacy-first mobility context tool with a public dashboard for approximate manual place
-entry, place-list paste flows, selected-place analysis, and reported Seattle SPD incident
-context exports. Personal timeline uploads remain available for internal demos, but they
-are not the center of the public launch experience.
+Waypoint is a privacy-first reported-incident analysis tool for selected places and route
+context. The public dashboard supports approximate manual place entry, place-list paste
+flows, selected-place analysis, comparison, and reported Seattle SPD incident context
+exports. Personal timeline uploads remain available for internal demos, but they are not
+the center of the public launch experience.
 
 ## What It Does
 
 - Accepts approximate places entered manually or pasted as rows.
 - Imports public commute scenario CSV files using generalized Seattle area centroids.
 - Supports selected-place analysis and comparison for saved public-dashboard places.
+- Preserves a route-aware north star through commute scenarios and route comparison APIs.
 - Exports privacy-safe Tableau CSV rows using generalized display coordinates.
 - Keeps internal/demo parsers for Google Maps/Timeline JSON, raw point CSV, GeoJSON, and GPX.
 - Normalizes uploads into stop visits and recurring place clusters.
@@ -85,10 +87,12 @@ make migrate
 
 ## Public Dashboard Flow
 
-The public dashboard is designed for generalized manual entry. Users can enter approximate
+The Waypoint dashboard is designed for generalized manual entry. Users can enter approximate
 places, paste a place list, run selected-place analysis, compare saved places, and export
-reported-incident context. The `visit_count` field means expected visits per week; analysis
-scales that weekly frequency to the selected date range for "incidents per visit" metrics.
+reported-incident context. The `visit_count` field means expected visits per week; it is
+routine metadata, not a risk denominator. Analysis focuses on reported incident counts,
+nearest incident distance, category mix, and the incident rows behind the selected-place
+counts.
 Personal timeline uploads remain an internal/demo capability and are not part of the public
 launch flow.
 
@@ -108,7 +112,7 @@ Enter an approximate place manually:
 
 ```bash
 curl -b demo.cookies -H "Content-Type: application/json" \
-  -d '{"display_label":"Downtown transfer stop","latitude":47.609,"longitude":-122.333,"visit_count":12,"total_dwell_minutes":360}' \
+  -d '{"display_label":"Downtown transfer stop","latitude":47.609,"longitude":-122.333}' \
   http://127.0.0.1:8000/places
 ```
 
@@ -116,7 +120,7 @@ Or paste a place list:
 
 ```bash
 curl -b demo.cookies -H "Content-Type: application/json" \
-  -d '{"csv_text":"display_label,latitude,longitude,visit_count,total_dwell_minutes\nDowntown transfer stop,47.609,-122.333,12,360\nLibrary area,47.621,-122.321,6,420\n"}' \
+  -d '{"csv_text":"display_label,latitude,longitude\nDowntown transfer stop,47.609,-122.333\nLibrary area,47.621,-122.321\n"}' \
   http://127.0.0.1:8000/places/bulk
 ```
 
@@ -145,7 +149,7 @@ curl -b demo.cookies http://127.0.0.1:8000/exports/tableau/place-summary.csv
 
 ## Public Input Modes
 
-The public dashboard flow exposes upload-free modes first:
+The Waypoint public flow exposes upload-free modes first:
 
 1. **Enter places manually** for approximate places, weekly visit frequency, and optional dwell time.
 2. **Paste a place list** for rows with `latitude` and `longitude`, plus optional display

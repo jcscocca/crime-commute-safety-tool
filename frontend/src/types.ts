@@ -26,6 +26,29 @@ export type CrimeSummary = {
   incidents_per_hour_dwell: number | null;
 };
 
+export type IncidentDetail = {
+  place_id: string;
+  place_label: string;
+  incident_id: string;
+  external_incident_id: string | null;
+  report_number: string | null;
+  occurred_at: string | null;
+  reported_at: string | null;
+  offense_category: string | null;
+  offense_subcategory: string | null;
+  nibrs_group: string | null;
+  block_address: string | null;
+  distance_m: number;
+};
+
+export type IncidentDetailsResponse = {
+  incidents: IncidentDetail[];
+  returned_count: number;
+  total_count: number;
+  limit: number;
+  radius_m: number;
+};
+
 export type DashboardSummary = {
   totals: {
     place_count: number;

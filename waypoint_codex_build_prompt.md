@@ -1,4 +1,4 @@
-Codex Build Prompt: Mobility Context Analyzer MVP
+Codex Build Prompt: Waypoint MVP
 Google Maps/Timeline upload -> normalized common locations -> Seattle crime comparison -> Tableau-ready export
 
 How to use this document
@@ -6,7 +6,7 @@ Copy the full prompt below into Codex at the start of a new build. It is designe
 
 Single-shot Codex prompt
 
-You are Codex working in a software repository. Build the first backend-first MVP for a privacy-first Mobility Context Analyzer.
+You are Codex working in a software repository. Build the first backend-first MVP for Waypoint, a privacy-first reported-incident analysis tool.
 
 Product objective
 Build an application that lets a user upload personal location-history data, initially Google Maps/Timeline or Google Takeout-style data, normalizes it into derived mobility objects, compares recurring places against Seattle SPD crime data from Seattle's open-data portal, and exports privacy-safe Tableau-ready outputs.
