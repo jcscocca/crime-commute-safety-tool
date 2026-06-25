@@ -198,6 +198,13 @@ describe("AnalyzeTab", () => {
     expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
+  it("uses the mid-range layout — cards with 2-up charts — between the thresholds", () => {
+    const { container } = render(<AnalyzeTab selected={[home, office]} analysis={{ ...analysis, offenseCategory: "" }} summary={analyzedSummary} availableRadii={[250]} running={false} panelWidthPx={500} incidentDetails={oneIncident} onChange={vi.fn()} onRun={vi.fn()} />);
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(container.querySelector(".mc-incident-cards")).toBeInTheDocument();
+    expect(container.querySelector(".mc-analysis-charts")).toHaveClass("is-2up");
+  });
+
   it("renders 2-up charts only when the panel is wide enough", () => {
     const { container, rerender } = render(<AnalyzeTab selected={[home, office]} analysis={{ ...analysis, offenseCategory: "" }} summary={analyzedSummary} availableRadii={[250]} running={false} panelWidthPx={380} onChange={vi.fn()} onRun={vi.fn()} />);
     expect(container.querySelector(".mc-analysis-charts")).not.toHaveClass("is-2up");
