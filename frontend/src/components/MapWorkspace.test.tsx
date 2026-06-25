@@ -25,12 +25,16 @@ vi.mock("../api/client", () => ({
 }));
 
 import { MapWorkspace } from "./MapWorkspace";
-import { analyzePlaces, createPlace, createSession, getDashboardSummary } from "../api/client";
+import { analyzePlaces, createBulkPlaces, createPlace, createSession, getDashboardSummary } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
 import type { DashboardSummary, Place } from "../types";
 
 const home: Place = {
   id: "p1", display_label: "Home", latitude: 47.61, longitude: -122.33, visit_count: 5,
+  total_dwell_minutes: null, inferred_place_type: "manual_place", sensitivity_class: "normal",
+};
+const work: Place = {
+  id: "p2", display_label: "Work", latitude: 47.62, longitude: -122.34, visit_count: 3,
   total_dwell_minutes: null, inferred_place_type: "manual_place", sensitivity_class: "normal",
 };
 
@@ -83,6 +87,94 @@ describe("MapWorkspace", () => {
         sensitivity_class: "normal",
       });
     });
+  });
+
+  it("selects a newly saved pin so analysis can run without manual selection", async () => {
+    const window = currentYearAnalysisWindow();
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary)
+      .mockResolvedValueOnce(makeSummary())
+      .mockResolvedValueOnce(makeSummary([home]));
+    vi.mocked(createPlace).mockResolvedValue(home);
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 1 });
+
+    render(<MapWorkspace />);
+    await screen.findByText(/Map your places/i);
+
+    fireEvent.click(screen.getByRole("button", { name: /add pin/i }));
+    fireEvent.click(screen.getByTestId("fire-map-click"));
+    fireEvent.change(screen.getByLabelText("Label"), { target: { value: "Home" } });
+    fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
+
+    expect(await screen.findByRole("checkbox", { name: "Select Home" })).toHaveAttribute("aria-checked", "true");
+
+    fireEvent.click(screen.getByRole("tab", { name: /analyze/i }));
+    fireEvent.click(screen.getByRole("button", { name: /run analysis/i }));
+
+    await waitFor(() => {
+      expect(analyzePlaces).toHaveBeenCalledWith({
+        place_ids: ["p1"],
+        analysis_start_date: window.analysis_start_date,
+        analysis_end_date: window.analysis_end_date,
+        radii_m: [250],
+        offense_category: "PROPERTY",
+      });
+    });
+  });
+
+  it("selects bulk imported places so analysis can run without manual selection", async () => {
+    const window = currentYearAnalysisWindow();
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary)
+      .mockResolvedValueOnce(makeSummary())
+      .mockResolvedValueOnce(makeSummary([home, work]));
+    vi.mocked(createBulkPlaces).mockResolvedValue({ created_count: 2, skipped_count: 0, places: [home, work] });
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 2 });
+
+    render(<MapWorkspace />);
+    await screen.findByText(/Map your places/i);
+
+    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    fireEvent.change(screen.getByLabelText("CSV rows"), {
+      target: { value: "display_label,latitude,longitude,visit_count\nHome,47.61,-122.33,5\nWork,47.62,-122.34,3" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /import rows/i }));
+
+    expect(await screen.findByRole("checkbox", { name: "Select Home" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("checkbox", { name: "Select Work" })).toHaveAttribute("aria-checked", "true");
+
+    fireEvent.click(screen.getByRole("tab", { name: /analyze/i }));
+    fireEvent.click(screen.getByRole("button", { name: /run analysis/i }));
+
+    await waitFor(() => {
+      expect(analyzePlaces).toHaveBeenCalledWith({
+        place_ids: ["p1", "p2"],
+        analysis_start_date: window.analysis_start_date,
+        analysis_end_date: window.analysis_end_date,
+        radii_m: [250],
+        offense_category: "PROPERTY",
+      });
+    });
+  });
+
+  it("collapses the workspace panel while choosing where to drop a pin", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary());
+
+    const { container } = render(<MapWorkspace />);
+    await screen.findByText(/Map your places/i);
+
+    fireEvent.click(screen.getByRole("button", { name: /add pin/i }));
+
+    expect(container.querySelector(".mc-frame")).toHaveClass("is-placing-pin");
+    expect(container.querySelector(".mc-workspace-panel")).toHaveClass("is-peek");
+    expect(container.querySelector(".mc-sheet")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("fire-map-click"));
+
+    expect(container.querySelector(".mc-frame")).not.toHaveClass("is-placing-pin");
+    expect(container.querySelector(".mc-workspace-panel")).toHaveClass("is-half");
+    expect(screen.getByLabelText("Label")).toBeInTheDocument();
   });
 
   it("runs analysis for a selected place", async () => {
