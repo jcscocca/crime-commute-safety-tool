@@ -53,7 +53,10 @@ const TABS: { key: TabKey; label: string; icon: ReactNode }[] = [
   },
 ];
 
-const SNAPS: SheetState[] = ["half", "peek"];
+const SNAPS: { state: SheetState; label: string }[] = [
+  { state: "half", label: "open" },
+  { state: "peek", label: "peek" },
+];
 
 function activateWithKeyboard(event: KeyboardEvent<HTMLButtonElement>, action: () => void) {
   if (event.key === "Enter" || event.key === " ") {
@@ -76,25 +79,25 @@ export function BottomSheet({
   }
 
   return (
-    <section className={`mc-sheet is-${sheetState}`} aria-label="Workspace panel">
+    <section className={`mc-workspace-panel is-${sheetState}`} aria-label="Workspace panel">
       <button
         type="button"
         className="mc-handle"
-        aria-label="Cycle panel height"
+        aria-label="Toggle panel width"
         onClick={cycle}
         onKeyDown={(event) => activateWithKeyboard(event, cycle)}
       />
-      <div className="mc-snaps" role="group" aria-label="Panel height">
+      <div className="mc-snaps" role="group" aria-label="Panel size">
         {SNAPS.map((snap) => (
           <button
-            key={snap}
+            key={snap.state}
             type="button"
-            className={snap === sheetState ? "on" : undefined}
-            aria-pressed={snap === sheetState}
-            onClick={() => onSheetStateChange(snap)}
-            onKeyDown={(event) => activateWithKeyboard(event, () => onSheetStateChange(snap))}
+            className={snap.state === sheetState ? "on" : undefined}
+            aria-pressed={snap.state === sheetState}
+            onClick={() => onSheetStateChange(snap.state)}
+            onKeyDown={(event) => activateWithKeyboard(event, () => onSheetStateChange(snap.state))}
           >
-            <span>{snap}</span>
+            <span>{snap.label}</span>
             <b />
           </button>
         ))}

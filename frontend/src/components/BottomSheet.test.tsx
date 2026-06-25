@@ -45,21 +45,24 @@ describe("BottomSheet", () => {
     expect(onSheetStateChange).toHaveBeenCalledWith("peek");
   });
 
-  it("exposes only launch-ready snap controls and reflects the state class", () => {
+  it("renders a docked workspace panel with open and peek controls", () => {
     const onSheetStateChange = vi.fn();
     const { container } = render(
       <BottomSheet activeTab="places" onTabChange={vi.fn()} sheetState="half" onSheetStateChange={onSheetStateChange}>
         <div>panel</div>
       </BottomSheet>,
     );
-    expect(container.querySelector(".mc-sheet")).toHaveClass("is-half");
+    expect(container.querySelector(".mc-workspace-panel")).toHaveClass("is-half");
+    expect(container.querySelector(".mc-sheet")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /open/i })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByRole("button", { name: /full/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /half/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /peek/i }));
     expect(onSheetStateChange).toHaveBeenCalledWith("peek");
   });
 
-  it("cycles the handle between peek and half states", () => {
+  it("cycles the handle between collapsed and open panel states", () => {
     const onSheetStateChange = vi.fn();
     render(
       <BottomSheet activeTab="places" onTabChange={vi.fn()} sheetState="half" onSheetStateChange={onSheetStateChange}>
@@ -67,7 +70,7 @@ describe("BottomSheet", () => {
       </BottomSheet>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Cycle panel height" }));
+    fireEvent.click(screen.getByRole("button", { name: "Toggle panel width" }));
 
     expect(onSheetStateChange).toHaveBeenCalledWith("peek");
   });
