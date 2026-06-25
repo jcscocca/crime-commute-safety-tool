@@ -19,11 +19,8 @@ function makeInMemoryStorage(): Storage {
   };
 }
 
-if (typeof globalThis !== "undefined") {
-  const ls = makeInMemoryStorage();
-  Object.defineProperty(globalThis, "localStorage", {
-    value: ls,
-    configurable: true,
-    writable: true,
-  });
-}
+Object.defineProperty(globalThis, "localStorage", {
+  value: makeInMemoryStorage(),
+  configurable: true,
+  writable: true,
+});
