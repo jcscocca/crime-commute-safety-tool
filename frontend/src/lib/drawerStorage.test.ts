@@ -18,14 +18,14 @@ describe("drawer storage", () => {
     saveDrawerState({ collapsed: true, widthPx: 99999 });
     const loaded = loadDrawerState();
     expect(loaded.collapsed).toBe(true);
-    expect(loaded.widthPx).toBeLessThanOrEqual(720);
-    expect(loaded.widthPx).toBeGreaterThanOrEqual(340);
+    expect(loaded.widthPx).toBe(720);
   });
 
   it("falls back to defaults when storage throws", () => {
-    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    const getItem = vi.spyOn(localStorage, "getItem").mockImplementation(() => {
       throw new Error("blocked");
     });
     expect(loadDrawerState()).toEqual({ collapsed: false, widthPx: DRAWER_DEFAULT });
+    expect(getItem).toHaveBeenCalled();
   });
 });

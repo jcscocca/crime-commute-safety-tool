@@ -1,11 +1,10 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 const backendTarget = "http://127.0.0.1:8000";
 
 export default defineConfig({
   plugins: [react()],
-  // @ts-expect-error — vitest injects "test" into vite config; types live in vitest/config
   test: {
     setupFiles: ["./src/testSetup.ts"],
   },
