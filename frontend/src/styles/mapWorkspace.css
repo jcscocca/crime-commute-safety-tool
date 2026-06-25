@@ -65,6 +65,7 @@
 
 .mc-legend{position:absolute;top:138px;left:22px;z-index:40;width:212px;padding:14px 15px;border-radius:14px;
   background:rgba(255,255,255,0.95);border:1px solid rgba(20,24,28,0.08);box-shadow:0 14px 30px -16px rgba(18,22,26,.42);backdrop-filter:blur(8px);}
+.mc-frame.is-placing-pin .mc-legend{top:180px;}
 .mc-legend h3{margin:0 0 11px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8b8f96;}
 .mc-leg-row{display:flex;align-items:center;gap:11px;padding:5px 0;}
 .mc-leg-row .g{flex:none;width:24px;display:grid;place-items:center;}
