@@ -62,6 +62,18 @@ Run the API with SQLite defaults:
 make run
 ```
 
+Run the optional LocalAgent LLM gateway on a separate local port before using
+the dashboard assistant:
+
+```bash
+cd /Users/jscocca/Repos/localagent
+PYTHONPATH=. .venv/bin/python -m uvicorn api.app:create_app --factory --host 127.0.0.1 --port 8010
+```
+
+Waypoint reads that gateway from `MCA_LOCALAGENT_BASE_URL`, which defaults to
+`http://127.0.0.1:8010` so it does not collide with the Waypoint API on port
+`8000`.
+
 Run with Postgres/PostGIS:
 
 ```bash
