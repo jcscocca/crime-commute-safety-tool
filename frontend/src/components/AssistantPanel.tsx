@@ -30,6 +30,7 @@ export function AssistantPanel({ dashboardState }: Props) {
     setInput("");
     setDraft("");
     setError("");
+    setToolActivity([]);
     setSending(true);
 
     try {
