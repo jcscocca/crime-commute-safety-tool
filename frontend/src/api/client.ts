@@ -174,6 +174,14 @@ function emitAssistantEvent(block: string, onEvent: (event: AssistantStreamEvent
     if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
   }
   if (!eventName) return;
-  const data = dataLines.length ? JSON.parse(dataLines.join("\n")) : {};
+  let data: unknown = {};
+  if (dataLines.length) {
+    try {
+      data = JSON.parse(dataLines.join("\n"));
+    } catch {
+      // Skip a malformed frame rather than aborting the rest of the stream.
+      return;
+    }
+  }
   onEvent({ event: eventName, data } as AssistantStreamEvent);
 }

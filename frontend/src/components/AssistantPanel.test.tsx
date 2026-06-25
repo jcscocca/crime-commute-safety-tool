@@ -64,5 +64,33 @@ describe("AssistantPanel", () => {
     expect(await screen.findByText("I found reported incident context.")).toBeInTheDocument();
     expect(screen.getByText(/compare_places/)).toBeInTheDocument();
   });
+
+  it("clears tool activity from a prior turn when a new turn starts", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        sseResponse(
+          'event: tool\ndata: {"tool_name":"compare_places","result":{}}\n\n' +
+            'event: token\ndata: {"delta":"first answer"}\n\n' +
+            "event: done\ndata: {}\n\n",
+        ),
+      )
+      .mockResolvedValueOnce(
+        sseResponse(
+          'event: token\ndata: {"delta":"second answer"}\n\n' + "event: done\ndata: {}\n\n",
+        ),
+      );
+
+    render(<AssistantPanel dashboardState={dashboardState} />);
+
+    fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "Compare" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findByText("first answer")).toBeInTheDocument();
+    expect(screen.getByText(/compare_places/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "Thanks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findByText("second answer")).toBeInTheDocument();
+    expect(screen.queryByText(/compare_places/)).not.toBeInTheDocument();
+  });
 });
 
