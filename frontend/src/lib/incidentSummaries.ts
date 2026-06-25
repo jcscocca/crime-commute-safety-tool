@@ -8,8 +8,11 @@ export function incidentCountForPlace(
   if (!summary) {
     return null;
   }
-  const match = summary.crime_summaries.find(
+  const matches = summary.crime_summaries.filter(
     (entry) => entry.place_cluster_id === placeId && entry.radius_m === radiusM,
   );
-  return match ? match.incident_count : null;
+  if (matches.length === 0) {
+    return null;
+  }
+  return matches.reduce((total, entry) => total + entry.incident_count, 0);
 }

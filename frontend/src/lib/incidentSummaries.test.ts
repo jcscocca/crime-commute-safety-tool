@@ -33,6 +33,18 @@ describe("incidentCountForPlace", () => {
     expect(incidentCountForPlace(summaryWith(7, 250), "p1", 250)).toBe(7);
   });
 
+  it("sums multiple offense summary rows for the same place + radius", () => {
+    const summary = summaryWith(7, 250);
+    summary.crime_summaries.push({
+      ...summary.crime_summaries[0],
+      offense_category: "PERSON",
+      offense_subcategory: "ASSAULT",
+      incident_count: 3,
+    });
+
+    expect(incidentCountForPlace(summary, "p1", 250)).toBe(10);
+  });
+
   it("returns null when no summary matches the radius", () => {
     expect(incidentCountForPlace(summaryWith(7, 250), "p1", 500)).toBeNull();
   });
