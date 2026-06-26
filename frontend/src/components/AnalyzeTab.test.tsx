@@ -50,7 +50,7 @@ describe("AnalyzeTab", () => {
   it("emits control changes and runs when a place is selected", () => {
     const onChange = vi.fn();
     const onRun = vi.fn();
-    render(<AnalyzeTab selected={[home]} analysis={analysis} summary={analyzedSummary} availableRadii={[250, 500, 1000]} running={false} onChange={onChange} onRun={onRun} />);
+    render(<AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250, 500, 1000]} running={false} onChange={onChange} onRun={onRun} />);
 
     fireEvent.change(screen.getByLabelText("Start date"), { target: { value: "2026-02-01" } });
     expect(onChange).toHaveBeenCalledWith({ startDate: "2026-02-01" });
@@ -66,7 +66,7 @@ describe("AnalyzeTab", () => {
   });
 
   it("disables run when nothing is selected", () => {
-    render(<AnalyzeTab selected={[]} analysis={analysis} summary={analyzedSummary} availableRadii={[250]} running={false} onChange={vi.fn()} onRun={vi.fn()} />);
+    render(<AnalyzeTab selected={[]} analysis={analysis} availableRadii={[250]} running={false} onChange={vi.fn()} onRun={vi.fn()} />);
     expect(screen.getByRole("button", { name: /run analysis/i })).toBeDisabled();
   });
 
@@ -75,7 +75,6 @@ describe("AnalyzeTab", () => {
       <AnalyzeTab
         selected={[home]}
         analysis={analysis}
-        summary={analyzedSummary}
         availableRadii={[250]}
         running={false}
         error={undefined}
@@ -94,7 +93,7 @@ describe("AnalyzeTab", () => {
   });
 
   it("no longer renders the retired crime-mix chart", () => {
-    render(<AnalyzeTab selected={[home]} analysis={analysis} summary={analyzedSummary} availableRadii={[250]} running={false} neighborhood={null} onChange={vi.fn()} onRun={vi.fn()} />);
+    render(<AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} neighborhood={null} onChange={vi.fn()} onRun={vi.fn()} />);
     expect(screen.queryByText("Crime mix")).not.toBeInTheDocument();
   });
 
@@ -107,7 +106,6 @@ describe("AnalyzeTab", () => {
       <AnalyzeTab
         selected={[home]}
         analysis={analysis}
-        summary={analyzedSummary}
         availableRadii={[250]}
         running={false}
         neighborhood={{ ...neighborhood, places: [noBaseline] }}
@@ -124,7 +122,6 @@ describe("AnalyzeTab", () => {
       <AnalyzeTab
         selected={[home, office]}
         analysis={analysis}
-        summary={analyzedSummary}
         availableRadii={[250]}
         running={false}
         neighborhood={{
@@ -146,7 +143,6 @@ describe("AnalyzeTab", () => {
       <AnalyzeTab
         selected={[home]}
         analysis={analysis}
-        summary={analyzedSummary}
         availableRadii={[250]}
         running={false}
         incidentDetails={{
@@ -192,7 +188,6 @@ describe("AnalyzeTab", () => {
       <AnalyzeTab
         selected={[home]}
         analysis={analysis}
-        summary={analyzedSummary}
         availableRadii={[250]}
         running={false}
         incidentDetails={{ incidents: [], returned_count: 0, total_count: 0, limit: 100, radius_m: 250 }}
@@ -205,7 +200,7 @@ describe("AnalyzeTab", () => {
   });
 
   it("places the run controls in a sticky query bar above the results, with no absolute footer", () => {
-    const { container } = render(<AnalyzeTab selected={[home]} analysis={analysis} summary={analyzedSummary} availableRadii={[250]} running={false} onChange={vi.fn()} onRun={vi.fn()} />);
+    const { container } = render(<AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} onChange={vi.fn()} onRun={vi.fn()} />);
     expect(container.querySelector(".mc-querybar")).toBeInTheDocument();
     expect(container.querySelector(".mc-footer")).not.toBeInTheDocument();
     const queryBar = container.querySelector(".mc-querybar") as HTMLElement;
@@ -213,7 +208,7 @@ describe("AnalyzeTab", () => {
   });
 
   it("renders an inline error with an assertive alert role when one is provided", () => {
-    render(<AnalyzeTab selected={[home]} analysis={analysis} summary={analyzedSummary} availableRadii={[250]} running={false} error="Unable to run analysis. Try again." onChange={vi.fn()} onRun={vi.fn()} />);
+    render(<AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} error="Unable to run analysis. Try again." onChange={vi.fn()} onRun={vi.fn()} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Unable to run analysis. Try again.");
   });
 
@@ -230,19 +225,19 @@ describe("AnalyzeTab", () => {
   };
 
   it("renders incidents as cards (no table) when the panel is narrow", () => {
-    render(<AnalyzeTab selected={[home]} analysis={analysis} summary={analyzedSummary} availableRadii={[250]} running={false} panelWidthPx={380} incidentDetails={oneIncident} onChange={vi.fn()} onRun={vi.fn()} />);
+    render(<AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} panelWidthPx={380} incidentDetails={oneIncident} onChange={vi.fn()} onRun={vi.fn()} />);
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.getByText("100 BLOCK MAIN ST", { exact: false })).toBeInTheDocument();
     expect(screen.getByText("42 m")).toBeInTheDocument();
   });
 
   it("renders incidents as a full table when the panel is wide", () => {
-    render(<AnalyzeTab selected={[home]} analysis={analysis} summary={analyzedSummary} availableRadii={[250]} running={false} panelWidthPx={640} incidentDetails={oneIncident} onChange={vi.fn()} onRun={vi.fn()} />);
+    render(<AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} panelWidthPx={640} incidentDetails={oneIncident} onChange={vi.fn()} onRun={vi.fn()} />);
     expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
   it("shows loading skeletons while analysis is running", () => {
-    const { container } = render(<AnalyzeTab selected={[home]} analysis={analysis} summary={analyzedSummary} availableRadii={[250]} running={true} onChange={vi.fn()} onRun={vi.fn()} />);
+    const { container } = render(<AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={true} onChange={vi.fn()} onRun={vi.fn()} />);
     expect(screen.getByText("Running analysis…")).toBeInTheDocument();
     expect(container.querySelector(".mc-skeleton")).toBeInTheDocument();
     expect(screen.queryByLabelText(/Verdict for/i)).not.toBeInTheDocument();
@@ -254,7 +249,6 @@ describe("AnalyzeTab", () => {
       <AnalyzeTab
         selected={[home]}
         analysis={analysis}
-        summary={analyzedSummary}
         availableRadii={[250]}
         running={false}
         neighborhood={neighborhood}

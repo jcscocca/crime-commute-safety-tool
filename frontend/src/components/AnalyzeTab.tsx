@@ -1,6 +1,5 @@
 import type {
   AnalysisSettings,
-  DashboardSummary,
   IncidentDetail,
   IncidentDetailsResponse,
   NeighborhoodAnalysis,
@@ -15,8 +14,6 @@ const INCIDENT_TABLE_MIN = 560;
 type Props = {
   selected: Place[];
   analysis: AnalysisSettings;
-  // TODO(Task 9): `summary` is no longer used here — drop it and its MapWorkspace pass-site when wiring neighborhood.
-  summary: DashboardSummary | null;
   availableRadii: number[];
   running: boolean;
   incidentDetails?: IncidentDetailsResponse | null;
@@ -51,7 +48,7 @@ const DECISION_COPY: Record<NeighborhoodPlace["decision"], { label: string; tone
   below_clear: { label: "below its beat · statistically clear", tone: "ok" },
   not_clear: { label: "not statistically clear", tone: "muted" },
   insufficient_data: { label: "insufficient data", tone: "muted" },
-  model_warning: { label: "needs analytical review", tone: "muted" },
+  model_warning: { label: "too few months to model reliably", tone: "muted" },
   baseline_unavailable: { label: "neighborhood baseline unavailable", tone: "muted" },
 };
 
