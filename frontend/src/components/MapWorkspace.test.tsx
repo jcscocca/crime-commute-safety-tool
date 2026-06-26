@@ -22,13 +22,14 @@ vi.mock("../api/client", () => ({
   createSession: vi.fn(),
   deletePlace: vi.fn(),
   getIncidentDetails: vi.fn(),
+  getNeighborhoodAnalysis: vi.fn(),
   getDashboardSummary: vi.fn(),
 }));
 
 import { MapWorkspace } from "./MapWorkspace";
-import { analyzePlaces, createBulkPlaces, createPlace, createSession, getDashboardSummary, getIncidentDetails } from "../api/client";
+import { analyzePlaces, createBulkPlaces, createPlace, createSession, getDashboardSummary, getIncidentDetails, getNeighborhoodAnalysis } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
-import type { DashboardSummary, IncidentDetailsResponse, Place } from "../types";
+import type { DashboardSummary, IncidentDetailsResponse, NeighborhoodAnalysis, Place } from "../types";
 
 const home: Place = {
   id: "p1", display_label: "Home", latitude: 47.61, longitude: -122.33, visit_count: 5,
@@ -72,6 +73,17 @@ function makeIncidentDetails(): IncidentDetailsResponse {
     total_count: 1,
     limit: 100,
     radius_m: 250,
+  };
+}
+
+function makeNeighborhoodAnalysis(): NeighborhoodAnalysis {
+  return {
+    radius_m: 250,
+    analysis_start_date: "2026-01-01",
+    analysis_end_date: "2026-06-30",
+    offense_category: null,
+    places: [],
+    pairwise: [],
   };
 }
 
@@ -250,6 +262,27 @@ describe("MapWorkspace", () => {
       });
     });
     expect(await screen.findByText("100 BLOCK MAIN ST")).toBeInTheDocument();
+  });
+
+  it("fetches neighborhood analysis after analysis succeeds", async () => {
+    const window = currentYearAnalysisWindow();
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home]));
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 1 });
+    vi.mocked(getNeighborhoodAnalysis).mockResolvedValue(makeNeighborhoodAnalysis());
+
+    render(<MapWorkspace />);
+    await screen.findByText("Home");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Home" }));
+    fireEvent.click(screen.getByRole("tab", { name: /analyze/i }));
+    fireEvent.click(screen.getByRole("button", { name: /run analysis/i }));
+
+    await waitFor(() => {
+      expect(getNeighborhoodAnalysis).toHaveBeenCalledWith(
+        expect.objectContaining({ place_ids: ["p1"], radii_m: [250] }),
+      );
+    });
   });
 
   it("clears stale incident details when analysis controls change", async () => {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
-import { analyzePlaces, comparePlaces, createBulkPlaces, createPlace, createSession, deletePlace, getDashboardSummary, getIncidentDetails } from "../api/client";
+import { analyzePlaces, comparePlaces, createBulkPlaces, createPlace, createSession, deletePlace, getDashboardSummary, getIncidentDetails, getNeighborhoodAnalysis } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
 import { clampWidth, DRAWER_DEFAULT, DRAWER_PEEK, DRAWER_WIDE, type DrawerPreset } from "../lib/drawer";
 import { loadDrawerState, saveDrawerState } from "../lib/drawerStorage";
@@ -17,7 +17,7 @@ import { MapLegend } from "./MapLegend";
 import { PinDraftPopover } from "./PinDraftPopover";
 import { PlaceSearch } from "./PlaceSearch";
 import { PlacesTab } from "./PlacesTab";
-import type { AnalysisSettings, AssistantDashboardState, DashboardSummary, DrawerState, DraftPin, GeocodeResult, IncidentDetailsResponse, LatLng, Place, PlaceCreate, TabKey } from "../types";
+import type { AnalysisSettings, AssistantDashboardState, DashboardSummary, DrawerState, DraftPin, GeocodeResult, IncidentDetailsResponse, LatLng, NeighborhoodAnalysis, Place, PlaceCreate, TabKey } from "../types";
 
 const DEFAULT_EXPORT = "/exports/tableau/place-summary.csv";
 
@@ -26,6 +26,7 @@ export function MapWorkspace() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [comparison, setComparison] = useState<Record<string, unknown> | null>(null);
   const [incidentDetails, setIncidentDetails] = useState<IncidentDetailsResponse | null>(null);
+  const [neighborhood, setNeighborhood] = useState<NeighborhoodAnalysis | null>(null);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("places");
   const [drawer, setDrawer] = useState<DrawerState>(() => loadDrawerState());
@@ -42,6 +43,7 @@ export function MapWorkspace() {
   });
   const comparisonVersionRef = useRef(0);
   const incidentDetailsVersionRef = useRef(0);
+  const neighborhoodVersionRef = useRef(0);
 
   const refresh = async () => {
     setSummary(await getDashboardSummary());
@@ -123,9 +125,15 @@ export function MapWorkspace() {
     setIncidentDetails(null);
   }
 
+  function invalidateNeighborhood() {
+    neighborhoodVersionRef.current += 1;
+    setNeighborhood(null);
+  }
+
   function invalidateAnalysisContext() {
     invalidateComparison();
     invalidateIncidentDetails();
+    invalidateNeighborhood();
   }
 
   function selectPlaceIds(ids: string[]) {
@@ -229,6 +237,9 @@ export function MapWorkspace() {
     const version = incidentDetailsVersionRef.current + 1;
     incidentDetailsVersionRef.current = version;
     setIncidentDetails(null);
+    const nVersion = neighborhoodVersionRef.current + 1;
+    neighborhoodVersionRef.current = nVersion;
+    setNeighborhood(null);
     const payload = {
       place_ids: Array.from(selectedIds),
       analysis_start_date: analysis.startDate,
@@ -240,6 +251,8 @@ export function MapWorkspace() {
       await analyzePlaces(payload);
       const details = await getIncidentDetails(payload);
       if (incidentDetailsVersionRef.current === version) setIncidentDetails(details);
+      const neighborhoodResult = await getNeighborhoodAnalysis(payload);
+      if (neighborhoodVersionRef.current === nVersion) setNeighborhood(neighborhoodResult);
       await refreshWithFallback("Analysis ran, but dashboard totals could not refresh.");
     } catch {
       setError("Unable to run analysis. Try again.");
@@ -372,6 +385,7 @@ export function MapWorkspace() {
               availableRadii={availableRadii}
               running={analyzing}
               incidentDetails={incidentDetails}
+              neighborhood={neighborhood}
               error={error}
               panelWidthPx={drawer.widthPx}
               onChange={handleAnalysisChange}
