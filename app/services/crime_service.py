@@ -3,13 +3,14 @@ from __future__ import annotations
 from datetime import date
 from importlib import resources
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.crime.seattle_socrata import load_crime_csv
 from app.crime.summaries import summarize_place_crime
 from app.models import CrimeIncident, PlaceCluster, PlaceCrimeSummary
 from app.schemas import CrimeIncidentData, PlaceClusterData, PlaceCrimeSummaryData
+from app.services.analysis_runs import create_analysis_run
 
 
 def ingest_sample_crime(session: Session) -> dict[str, int]:
@@ -52,8 +53,20 @@ def summarize_for_user(
         analysis_start_date=analysis_start_date,
         analysis_end_date=analysis_end_date,
     )
-    session.execute(delete(PlaceCrimeSummary).where(PlaceCrimeSummary.user_id_hash == user_id_hash))
-    session.add_all([_summary_model(summary) for summary in summaries])
+    run = create_analysis_run(
+        session,
+        user_id_hash=user_id_hash,
+        radii_m=radii_m,
+        analysis_start_date=analysis_start_date,
+        analysis_end_date=analysis_end_date,
+        offense_category=None,
+        offense_subcategory=None,
+        nibrs_group=None,
+    )
+    models = [_summary_model(summary) for summary in summaries]
+    for model in models:
+        model.analysis_run_id = run.id
+    session.add_all(models)
     session.commit()
     return {"summary_count": len(summaries)}
 

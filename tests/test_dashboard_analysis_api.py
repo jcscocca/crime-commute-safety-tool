@@ -384,3 +384,19 @@ def test_dashboard_compare_rejects_cross_session_place_ids(tmp_path):
     )
 
     assert response.status_code in {400, 404}
+
+
+def test_second_analyze_run_does_not_wipe_the_first(tmp_path):
+    client = _client_with_places_and_crime(tmp_path)
+    places = client.get("/places").json()["places"]
+    body = {"analysis_start_date": "2024-01-01", "analysis_end_date": "2024-01-31", "radii_m": [250]}
+
+    client.post("/dashboard/analyze", json={**body, "place_ids": [places[0]["id"]]})
+    client.post("/dashboard/analyze", json={**body, "place_ids": [places[1]["id"]]})
+
+    from app.db import get_sessionmaker
+    from app.models import PlaceCrimeSummary
+    with get_sessionmaker()() as session:
+        rows = session.query(PlaceCrimeSummary).all()
+        assert {r.place_cluster_id for r in rows} >= {places[0]["id"], places[1]["id"]}
+        assert all(r.analysis_run_id is not None for r in rows)

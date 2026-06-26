@@ -533,3 +533,69 @@ def test_admin_socrata_ingest_rejects_inverted_date_window(tmp_path, monkeypatch
 
     assert response.status_code == 400
     assert response.json()["detail"] == "end_date must be on or after start_date"
+
+
+def test_summarize_for_user_retains_rows_across_two_calls(tmp_path):
+    from app.models import PlaceCluster, PlaceCrimeSummary
+    from app.services.crime_service import summarize_for_user
+
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    session = get_sessionmaker()()
+
+    user_hash = "retention-test-user"
+    session.add_all(
+        [
+            PlaceCluster(
+                id="place-a",
+                user_id_hash=user_hash,
+                cluster_version="test",
+                cluster_method="manual",
+                centroid_latitude=47.609,
+                centroid_longitude=-122.333,
+                display_latitude=47.609,
+                display_longitude=-122.333,
+                visit_count=5,
+                inferred_place_type="manual_place",
+                sensitivity_class="normal",
+                display_label="Place A",
+                label_source="test",
+            ),
+            CrimeIncident(
+                id="crime-r1",
+                offense_start_utc=datetime(2024, 1, 10, tzinfo=UTC),
+                offense_category="PROPERTY",
+                latitude=47.609,
+                longitude=-122.333,
+            ),
+        ]
+    )
+    session.commit()
+
+    result1 = summarize_for_user(
+        session,
+        user_hash,
+        radii_m=[250],
+        analysis_start_date=date(2024, 1, 1),
+        analysis_end_date=date(2024, 1, 31),
+    )
+    result2 = summarize_for_user(
+        session,
+        user_hash,
+        radii_m=[250],
+        analysis_start_date=date(2024, 1, 1),
+        analysis_end_date=date(2024, 1, 31),
+    )
+
+    assert result1["summary_count"] >= 1
+    assert result2["summary_count"] >= 1
+
+    rows = session.query(PlaceCrimeSummary).filter_by(user_id_hash=user_hash).all()
+    # Both runs retained — at least two rows
+    assert len(rows) >= 2
+    # All rows have analysis_run_id set
+    assert all(r.analysis_run_id is not None for r in rows)
+    # Rows come from two distinct runs
+    run_ids = {r.analysis_run_id for r in rows}
+    assert len(run_ids) == 2
+
+    session.close()
