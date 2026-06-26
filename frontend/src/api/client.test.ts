@@ -95,4 +95,20 @@ describe("api client", () => {
     expect(deltas).toEqual(["ok"]);
     expect(sawDone).toBe(true);
   });
+
+  it("still surfaces a terminal error event when its data is malformed", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      sseResponse('event: token\ndata: {"delta":"partial"}\n\n' + "event: error\ndata: not-json\n\n"),
+    );
+
+    const events: string[] = [];
+    await streamAssistantChat(
+      { messages: [{ role: "user", content: "hi" }], dashboard_state: emptyDashboardState },
+      { onEvent: (event) => events.push(event.event) },
+    );
+
+    // A malformed *token* frame is dropped, but a terminal error must never be swallowed
+    // or the user sees neither an answer nor an error.
+    expect(events).toContain("error");
+  });
 });
