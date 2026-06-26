@@ -144,7 +144,7 @@ def test_route_alternatives_api_includes_sample_crime_context_summaries(tmp_path
     client = TestClient(app)
     headers = {"X-Demo-User-Id": "route-user@example.com"}
 
-    ingest = client.post("/crime/ingest/sample")
+    ingest = client.post("/internal/crime/ingest/sample")
     assert ingest.status_code == 200
 
     response = client.post(
@@ -262,7 +262,7 @@ def test_route_alternatives_response_includes_statistical_comparison_when_analyz
     app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
     client = TestClient(app)
     headers = {"X-Demo-User-Id": "route-stat-user@example.com"}
-    client.post("/crime/ingest/sample")
+    client.post("/internal/crime/ingest/sample")
 
     response = client.post(
         "/internal/routes/alternatives",
@@ -295,7 +295,7 @@ def test_route_alternatives_are_sorted_with_statistical_winner_first(tmp_path):
     app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
     client = TestClient(app)
     headers = {"X-Demo-User-Id": "route-stat-sort-user@example.com"}
-    client.post("/crime/ingest/sample")
+    client.post("/internal/crime/ingest/sample")
 
     response = client.post(
         "/internal/routes/alternatives",
@@ -321,7 +321,7 @@ def test_route_alternatives_skips_statistical_comparison_for_single_alternative(
     app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
     client = TestClient(app)
     headers = {"X-Demo-User-Id": "route-stat-single-user@example.com"}
-    client.post("/crime/ingest/sample")
+    client.post("/internal/crime/ingest/sample")
 
     response = client.post(
         "/internal/routes/alternatives",
@@ -370,7 +370,7 @@ def test_route_alternatives_skips_statistical_comparison_for_unanalyzable_geomet
     app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
     client = TestClient(app)
     headers = {"X-Demo-User-Id": "route-stat-bad-geometry-user@example.com"}
-    client.post("/crime/ingest/sample")
+    client.post("/internal/crime/ingest/sample")
 
     response = client.post(
         "/internal/routes/alternatives",

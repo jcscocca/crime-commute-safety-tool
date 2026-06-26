@@ -16,7 +16,7 @@ def test_route_tableau_exports_include_route_alternatives_segments_and_context(t
     user_id_hash = public_user_hash(client.cookies.get("mca_session"))
     assert user_id_hash is not None
 
-    ingest = client.post("/crime/ingest/sample")
+    ingest = client.post("/internal/crime/ingest/sample")
     assert ingest.status_code == 200
 
     route_response = client.post(

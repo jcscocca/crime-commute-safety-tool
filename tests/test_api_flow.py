@@ -42,12 +42,12 @@ def test_demo_api_flow_upload_normalize_crime_summarize_and_export(tmp_path):
     assert places.json()["count"] == 1
     assert places.json()["places"][0]["display_label"] == "Recurring Cafe"
 
-    ingest = client.post("/crime/ingest/sample")
+    ingest = client.post("/internal/crime/ingest/sample")
     assert ingest.status_code == 200
     assert ingest.json()["inserted_count"] == 3
 
     summarize = client.post(
-        "/crime/summarize",
+        "/internal/crime/summarize",
         headers=headers,
         json={
             "analysis_start_date": "2024-01-01",
