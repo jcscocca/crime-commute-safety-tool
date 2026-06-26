@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     raw_upload_retention: bool = False
     localagent_base_url: str = "http://127.0.0.1:8010"
     assistant_role: str = "waypoint_analyst"
+    llm_base_url: str = "http://127.0.0.1:8080/v1"
+    llm_model: str = "gemma-4-26b-a4b-it-ud-q4-k-m-ctx32k"
     assistant_max_tool_calls: int = 2
 
     @property

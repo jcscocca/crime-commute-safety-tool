@@ -54,6 +54,48 @@ class LocalAgentClient:
             raise LocalAgentUnavailable(f"LocalAgent unavailable: {exc}") from exc
 
 
+class OpenAiLlmClient:
+    def __init__(self, base_url: str, model: str, timeout_s: float = 120.0) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.model = model
+        self.timeout_s = timeout_s
+
+    async def complete(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        role: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> str:
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": False,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_s) as client:
+                response = await client.post(f"{self.base_url}/chat/completions", json=payload)
+                response.raise_for_status()
+                data = response.json()
+        except httpx.HTTPError as exc:
+            raise LocalAgentUnavailable(f"LLM endpoint unavailable: {exc}") from exc
+        try:
+            content = data["choices"][0]["message"].get("content")
+        except (KeyError, IndexError, TypeError) as exc:
+            raise LocalAgentUnavailable(
+                "LLM endpoint returned an unexpected response shape."
+            ) from exc
+        if not content or not content.strip():
+            raise LocalAgentUnavailable(
+                "LLM returned empty content (a reasoning model may have spent the token "
+                "budget on reasoning_content — raise max_tokens or use an instruct model)."
+            )
+        return content
+
+
 async def _collect_sse_text(response: httpx.Response) -> str:
     event_name: str | None = None
     data_lines: list[str] = []
