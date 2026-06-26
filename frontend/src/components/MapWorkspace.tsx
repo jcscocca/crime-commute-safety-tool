@@ -381,7 +381,6 @@ export function MapWorkspace() {
             <AnalyzeTab
               selected={selected}
               analysis={analysis}
-              summary={summary}
               availableRadii={availableRadii}
               running={analyzing}
               incidentDetails={incidentDetails}
