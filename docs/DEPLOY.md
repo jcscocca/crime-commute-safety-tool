@@ -1,0 +1,77 @@
+# Deploying Waypoint for a small internal trial (~5 testers)
+
+This runs the whole app — FastAPI API **and** the built React UI — in one container,
+with Postgres alongside, via `docker compose`. Each tester's browser gets its own
+isolated session (signed cookie → per-user data); the UI only calls session-scoped
+endpoints, so testers can't see each other's places.
+
+## 1. Generate secrets
+
+The committed `docker-compose.yml` ships with `local-*` placeholder secrets that are
+public in the repo. A shared instance **must** override them, or session cookies are
+forgeable. `MCA_ENVIRONMENT=production` makes the app refuse to boot on the defaults,
+so this is enforced, not just advised.
+
+```bash
+cp .env.deploy.example .env.deploy
+# fill in MCA_SESSION_SECRET / MCA_USER_HASH_SALT with `openssl rand -hex 32`
+# and MCA_ADMIN_INGEST_TOKEN with `openssl rand -hex 24`
+```
+
+`.env.deploy` is gitignored — keep it off the repo.
+
+## 2. Bring it up
+
+```bash
+docker compose --env-file .env.deploy up -d --build
+```
+
+- API + UI on **http://<host>:8000** (the UI is served at `/`).
+- `alembic upgrade head` runs on start (creates the schema, incl. `analysis_runs`).
+- Postgres data persists in the `mca-postgres` Docker volume across restarts.
+
+## 3. Load 2018+ crime data
+
+Beat-area reference data ships inside the image; crime incidents are ingested at
+runtime from Seattle's open data. Pull ~2018-onward incidents (newest first) — adjust
+the page count for how much you want (each page ≈ 5,000 incidents):
+
+```bash
+TOKEN=$(grep '^MCA_ADMIN_INGEST_TOKEN=' .env.deploy | cut -d= -f2)
+for offset in 0 5000 10000 15000 20000 25000; do
+  curl -fsS -X POST -H "X-Admin-Token: $TOKEN" \
+    "http://localhost:8000/admin/crime/ingest/socrata?start_date=2018-01-01&limit=5000&offset=$offset" \
+    && echo " ingested offset $offset"
+  sleep 1
+done
+```
+
+> If the ingest fails with a TLS/certificate error, the slim image is missing CA roots —
+> add `RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates`
+> to the `python:3.11-slim` stage of the `Dockerfile` and rebuild.
+
+## 4. Share with testers
+
+Give the five testers `http://<host>:8000`. Nothing else to set up per user — a session
+is created automatically on first load.
+
+## Notes / hardening
+
+- **HTTPS:** for an internal HTTP trial, `MCA_SESSION_COOKIE_SECURE=false` is fine
+  (set in `.env.deploy`). If you put it behind a TLS proxy (recommended), set it to
+  `true` so cookies are only sent over HTTPS.
+- **Postgres:** `docker-compose.yml` publishes `5432` and uses the `mca/mca` dev
+  password — fine on a trusted internal host. If the instance is internet-reachable,
+  drop the `db` `ports:` mapping (the API reaches Postgres over the compose network)
+  and set a real DB password.
+- **Open API surface:** a few non-`/internal/` endpoints (`/imports*`, `/analysis*`,
+  `/routes*`, one `/crime`) still accept an unauthenticated demo identity. The UI never
+  calls them, so this is not a tester-to-tester leak, but lock them down (roadmap WS5)
+  before any public exposure.
+
+## Stop / reset
+
+```bash
+docker compose down            # stop; keeps the Postgres volume (data survives)
+docker compose down -v         # stop AND wipe the database volume
+```
