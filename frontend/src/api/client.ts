@@ -179,8 +179,10 @@ function emitAssistantEvent(block: string, onEvent: (event: AssistantStreamEvent
     try {
       data = JSON.parse(dataLines.join("\n"));
     } catch {
-      // Skip a malformed frame rather than aborting the rest of the stream.
-      return;
+      // Skip a malformed token frame rather than aborting the rest of the stream, but
+      // never drop a terminal frame: surface error/done with empty data so the user is
+      // not left with neither an answer nor an error.
+      if (eventName !== "error" && eventName !== "done") return;
     }
   }
   onEvent({ event: eventName, data } as AssistantStreamEvent);
