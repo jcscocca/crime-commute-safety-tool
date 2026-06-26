@@ -4,14 +4,15 @@ from datetime import UTC, date, datetime, time
 from math import cos, radians
 from typing import Any
 
-from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.analysis.schemas import AnalysisSiteOption
 from app.crime.summaries import summarize_place_crime
-from app.models import CrimeIncident, PlaceCluster, PlaceCrimeSummary
+from app.models import CrimeIncident, PlaceCluster
 from app.normalization.geo import haversine_m
 from app.schemas import CrimeIncidentData, PlaceClusterData
+from app.services.analysis_runs import create_analysis_run
 from app.services.analysis_service import compare_site_options
 from app.services.crime_service import _cluster_data, _incident_data, _summary_model
 
@@ -49,8 +50,20 @@ def analyze_selected_places(
         analysis_start_date=analysis_start_date,
         analysis_end_date=analysis_end_date,
     )
-    session.execute(delete(PlaceCrimeSummary).where(PlaceCrimeSummary.user_id_hash == user_id_hash))
-    session.add_all([_summary_model(summary) for summary in summaries])
+    run = create_analysis_run(
+        session,
+        user_id_hash=user_id_hash,
+        radii_m=radii_m,
+        analysis_start_date=analysis_start_date,
+        analysis_end_date=analysis_end_date,
+        offense_category=offense_category,
+        offense_subcategory=offense_subcategory,
+        nibrs_group=nibrs_group,
+    )
+    models = [_summary_model(summary) for summary in summaries]
+    for model in models:
+        model.analysis_run_id = run.id
+    session.add_all(models)
     session.commit()
     return {"summary_count": len(summaries)}
 
