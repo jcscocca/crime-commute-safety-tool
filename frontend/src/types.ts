@@ -132,3 +132,40 @@ export type AssistantStreamEvent =
   | { event: "token"; data: { delta?: string } }
   | { event: "done"; data: Record<string, unknown> }
   | { event: "error"; data: { message?: string } };
+
+export type NeighborhoodPlace = {
+  place_id: string;
+  place_label: string;
+  beat: string | null;
+  radius_m: number;
+  baseline_available: boolean;
+  decision: "above_clear" | "below_clear" | "not_clear" | "insufficient_data" | "model_warning" | "baseline_unavailable";
+  place_incident_count: number;
+  beat_incident_count?: number;
+  place_rate?: number;
+  beat_rate?: number;
+  rate_ratio?: number;
+  ci_lower?: number;
+  ci_upper?: number;
+  adjusted_p_value?: number;
+  method?: string;
+  overdispersion_status?: string;
+  minimum_data_status?: string;
+  nearest_incident_m?: number | null;
+  monthly_counts?: number[];
+  type_mix: { label: string; count: number }[];
+};
+
+export type NeighborhoodPair = {
+  a_place_id: string; a_label: string; b_place_id: string; b_label: string;
+  rate_ratio: number; ci_lower: number; ci_upper: number; adjusted_p_value: number;
+};
+
+export type NeighborhoodAnalysis = {
+  radius_m: number;
+  analysis_start_date: string;
+  analysis_end_date: string;
+  offense_category: string | null;
+  places: NeighborhoodPlace[];
+  pairwise: NeighborhoodPair[];
+};
