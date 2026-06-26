@@ -61,6 +61,19 @@ describe("BottomSheet", () => {
     }
   });
 
+  it("never marks both Default and Wide pressed when their clamped widths collide", () => {
+    setViewport(500); // drawerMax() == 360, so clampWidth(DEFAULT) === clampWidth(WIDE) === 360
+    try {
+      renderSheet({ widthPx: clampWidth(DRAWER_WIDE) });
+      // A segmented control must have a single active option; the shared clamped width
+      // reads as "default" rather than lighting up both buttons at once.
+      expect(screen.getByRole("button", { name: /default/i })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByRole("button", { name: /wide/i })).toHaveAttribute("aria-pressed", "false");
+    } finally {
+      setViewport(1024);
+    }
+  });
+
   it("marks Peek pressed when collapsed", () => {
     renderSheet({ collapsed: true });
     expect(screen.getByRole("button", { name: /peek/i })).toHaveAttribute("aria-pressed", "true");
