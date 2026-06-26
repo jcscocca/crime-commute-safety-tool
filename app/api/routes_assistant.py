@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import required_public_user_hash
 from app.assistant.agent import run_assistant_turn
-from app.assistant.localagent_client import LocalAgentClient
+from app.assistant.localagent_client import OpenAiLlmClient
 from app.assistant.schemas import AssistantChatRequest, AssistantStreamEvent
 from app.config import get_settings
 from app.db import get_session
@@ -25,7 +25,7 @@ async def assistant_chat(
     session: Annotated[Session, Depends(get_session)],
 ) -> StreamingResponse:
     settings = get_settings()
-    llm_client = LocalAgentClient(settings.localagent_base_url)
+    llm_client = OpenAiLlmClient(base_url=settings.llm_base_url, model=settings.llm_model)
 
     async def event_stream() -> AsyncIterator[str]:
         async for event in run_assistant_turn(

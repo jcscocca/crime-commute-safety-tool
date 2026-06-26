@@ -71,15 +71,25 @@ is created automatically on first load.
 
 ### Assistant
 
-The AI panel (chat assistant) calls a local model gateway on the **host** machine.
-Inside the container the host is reachable as `host.docker.internal` (added
-automatically via `extra_hosts` in `docker-compose.yml`).
+The AI panel (chat assistant) calls an **OpenAI-compatible** model gateway (e.g. a
+[llama-swap](https://github.com/mostlygeek/llama-swap) server) directly via
+`POST /v1/chat/completions`. The old LocalAgent `/api/llm/stream` gateway is no longer
+used.
 
-Set `MCA_LOCALAGENT_BASE_URL=http://host.docker.internal:8010` in `.env.deploy`
-(the example already includes this line) to point the container at the host's running
-LocalAgent/model stack. If that stack is not running, the assistant returns an error
-message but every other part of the app — maps, analysis, neighborhood, compare,
-exports — is completely unaffected.
+Set two variables in `.env.deploy`:
+
+```
+MCA_LLM_BASE_URL=http://10.0.0.76:8080/v1   # reachable from container (LAN IP or host.docker.internal:PORT)
+MCA_LLM_MODEL=gemma-4-26b-a4b-it-ud-q4-k-m-ctx32k
+```
+
+`127.0.0.1` will not work from inside the container — use a LAN IP or
+`host.docker.internal:PORT` (the `extra_hosts` mapping in `docker-compose.yml` makes
+`host.docker.internal` resolve to the Docker host's gateway).
+
+If the endpoint or model is unreachable the assistant returns an error message, but
+every other part of the app — maps, analysis, neighborhood, compare, exports — is
+completely unaffected.
 
 ## Stop / reset
 
