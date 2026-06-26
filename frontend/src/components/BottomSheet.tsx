@@ -90,7 +90,10 @@ export function BottomSheet({
     if (preset === "peek") return collapsed;
     if (collapsed) return false;
     if (preset === "default") return widthPx === clampWidth(DRAWER_DEFAULT);
-    return widthPx === clampWidth(DRAWER_WIDE);
+    // On narrow viewports clampWidth(WIDE) can equal clampWidth(DEFAULT); when they
+    // collide the shared width reads as "default", so the two presets are never both
+    // marked pressed (a segmented control must have a single active option).
+    return widthPx === clampWidth(DRAWER_WIDE) && clampWidth(DRAWER_WIDE) !== clampWidth(DRAWER_DEFAULT);
   }
 
   function onHandlePointerDown(event: PointerEvent<HTMLDivElement>) {
