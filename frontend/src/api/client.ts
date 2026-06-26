@@ -4,6 +4,7 @@ import type {
   AssistantStreamEvent,
   DashboardSummary,
   IncidentDetailsResponse,
+  NeighborhoodAnalysis,
   Place,
   PlaceCreate,
 } from "../types";
@@ -104,6 +105,15 @@ export function comparePlaces(
   payload: ComparePlacesPayload,
 ): Promise<Record<string, unknown>> {
   return request("/dashboard/compare", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getNeighborhoodAnalysis(
+  payload: AnalyzePlacesPayload,
+): Promise<NeighborhoodAnalysis> {
+  return request("/dashboard/neighborhood", {
     method: "POST",
     body: JSON.stringify(payload),
   });
