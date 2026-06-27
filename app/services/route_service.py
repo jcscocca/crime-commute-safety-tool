@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.analysis.schemas import RouteComparisonRequest
+from app.config import get_settings
 from app.models import (
     RouteAlternative,
     RouteContextSummary,
@@ -33,7 +34,11 @@ def create_route_alternatives(
 ) -> dict[str, object]:
     origin = resolve_route_place(request_payload.origin_label)
     destination = resolve_route_place(request_payload.destination_label)
-    routing_provider = get_routing_provider(request_payload.provider)
+    settings = get_settings()
+    provider_name = request_payload.provider or settings.routing_provider
+    routing_provider = get_routing_provider(
+        provider_name, opentripplanner_base_url=settings.opentripplanner_base_url
+    )
 
     route_request = RouteRequest(
         user_id_hash=user_id_hash,
@@ -55,7 +60,7 @@ def create_route_alternatives(
         time_window=request_payload.time_window,
         preferences_json=json.dumps(request_payload.preferences),
         privacy_level=request_payload.privacy_level,
-        provider=request_payload.provider,
+        provider=provider_name,
         status="ready",
         analysis_start_date=request_payload.analysis_start_date,
         analysis_end_date=request_payload.analysis_end_date,
@@ -75,7 +80,7 @@ def create_route_alternatives(
         time_window=request_payload.time_window,
         preferences=request_payload.preferences,
         privacy_level=request_payload.privacy_level,
-        provider=request_payload.provider,
+        provider=provider_name,
         status=route_request.status,
         created_at=route_request.created_at,
     )
