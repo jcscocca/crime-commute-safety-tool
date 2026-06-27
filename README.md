@@ -49,9 +49,10 @@ full-screen Leaflet map of Seattle, with a resizable side drawer organized into 
   offense types side by side at one radius.
 - **Export** — download the Tableau-ready place-summary CSV for the current session.
 
-The map uses CARTO Positron basemap tiles (OpenStreetMap data). Geocoding uses the public
-Nominatim service, which is rate-limited and intended for development; a production deployment
-should swap in a dedicated geocoding provider.
+The map uses CARTO Positron basemap tiles (OpenStreetMap data). Address search is served by the
+backend proxy `GET /dashboard/geocode` (session-required), which caches results and rate-limits
+the upstream. Production must set `MCA_GEOCODER_CONTACT_EMAIL` (an identifiable contact is
+required by Nominatim's usage policy). The browser never calls the geocoder directly.
 
 ## The Waypoint Analyst
 
