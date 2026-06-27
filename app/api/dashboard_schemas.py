@@ -37,3 +37,10 @@ class DashboardCompareRequest(BaseModel):
 
 class DashboardIncidentDetailsRequest(DashboardAnalyzeRequest):
     limit: int = Field(default=100, ge=1, le=500)
+
+
+class GeocodeResultSchema(BaseModel):
+    label: str
+    latitude: float
+    longitude: float
+    source: str
