@@ -15,6 +15,10 @@ class UnsupportedRoutingProviderError(ValueError):
     pass
 
 
+class RoutingProviderError(RuntimeError):
+    """A routing provider was reachable-in-principle but failed at request time."""
+
+
 def get_routing_provider(provider_name: str) -> RoutingProvider:
     if provider_name == "mock":
         return MockRoutingProvider()
