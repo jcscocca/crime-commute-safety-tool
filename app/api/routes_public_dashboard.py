@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from functools import lru_cache
 from typing import Annotated
 
@@ -11,14 +12,18 @@ from app.api.dashboard_schemas import (
     DashboardAnalyzeRequest,
     DashboardCompareRequest,
     DashboardIncidentDetailsRequest,
+    GeocodeResultSchema,
 )
 from app.api.deps import required_public_user_hash
+from app.config import get_settings
 from app.db import get_session
+from app.geocoding.providers import GeocodeProvider, GeocoderUpstreamError, build_provider
 from app.services.dashboard_analysis_service import (
     analyze_selected_places,
     compare_selected_places,
     incident_details_for_places,
 )
+from app.services.geocoding_service import search_addresses
 from app.services.neighborhood_service import neighborhood_analysis_for_places
 
 router = APIRouter()
@@ -117,3 +122,21 @@ def dashboard_neighborhood(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def get_geocode_provider() -> GeocodeProvider:
+    return build_provider(get_settings())
+
+
+@router.get("/dashboard/geocode")
+def dashboard_geocode(
+    q: str,
+    user_id_hash: Annotated[str, Depends(required_public_user_hash)],
+    session: Annotated[Session, Depends(get_session)],
+    provider: Annotated[GeocodeProvider, Depends(get_geocode_provider)],
+) -> list[GeocodeResultSchema]:
+    try:
+        hits = search_addresses(session, get_settings(), q, provider=provider)
+    except GeocoderUpstreamError as exc:
+        raise HTTPException(status_code=502, detail="Geocoding upstream unavailable.") from exc
+    return [GeocodeResultSchema(**asdict(hit)) for hit in hits]
