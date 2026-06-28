@@ -13,6 +13,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# ca-certificates so outbound HTTPS (e.g. the Socrata ingest via urllib) can verify TLS;
+# the python:slim base ships without it, which otherwise fails CERTIFICATE_VERIFY_FAILED.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY pyproject.toml README.md ./
 COPY app ./app
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir .

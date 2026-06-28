@@ -104,6 +104,12 @@ is created automatically on first load.
   tester-to-tester leak, but lock them down before any internet exposure. The public
   endpoints the UI uses (`/places`, `/dashboard/*`, `/routes*`, `/uploads`, `/exports/*`)
   all require a real session.
+- **Schema is Alembic-owned in production.** The container runs `alembic upgrade head`
+  on start (the Docker `CMD`); the app no longer also runs `create_all` against Postgres
+  (it only does so for local SQLite dev). If you have a pre-existing Postgres deploy whose
+  schema was created by the old `create_all` path, run a one-time
+  `docker compose exec api alembic stamp head` so Alembic knows the current revision before
+  the next `alembic upgrade head`.
 
 ### Assistant
 
@@ -264,3 +270,26 @@ rebuild with `--build --save`, then `docker restart otp`.
 docker compose down            # stop; keeps the Postgres volume (data survives)
 docker compose down -v         # stop AND wipe the database volume
 ```
+
+## Backup / restore
+
+The database lives in the named volume `mca-postgres`. Back it up with a logical dump
+(safe while the stack is running):
+
+```bash
+# Backup -> a timestamped SQL file on the host
+docker compose exec -T db pg_dump -U mca -d mca > "waypoint-$(date +%Y%m%d).sql"
+
+# Restore into a fresh/empty database (wipe first if needed: docker compose down -v && docker compose up -d db)
+cat waypoint-YYYYMMDD.sql | docker compose exec -T db psql -U mca -d mca
+```
+
+For a binary, parallel-restorable dump use custom format instead:
+
+```bash
+docker compose exec -T db pg_dump -U mca -d mca -Fc > waypoint.dump
+docker compose exec -T db pg_restore -U mca -d mca --clean --if-exists < waypoint.dump
+```
+
+Keep dumps off-host. A daily `pg_dump` via cron/systemd-timer on the ThinkPad is enough
+for the trial; restore is the two commands above against a fresh volume.
