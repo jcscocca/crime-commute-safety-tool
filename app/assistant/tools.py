@@ -247,6 +247,10 @@ def execute_tool(
     tool_name: str,
     arguments: dict[str, Any],
 ) -> dict[str, Any]:
+    # The agent-advertised menu (semantic_layer.AVAILABLE_TOOLS) is the six PoC tools.
+    # The run_place_analysis / get_neighborhood_analysis / get_incident_details branches below
+    # are intentionally retained-but-unadvertised: analyze_places folds them in for the agent,
+    # while the granular branches stay callable for existing tests and non-agent paths.
     try:
         if tool_name == "get_dashboard_summary":
             EmptyArgs.model_validate(arguments)
