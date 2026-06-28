@@ -50,15 +50,14 @@ relaunch it.
 #    Confirm it serves (wait for "Grizzly server running"): http://localhost:8090/graphiql
 ```
 
-> If `otp_thinkpad_setup.ps1` throws parser/encoding errors under **Windows PowerShell 5.1**
-> ("Unexpected token", "the string is missing the terminator"), run it with `pwsh` (PowerShell 7),
-> or start OTP directly — equivalent, since the graph is already built:
+> The script is **Windows PowerShell 5.1–safe as of #53** (parses clean under 5.1). If you ever hit
+> a parser/encoding error on an older checkout, run it with `pwsh` (PowerShell 7), or start OTP
+> directly — equivalent, since the graph is already built:
 > ```powershell
 > docker run -d --name otp --restart unless-stopped -p 8090:8080 `
 >   -e "JAVA_TOOL_OPTIONS=-Xmx8g" -v "C:\otp:/var/opentripplanner" `
 >   docker.io/opentripplanner/opentripplanner:2.7.0 --load --serve
 > ```
-> (A fix making the script 5.1-safe is in flight.)
 
 ```powershell
 # 2. Analyst LLM: start llama-swap on :8080. Bind 0.0.0.0 so the Waypoint container can reach it
