@@ -189,3 +189,20 @@ def test_add_place_geocodes_and_creates(tmp_path, monkeypatch):
     assert payload["place"]["display_label"] == "Pike Place Market"
     assert payload["address"] == "Pike Place Market, Seattle"
 
+
+def test_select_places_resolves_and_passes_mode(tmp_path, monkeypatch):
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    monkeypatch.setattr(
+        "app.assistant.tools.build_provider",
+        lambda settings: _FakeProvider([]),  # "Library stop" already exists, no geocode needed
+    )
+    try:
+        result = execute_tool(
+            session, user_hash, "select_places", {"queries": ["Library stop"], "mode": "replace"}
+        )
+    finally:
+        session.close()
+    assert result["tool_name"] == "select_places"
+    assert result["result"]["place_ids"] == ["place-1"]
+    assert result["result"]["mode"] == "replace"
+

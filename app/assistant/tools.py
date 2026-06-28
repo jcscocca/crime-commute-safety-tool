@@ -82,6 +82,22 @@ class ComparePlacesByNameArgs(BaseModel):
     nibrs_group: str | None = None
 
 
+def _select_places(
+    session: Session, user_id_hash: str, queries: list[str], mode: str
+) -> dict[str, Any]:
+    normalized_mode = mode if mode in {"replace", "add", "clear"} else "replace"
+    if normalized_mode == "clear":
+        return {"place_ids": [], "mode": "clear", "created": [], "unresolved": []}
+    provider = build_provider(get_settings())
+    resolved = resolve_place_queries(session, user_id_hash, queries, provider)
+    return {
+        "place_ids": resolved.place_ids,
+        "mode": normalized_mode,
+        "created": resolved.created,
+        "unresolved": resolved.unresolved,
+    }
+
+
 def _add_place(session: Session, user_id_hash: str, query: str) -> dict[str, Any]:
     provider = build_provider(get_settings())
     resolved = resolve_place_queries(session, user_id_hash, [query], provider)
@@ -185,6 +201,10 @@ def execute_tool(
         elif tool_name == "add_place":
             args = AddPlaceArgs.model_validate(arguments)
             result = _add_place(session, user_id_hash, args.query)
+            validated_arguments = args.model_dump(mode="json")
+        elif tool_name == "select_places":
+            args = SelectPlacesArgs.model_validate(arguments)
+            result = _select_places(session, user_id_hash, args.queries, args.mode)
             validated_arguments = args.model_dump(mode="json")
         else:
             raise AssistantToolError(f"Unknown assistant tool: {tool_name}")
