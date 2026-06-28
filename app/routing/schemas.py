@@ -29,7 +29,7 @@ class RouteEndpoint(BaseModel):
     label: str | None = None
 
     @model_validator(mode="after")
-    def _exactly_one_source(self) -> "RouteEndpoint":
+    def _exactly_one_source(self) -> RouteEndpoint:
         has_place = self.place_id is not None
         has_coords = self.latitude is not None and self.longitude is not None
         if (self.latitude is None) != (self.longitude is None):
@@ -48,7 +48,9 @@ class RouteRequestCreate(BaseModel):
     destination: RouteEndpoint | None = None
     mode: SupportedRouteMode = "transit"
     departure_date: date | None = None
-    departure_time: str | None = Field(default=None, pattern=r"^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$")
+    departure_time: str | None = Field(
+        default=None, pattern=r"^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$"
+    )
     time_window: str | None = None
     preferences: list[str] = Field(default_factory=list)
     privacy_level: SupportedRoutePrivacyLevel = "generalized"

@@ -34,5 +34,7 @@ def get_routing_provider(
             )
         from app.routing.opentripplanner_provider import OpenTripPlannerProvider
 
-        return OpenTripPlannerProvider(opentripplanner_base_url, timeout_s=opentripplanner_timeout_s)
+        return OpenTripPlannerProvider(
+            opentripplanner_base_url, timeout_s=opentripplanner_timeout_s
+        )
     raise UnsupportedRoutingProviderError(f"Unsupported routing provider: {provider_name}")

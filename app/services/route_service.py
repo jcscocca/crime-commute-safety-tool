@@ -33,7 +33,7 @@ from app.services.place_service import get_place
 def _resolve_endpoint(
     session: Session,
     user_id_hash: str,
-    endpoint: "RouteEndpoint | None",
+    endpoint: RouteEndpoint | None,
     label: str | None,
 ) -> RouteLocation:
     if endpoint is not None and endpoint.place_id is not None:
@@ -68,7 +68,9 @@ def create_route_alternatives(
     *,
     allow_provider_override: bool = False,
 ) -> dict[str, object]:
-    origin = _resolve_endpoint(session, user_id_hash, request_payload.origin, request_payload.origin_label)
+    origin = _resolve_endpoint(
+        session, user_id_hash, request_payload.origin, request_payload.origin_label
+    )
     destination = _resolve_endpoint(
         session, user_id_hash, request_payload.destination, request_payload.destination_label
     )

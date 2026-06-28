@@ -36,12 +36,17 @@ def test_route_endpoint_accepts_coordinates():
     assert (endpoint.latitude, endpoint.longitude, endpoint.label) == (47.6, -122.3, "Pin")
 
 
-_ANALYSIS = {"analysis_start_date": "2024-01-01", "analysis_end_date": "2024-01-31", "radii_m": [500]}
+_ANALYSIS = {
+    "analysis_start_date": "2024-01-01",
+    "analysis_end_date": "2024-01-31",
+    "radii_m": [500],
+}
 
 
 def _make_place(client, label, lat, lon):
     return client.post(
-        "/places", json={"display_label": label, "latitude": lat, "longitude": lon, "visit_count": 1}
+        "/places",
+        json={"display_label": label, "latitude": lat, "longitude": lon, "visit_count": 1},
     ).json()
 
 
