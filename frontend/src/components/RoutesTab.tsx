@@ -193,8 +193,10 @@ export function RoutesTab({ analysis, running, result, error, places, geocodeSea
                 <p className="mc-verdict-label">{result.statistical_comparison.overview.summary_text}</p>
                 <p className="mc-verdict-sub">{result.statistical_comparison.overview.caveat_text}</p>
               </section>
-            ) : (
+            ) : result.alternatives.length === 1 ? (
               <p className="mc-empty-list">One route option — nothing to compare. Reported-incident context for the corridor is below.</p>
+            ) : (
+              <p className="mc-empty-list">{result.alternatives.length} route options below — not enough reported-incident context to rank them. Context for each corridor is shown per option.</p>
             )}
 
             {result.alternatives.map((alt) => {

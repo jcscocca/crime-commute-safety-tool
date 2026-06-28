@@ -30,6 +30,8 @@ const twoAlt: RouteComparison = {
 
 const oneAlt: RouteComparison = { ...twoAlt, alternatives: [twoAlt.alternatives[0]], statistical_comparison: null };
 const noAlt: RouteComparison = { ...twoAlt, alternatives: [], context_summaries: [], statistical_comparison: null };
+// Multiple alternatives but no statistical verdict (e.g. no incident data to rank them).
+const twoAltNoVerdict: RouteComparison = { ...twoAlt, statistical_comparison: null };
 
 afterEach(cleanup);
 
@@ -44,6 +46,16 @@ describe("RoutesTab", () => {
   it("omits the verdict for a single route", () => {
     render(<RoutesTab analysis={analysis} running={false} result={oneAlt} places={places} geocodeSearch={vi.fn()} onRun={vi.fn()} />);
     expect(screen.getByText(/nothing to compare/i)).toBeInTheDocument();
+  });
+
+  it("does not claim a single option when multiple routes lack a verdict", () => {
+    render(<RoutesTab analysis={analysis} running={false} result={twoAltNoVerdict} places={places} geocodeSearch={vi.fn()} onRun={vi.fn()} />);
+    // Both routes still render...
+    expect(screen.getByText("Link light rail via Westlake")).toBeInTheDocument();
+    expect(screen.getByText("Pine Street bus")).toBeInTheDocument();
+    // ...so the single-option copy would be a lie.
+    expect(screen.queryByText(/one route option/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/nothing to compare/i)).not.toBeInTheDocument();
   });
 
   it("shows a no-route message when there are zero alternatives", () => {
