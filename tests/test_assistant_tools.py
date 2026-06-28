@@ -230,4 +230,6 @@ def test_analyze_places_bundles_neighborhood_and_incidents(tmp_path):
     assert payload["analysis"]["summary_count"] >= 1
     assert payload["neighborhood"]["places"][0]["beat"] == "M3"
     assert "incidents" in payload
+    assert payload["created"] == []
+    assert payload["unresolved"] == []
 

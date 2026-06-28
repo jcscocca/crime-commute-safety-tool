@@ -141,6 +141,8 @@ def _settings_used(
         "analysis_start_date": args.analysis_start_date.isoformat(),
         "analysis_end_date": args.analysis_end_date.isoformat(),
         "offense_category": args.offense_category,
+        "offense_subcategory": args.offense_subcategory,
+        "nibrs_group": args.nibrs_group,
     }
 
 
