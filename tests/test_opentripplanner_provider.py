@@ -125,3 +125,12 @@ def test_get_routes_wraps_bad_shape():
 
     with pytest.raises(RoutingProviderError):
         _provider(handler).get_routes(_request())
+
+
+def test_get_routing_provider_passes_timeout():
+    from app.routing.providers import get_routing_provider
+
+    provider = get_routing_provider(
+        "opentripplanner", opentripplanner_base_url="http://otp", opentripplanner_timeout_s=3.5
+    )
+    assert provider.timeout_s == 3.5

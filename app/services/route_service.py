@@ -76,7 +76,9 @@ def create_route_alternatives(
     requested_provider = request_payload.provider if allow_provider_override else None
     provider_name = requested_provider or settings.routing_provider
     routing_provider = get_routing_provider(
-        provider_name, opentripplanner_base_url=settings.opentripplanner_base_url
+        provider_name,
+        opentripplanner_base_url=settings.opentripplanner_base_url,
+        opentripplanner_timeout_s=settings.opentripplanner_timeout_s,
     )
 
     route_request = RouteRequest(
