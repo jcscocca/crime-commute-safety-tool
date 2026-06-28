@@ -56,6 +56,11 @@ describe("interpretToolResult", () => {
       .toEqual({ selection: { mode: "clear", ids: [] } });
   });
 
+  it("returns null when add_place result lacks a place id", () => {
+    expect(interpretToolResult({ tool_name: "add_place", result: {} })).toBeNull();
+    expect(interpretToolResult({ tool_name: "add_place", result: { place: {} } })).toBeNull();
+  });
+
   it("returns null for read-only or unknown tools", () => {
     expect(interpretToolResult({ tool_name: "get_dashboard_summary", result: {} })).toBeNull();
     expect(interpretToolResult({ tool_name: "mystery", result: {} })).toBeNull();

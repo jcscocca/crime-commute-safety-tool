@@ -31,7 +31,7 @@ export function interpretToolResult(data: {
   switch (data.tool_name) {
     case "compare_places":
       return {
-        selection: { mode: "replace", ids: (result.place_ids as string[]) ?? [] },
+        selection: { mode: "replace", ids: Array.isArray(result.place_ids) ? (result.place_ids as string[]) : [] },
         settings: settingsFrom(result.settings_used as SettingsUsed),
         comparison: (result.comparison as Record<string, unknown>) ?? null,
         refetchSummary: true,
@@ -39,7 +39,7 @@ export function interpretToolResult(data: {
       };
     case "analyze_places":
       return {
-        selection: { mode: "replace", ids: (result.place_ids as string[]) ?? [] },
+        selection: { mode: "replace", ids: Array.isArray(result.place_ids) ? (result.place_ids as string[]) : [] },
         settings: settingsFrom(result.settings_used as SettingsUsed),
         neighborhood: (result.neighborhood as NeighborhoodAnalysis) ?? null,
         incidents: (result.incidents as IncidentDetailsResponse) ?? null,
@@ -51,13 +51,17 @@ export function interpretToolResult(data: {
       if (!place.id) return null;
       return { selection: { mode: "add", ids: [place.id] }, refetchSummary: true };
     }
-    case "select_places":
+    case "select_places": {
+      const rawMode = result.mode;
+      const mode: "replace" | "add" | "clear" =
+        rawMode === "add" || rawMode === "clear" ? rawMode : "replace";
       return {
         selection: {
-          mode: (result.mode as "replace" | "add" | "clear") ?? "replace",
-          ids: (result.place_ids as string[]) ?? [],
+          mode,
+          ids: Array.isArray(result.place_ids) ? (result.place_ids as string[]) : [],
         },
       };
+    }
     default:
       return null;
   }
