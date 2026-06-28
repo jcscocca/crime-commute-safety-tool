@@ -103,6 +103,19 @@ def test_route_still_accepts_legacy_labels(tmp_path):
     assert len(resp.json()["alternatives"]) >= 2
 
 
+def test_public_route_ignores_client_provider_override(tmp_path):
+    client = _client(tmp_path)
+    client.post("/sessions")
+    # Server default is mock. If the client's "otp" override were honored it would 400.
+    resp = client.post(
+        "/routes/alternatives",
+        json={"origin_label": "Capitol Hill", "destination_label": "Downtown Seattle",
+              "mode": "transit", "provider": "otp", **_ANALYSIS},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["request"]["provider"] == "mock"
+
+
 def test_response_omits_precise_endpoint_coordinates(tmp_path):
     client = _client(tmp_path)
     client.post("/sessions")

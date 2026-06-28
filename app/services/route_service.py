@@ -65,13 +65,16 @@ def create_route_alternatives(
     session: Session,
     request_payload: RouteRequestCreate,
     user_id_hash: str,
+    *,
+    allow_provider_override: bool = False,
 ) -> dict[str, object]:
     origin = _resolve_endpoint(session, user_id_hash, request_payload.origin, request_payload.origin_label)
     destination = _resolve_endpoint(
         session, user_id_hash, request_payload.destination, request_payload.destination_label
     )
     settings = get_settings()
-    provider_name = request_payload.provider or settings.routing_provider
+    requested_provider = request_payload.provider if allow_provider_override else None
+    provider_name = requested_provider or settings.routing_provider
     routing_provider = get_routing_provider(
         provider_name, opentripplanner_base_url=settings.opentripplanner_base_url
     )
