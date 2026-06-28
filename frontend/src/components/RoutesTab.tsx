@@ -46,8 +46,8 @@ export function RoutesTab({ analysis, running, result, error, places, geocodeSea
       label: p.display_label,
       input: { place_id: p.id } as RouteEndpointInput,
     }));
-    const geoOptions = geoResults.map((g, i) => ({
-      key: `geo:${i}`,
+    const geoOptions = geoResults.map((g) => ({
+      key: `geo:${g.latitude},${g.longitude}`,
       label: g.label,
       input: { latitude: g.latitude, longitude: g.longitude, label: g.label } as RouteEndpointInput,
     }));
