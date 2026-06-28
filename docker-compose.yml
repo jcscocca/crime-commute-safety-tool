@@ -31,6 +31,30 @@ services:
       MCA_ADMIN_INGEST_TOKEN: ${MCA_ADMIN_INGEST_TOKEN:-local-admin-token}
       MCA_LLM_BASE_URL: ${MCA_LLM_BASE_URL:-http://127.0.0.1:8080/v1}
       MCA_LLM_MODEL: ${MCA_LLM_MODEL:-gemma-4-26b-a4b-it-ud-q4-k-m-ctx32k}
+      # Assistant failover (used only when both fallback vars are set).
+      MCA_LLM_FALLBACK_BASE_URL: ${MCA_LLM_FALLBACK_BASE_URL:-}
+      MCA_LLM_FALLBACK_MODEL: ${MCA_LLM_FALLBACK_MODEL:-}
+      MCA_LLM_DISABLE_THINKING: "${MCA_LLM_DISABLE_THINKING:-false}"
+      MCA_LLM_FALLBACK_DISABLE_THINKING: "${MCA_LLM_FALLBACK_DISABLE_THINKING:-false}"
+      # Personal-upload retention (keep-only-clusters when false).
+      MCA_RAW_UPLOAD_RETENTION: "${MCA_RAW_UPLOAD_RETENTION:-false}"
+      # Crime ingest (Socrata) — optional app token.
+      SOCRATA_APP_TOKEN: ${SOCRATA_APP_TOKEN:-}
+      # Live routing via the optional `otp` service (profile: otp); in-network at
+      # http://otp:8080/otp/gtfs/v1. Defaults to the mock provider for local dev.
+      MCA_ROUTING_PROVIDER: ${MCA_ROUTING_PROVIDER:-mock}
+      MCA_OPENTRIPPLANNER_BASE_URL: ${MCA_OPENTRIPPLANNER_BASE_URL:-}
+      MCA_OPENTRIPPLANNER_TIMEOUT_S: "${MCA_OPENTRIPPLANNER_TIMEOUT_S:-10.0}"
+      # Geocoding — contact email is REQUIRED when MCA_ENVIRONMENT=production (the app
+      # refuses to boot otherwise), so these must reach the container.
+      MCA_GEOCODER_PROVIDER: ${MCA_GEOCODER_PROVIDER:-nominatim}
+      MCA_GEOCODER_BASE_URL: ${MCA_GEOCODER_BASE_URL:-https://nominatim.openstreetmap.org/search}
+      MCA_GEOCODER_USER_AGENT: ${MCA_GEOCODER_USER_AGENT:-Waypoint/0.1}
+      MCA_GEOCODER_CONTACT_EMAIL: ${MCA_GEOCODER_CONTACT_EMAIL:-}
+      MCA_GEOCODER_CACHE_TTL_DAYS: "${MCA_GEOCODER_CACHE_TTL_DAYS:-30}"
+      MCA_GEOCODER_MAX_RESULTS: "${MCA_GEOCODER_MAX_RESULTS:-5}"
+      MCA_GEOCODER_TIMEOUT_S: "${MCA_GEOCODER_TIMEOUT_S:-5.0}"
+      MCA_GEOCODER_MIN_INTERVAL_S: "${MCA_GEOCODER_MIN_INTERVAL_S:-1.0}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
