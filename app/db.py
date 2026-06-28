@@ -60,4 +60,11 @@ def get_session() -> Iterator[Session]:
 def init_db() -> None:
     from app import models  # noqa: F401
 
-    Base.metadata.create_all(bind=get_engine())
+    engine = get_engine()
+    # Dev/test (SQLite) bootstraps the schema with create_all. Production (Postgres) schema
+    # is owned by Alembic (`alembic upgrade head` in the Docker CMD / `make migrate`), so we
+    # do NOT also run create_all there — that would race migrations and leave alembic_version
+    # unstamped, masking migration drift. (Existing Postgres deploys created via the old
+    # create_all path need a one-time `alembic stamp head`; see docs/DEPLOY.md.)
+    if engine.url.get_backend_name() == "sqlite":
+        Base.metadata.create_all(bind=engine)

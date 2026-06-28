@@ -1,6 +1,8 @@
 services:
   db:
-    image: postgis/postgis:16-3.4
+    # Plain postgres: the schema uses no PostGIS/spatial types (all geometry is stored as
+    # text and distance math runs in Python), so the postgis image was unused weight.
+    image: postgres:16
     environment:
       POSTGRES_DB: mca
       POSTGRES_USER: mca
@@ -33,6 +35,14 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      # /health is a readiness probe (pings the DB); start_period covers migrate + boot.
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       db:
         condition: service_healthy
