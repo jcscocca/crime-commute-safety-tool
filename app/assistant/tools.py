@@ -89,6 +89,8 @@ def _add_place(session: Session, user_id_hash: str, query: str) -> dict[str, Any
         raise AssistantToolError(f"Could not find a place for '{query}'.")
     place_id = resolved.place_ids[0]
     place = session.get(PlaceCluster, place_id)
+    if place is None:
+        raise AssistantToolError(f"Place '{place_id}' was not found after resolution.")
     was_created = any(entry["place_id"] == place_id for entry in resolved.created)
     address = next(
         (entry["address"] for entry in resolved.created if entry["place_id"] == place_id),
