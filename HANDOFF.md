@@ -1,9 +1,10 @@
-# Handoff: run the full Waypoint stack on the ThinkPad
+# Handoff: run the full Waypoint stack on the ThinkPad (used from the Mac's browser)
 
 This is a deployment handoff for a Claude Code session running **on the Windows ThinkPad**.
-Goal: bring up the **entire Waypoint stack on this one machine** — the app, the analyst LLM,
-and OpenTripPlanner (OTP) routing — and verify it end-to-end. Everything stays local to the
-ThinkPad; the Mac is intentionally out of the deployment.
+Goal: bring up the **entire Waypoint stack on this one machine** — the app (UI + API), Postgres,
+the analyst LLM, and OpenTripPlanner (OTP) routing — expose it on the LAN, and verify it
+end-to-end. The **Mac is only a browser**: you use the app by visiting `http://<THINKPAD_IP>:8000`
+from it, like any website. Nothing is served from or installed on the Mac.
 
 ## Read first
 
@@ -47,20 +48,52 @@ MCA_LLM_BASE_URL=http://host.docker.internal:8080/v1
 MCA_LLM_MODEL=gemma-4-26b-a4b-it-ud-q4-k-m-ctx32k
 MCA_ROUTING_PROVIDER=opentripplanner
 MCA_OPENTRIPPLANNER_BASE_URL=http://host.docker.internal:8090/otp/gtfs/v1
+MCA_SESSION_COOKIE_SECURE=false
 ```
 
+`MCA_SESSION_COOKIE_SECURE=false` is **required** here (and keep `MCA_ENVIRONMENT` non-prod): the
+Mac reaches this over **plain HTTP at a non-localhost IP**, so a `Secure` session cookie would be
+dropped by the browser and every login would silently fail. (The cookie is `SameSite=Lax`, which
+is fine — the page and its API calls share one origin, so requests are same-site.)
+
 ```powershell
-# 3. Waypoint: API + UI + Postgres on :8000.
+# 3. Waypoint: API + UI + Postgres on :8000 (the container binds 0.0.0.0, so it's LAN-reachable).
 docker compose --env-file .env.deploy up -d --build
 ```
 
-Then load crime data (the Socrata `for offset` loop in `docs/DEPLOY.md` step 3) and open
-`http://localhost:8000`. If `host.docker.internal` doesn't resolve from the container,
+Then load crime data (the Socrata `for offset` loop in `docs/DEPLOY.md` step 3) and smoke-test
+locally at `http://localhost:8000`. If `host.docker.internal` doesn't resolve from the container,
 substitute the ThinkPad's LAN IP (e.g. `http://10.0.0.76:8080/...`).
+
+```powershell
+# 4. Open the Windows firewall so the Mac can reach the app (elevated PowerShell).
+New-NetFirewallRule -DisplayName "Waypoint 8000" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow
+
+# 5. Print this ThinkPad's LAN IP — the address to type into the Mac's browser.
+(Get-NetIPAddress -AddressFamily IPv4 |
+  Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } |
+  Select-Object -First 1).IPAddress
+```
+
+## Use it from the Mac
+
+On the Mac, just open a browser to **`http://<THINKPAD_IP>:8000`** (the IP from step 5). That is
+the whole app — UI and API are served together from this ThinkPad on one origin, so it behaves
+like any website: no dev server, no proxy, nothing installed on the Mac. Because the page and its
+API calls share that origin, there is **no CORS and no cross-origin-cookie problem**; the only
+requirement is the non-`Secure` cookie from the env step above (plain HTTP).
+
+Quick check from the Mac before declaring victory: `curl http://<THINKPAD_IP>:8000/health` should
+return `{"status":"ok"}`. If the page loads but you can't get past the first screen, open browser
+devtools → Application → Cookies and confirm `mca_session` exists for `<THINKPAD_IP>` with **no**
+Secure flag.
 
 ## Success criteria — verify all three end-to-end
 
-1. **App** — the map + place analysis load at `http://localhost:8000`.
+From the Mac's browser at `http://<THINKPAD_IP>:8000` (or locally on the ThinkPad at
+`http://localhost:8000`):
+
+1. **App** — the map + place analysis load.
 2. **Analyst** — the chat panel answers a question (proves the `MCA_LLM_*` wiring to llama-swap).
 3. **Routing** — the **Routes** tab returns real route alternatives (proves OTP).
 
@@ -85,4 +118,6 @@ build` if `make` isn't available on Windows) before opening a PR.
 
 ## Constraint
 
-Keep the whole stack on this ThinkPad. Do not reintroduce the Mac into the runtime.
+The entire deployment runs on this ThinkPad — API, UI, Postgres, the analyst LLM, and OTP. The
+Mac is only a browser pointed at `http://<THINKPAD_IP>:8000`: a client, not part of the runtime.
+Don't run any Waypoint service on the Mac.
