@@ -31,6 +31,67 @@ function corridorContext(result: RouteComparison, alternativeId: string, radiusM
   return { count, nearest, types };
 }
 
+type LegContext = { label: string; count: number };
+
+// Break the corridor total into per-leg context. Each context summary is anchored at one of
+// the route's stops (context_label); group by that label so the user sees reported-incident
+// context near each leg's stops, not just the whole-corridor sum.
+function perLegContext(result: RouteComparison, alternativeId: string, radiusM: number): LegContext[] {
+  const byLabel = new Map<string, number>();
+  for (const row of result.context_summaries) {
+    if (row.route_alternative_id !== alternativeId || row.radius_m !== radiusM) continue;
+    const label = row.context_label?.trim();
+    if (!label) continue;
+    byLabel.set(label, (byLabel.get(label) ?? 0) + row.incident_count);
+  }
+  return [...byLabel.entries()].map(([label, count]) => ({ label, count }));
+}
+
+function EndpointChooser({
+  idBase,
+  label,
+  options,
+  selectedKey,
+  onSelect,
+}: {
+  idBase: string;
+  label: string;
+  options: EndpointOption[];
+  selectedKey: string;
+  onSelect: (key: string) => void;
+}) {
+  const selected = options.find((option) => option.key === selectedKey) ?? null;
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mc-field">
+      <label id={`${idBase}-label`}>{label}</label>
+      {selected && !open ? (
+        <div className="mc-chosen">
+          <span>{selected.label}</span>
+          <button type="button" className="mc-chip" onClick={() => setOpen(true)}>Change</button>
+        </div>
+      ) : options.length > 0 ? (
+        <ul className="mc-results" aria-label={`${label} options`}>
+          {options.map((option) => (
+            <li key={option.key}>
+              <button
+                type="button"
+                aria-pressed={option.key === selectedKey}
+                onClick={() => {
+                  onSelect(option.key);
+                  setOpen(false);
+                }}
+              >
+                <span className="mc-result-label">{option.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 export function RoutesTab({ analysis, running, result, error, places, geocodeSearch, onRun }: Props) {
   const [geoResults, setGeoResults] = useState<GeocodeResult[]>([]);
   const [query, setQuery] = useState("");
@@ -80,7 +141,7 @@ export function RoutesTab({ analysis, running, result, error, places, geocodeSea
       <div className="mc-querybar">
         <div className="mc-field">
           <label htmlFor="route-address">Find an address</label>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="mc-field-row">
             <input
               id="route-address"
               className="mc-inp"
@@ -94,20 +155,8 @@ export function RoutesTab({ analysis, running, result, error, places, geocodeSea
           </div>
           {searchError ? <p className="mc-inline-error" role="alert">{searchError}</p> : null}
         </div>
-        <div className="mc-field">
-          <label htmlFor="route-origin">From</label>
-          <select id="route-origin" className="mc-inp" value={originKey} onChange={(e) => setOriginKey(e.target.value)}>
-            <option value="">Select a place…</option>
-            {options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-          </select>
-        </div>
-        <div className="mc-field">
-          <label htmlFor="route-destination">To</label>
-          <select id="route-destination" className="mc-inp" value={destinationKey} onChange={(e) => setDestinationKey(e.target.value)}>
-            <option value="">Select a place…</option>
-            {options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-          </select>
-        </div>
+        <EndpointChooser idBase="route-origin" label="From" options={options} selectedKey={originKey} onSelect={setOriginKey} />
+        <EndpointChooser idBase="route-destination" label="To" options={options} selectedKey={destinationKey} onSelect={setDestinationKey} />
         <div className="mc-field">
           <label id="route-mode-label">Mode</label>
           <div className="mc-chips" role="group" aria-labelledby="route-mode-label">
@@ -150,6 +199,7 @@ export function RoutesTab({ analysis, running, result, error, places, geocodeSea
 
             {result.alternatives.map((alt) => {
               const ctx = corridorContext(result, alt.id, analysis.radiusM);
+              const legs = perLegContext(result, alt.id, analysis.radiusM);
               return (
                 <section key={alt.id} className={`mc-verdict${alt.id === recommendedId ? " tone-ok" : ""}`} aria-label={`Route ${alt.route_label}`}>
                   <div className="mc-verdict-head">
@@ -165,6 +215,16 @@ export function RoutesTab({ analysis, running, result, error, places, geocodeSea
                     {ctx.nearest != null ? ` · nearest ${Math.round(ctx.nearest)} m` : ""}
                     {ctx.types.length ? ` · ${ctx.types.join(", ")}` : ""}
                   </p>
+                  {legs.length > 1 ? (
+                    <ul className="mc-breakdown" aria-label="Reported incidents near each leg's stops">
+                      {legs.map((leg) => (
+                        <li key={leg.label} className="mc-breakdown-row">
+                          <span>{leg.label}</span>
+                          <span className="cnt">{leg.count} reported incident{leg.count === 1 ? "" : "s"}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </section>
               );
             })}
