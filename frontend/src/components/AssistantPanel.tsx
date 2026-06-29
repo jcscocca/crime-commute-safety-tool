@@ -21,15 +21,16 @@ export function AssistantPanel({ dashboardState, onToolResult }: Props) {
   const [draft, setDraft] = useState("");
   const [input, setInput] = useState("");
   const [toolActivity, setToolActivity] = useState<ToolActivity[]>([]);
-  const [offline, setOffline] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [sending, setSending] = useState(false);
 
   async function sendTurn(turnMessages: AssistantMessage[]) {
     let assistantText = "";
     let errored = false;
+    let turnError = "";
     setMessages(turnMessages);
     setDraft("");
-    setOffline(false);
+    setErrorMessage("");
     setToolActivity([]);
     setSending(true);
 
@@ -48,6 +49,7 @@ export function AssistantPanel({ dashboardState, onToolResult }: Props) {
               setDraft(assistantText);
             }
             if (event.event === "error") {
+              if (!errored) turnError = String(event.data.message ?? "").trim();
               errored = true;
             }
           },
@@ -59,10 +61,10 @@ export function AssistantPanel({ dashboardState, onToolResult }: Props) {
         setMessages([...turnMessages, { role: "assistant", content: assistantText.trim() }]);
       }
       setDraft("");
-      if (errored) setOffline(true);
+      if (errored) setErrorMessage(turnError || OFFLINE_MESSAGE);
     } catch {
       setDraft("");
-      setOffline(true);
+      setErrorMessage(OFFLINE_MESSAGE);
     } finally {
       setSending(false);
     }
@@ -111,9 +113,9 @@ export function AssistantPanel({ dashboardState, onToolResult }: Props) {
         </ul>
       ) : null}
 
-      {offline ? (
+      {errorMessage ? (
         <div className="mc-assistant-error" role="status">
-          <p>{OFFLINE_MESSAGE}</p>
+          <p>{errorMessage}</p>
           <button type="button" className="mc-chip" onClick={handleRetry} disabled={sending}>
             Retry
           </button>

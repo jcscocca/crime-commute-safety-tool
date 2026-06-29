@@ -93,23 +93,63 @@ describe("AssistantPanel", () => {
     expect(screen.queryByText(/compare_places/)).not.toBeInTheDocument();
   });
 
-  it("shows a friendly offline state with retry instead of the raw error", async () => {
+  it("shows the backend error message with a retry button", async () => {
+    // The backend is responsible for sending user-safe messages on error events.
+    // The panel renders whatever message the backend provides.
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(
-        sseResponse('event: error\ndata: {"message":"LLM endpoint unavailable: boom"}\n\n'),
+        sseResponse(
+          'event: error\ndata: {"message":"Couldn\'t reach the analyst. Try again shortly."}\n\n',
+        ),
       );
 
     render(<AssistantPanel dashboardState={dashboardState} />);
     fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "hi" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(await screen.findByText(/analyst is offline/i)).toBeInTheDocument();
-    // The developer-facing exception text must not leak to the user.
-    expect(screen.queryByText(/LLM endpoint unavailable/)).not.toBeInTheDocument();
+    expect(
+      await screen.findByText("Couldn't reach the analyst. Try again shortly."),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("renders the backend error message instead of a blanket offline", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      sseResponse(
+        'event: error\ndata: {"message":"Name at least two places to compare."}\n\n',
+      ),
+    );
+    render(<AssistantPanel dashboardState={dashboardState} />);
+    fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "compare" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findByText("Name at least two places to compare.")).toBeInTheDocument();
+    expect(screen.queryByText(/analyst is offline/i)).not.toBeInTheDocument();
+  });
+
+  it("clears the error banner when a retry succeeds", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(sseResponse('event: error\ndata: {"message":"boom"}\n\n'))
+      .mockResolvedValueOnce(
+        sseResponse('event: token\ndata: {"delta":"ok"}\n\nevent: done\ndata: {}\n\n'),
+      );
+    render(<AssistantPanel dashboardState={dashboardState} />);
+    fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "hi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByText("boom");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await screen.findByText("ok");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the offline copy on a transport failure", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network"));
+    render(<AssistantPanel dashboardState={dashboardState} />);
+    fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "hi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findByText(/analyst is offline/i)).toBeInTheDocument();
   });
 
   it("forwards tool result data to onToolResult", async () => {

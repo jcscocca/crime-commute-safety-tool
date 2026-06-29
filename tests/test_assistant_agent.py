@@ -54,6 +54,23 @@ def _session_with_place_and_crime(tmp_path):
         )
     )
     session.add(
+        PlaceCluster(
+            id="place-2",
+            user_id_hash=user_hash,
+            cluster_version="manual-v1",
+            cluster_method="manual",
+            centroid_latitude=47.62,
+            centroid_longitude=-122.34,
+            display_latitude=47.62,
+            display_longitude=-122.34,
+            visit_count=1,
+            sensitivity_class="normal",
+            display_label="Second stop",
+            inferred_place_type="manual_place",
+            label_source="test",
+        )
+    )
+    session.add(
         CrimeIncident(
             id="incident-1",
             offense_start_utc=datetime(2024, 1, 10, tzinfo=UTC),
@@ -87,18 +104,12 @@ def test_agent_returns_final_answer_without_tool(tmp_path):
     assert len(client.calls) == 1
 
 
-def test_agent_executes_run_place_analysis_tool_call(tmp_path):
+def test_agent_runs_workflow_tool_with_deterministic_summary(tmp_path):
     session, user_hash = _session_with_place_and_crime(tmp_path)
+    # Planning returns a compare_places tool_call; there is NO second model call.
     client = FakeClient(
         [
-            (
-                '{"type":"tool_call","tool_name":"run_place_analysis",'
-                '"arguments":{"place_ids":["place-1"],'
-                '"analysis_start_date":"2024-01-01",'
-                '"analysis_end_date":"2024-01-31",'
-                '"radii_m":[250],"offense_category":"PROPERTY"}}'
-            ),
-            '{"type":"final","message":"I found 1 reported incident in the selected context."}',
+            '{"type":"tool_call","tool_name":"compare_places","arguments":{}}',
         ]
     )
     try:
@@ -106,13 +117,12 @@ def test_agent_executes_run_place_analysis_tool_call(tmp_path):
             _collect(
                 session,
                 user_hash,
-                [AssistantChatMessage(role="user", content="Run this for January.")],
+                [AssistantChatMessage(role="user", content="Compare my selected places.")],
                 AssistantDashboardState(
-                    selected_place_ids=["place-1"],
+                    selected_place_ids=["place-1", "place-2"],
                     analysis_start_date=date(2024, 1, 1),
                     analysis_end_date=date(2024, 1, 31),
                     radii_m=[250],
-                    offense_category="PROPERTY",
                 ),
                 client,
             )
@@ -121,67 +131,10 @@ def test_agent_executes_run_place_analysis_tool_call(tmp_path):
         session.close()
 
     assert [event.event for event in events] == ["meta", "tool", "token", "done"]
-    assert events[1].data["tool_name"] == "run_place_analysis"
-    assert events[1].data["result"]["summary_count"] == 1
-    assert "reported incident" in events[2].data["delta"]
-    assert len(client.calls) == 2
-
-
-def test_agent_chains_two_tool_calls_then_narrates(tmp_path):
-    session, user_hash = _session_with_place_and_crime(tmp_path)
-    client = FakeClient(
-        [
-            (
-                '{"type":"tool_call","tool_name":"run_place_analysis",'
-                '"arguments":{"place_ids":["place-1"],'
-                '"analysis_start_date":"2024-01-01",'
-                '"analysis_end_date":"2024-01-31",'
-                '"radii_m":[250],"offense_category":"PROPERTY"}}'
-            ),
-            '{"type":"tool_call","tool_name":"suggest_followups","arguments":{}}',
-            '{"type":"final","message":"One reported incident, with follow-up ideas."}',
-        ]
-    )
-    try:
-        events = asyncio.run(
-            _collect(
-                session,
-                user_hash,
-                [AssistantChatMessage(role="user", content="Analyze then suggest follow-ups.")],
-                AssistantDashboardState(selected_place_ids=["place-1"]),
-                client,
-            )
-        )
-    finally:
-        session.close()
-
-    assert [event.event for event in events] == ["meta", "tool", "tool", "token", "done"]
-    assert events[1].data["tool_name"] == "run_place_analysis"
-    assert events[2].data["tool_name"] == "suggest_followups"
-    # planning + one follow-up call per tool result == 3 model calls
-    assert len(client.calls) == 3
-
-
-def test_agent_stops_executing_tools_at_the_configured_budget(tmp_path):
-    session, user_hash = _session_with_place_and_crime(tmp_path)
-    # A model that never stops requesting tools must be capped at assistant_max_tool_calls (2).
-    client = FakeClient(['{"type":"tool_call","tool_name":"suggest_followups","arguments":{}}'] * 3)
-    try:
-        events = asyncio.run(
-            _collect(
-                session,
-                user_hash,
-                [AssistantChatMessage(role="user", content="Keep going.")],
-                AssistantDashboardState(selected_place_ids=["place-1"]),
-                client,
-            )
-        )
-    finally:
-        session.close()
-
-    tool_events = [event for event in events if event.event == "tool"]
-    assert len(tool_events) == 2
-    assert events[-1].event == "error"
+    assert events[1].data["tool_name"] == "compare_places"
+    # the real deterministic compare summary rendered (not the "Done." fallback)
+    assert "reported incidents within 250 m" in events[2].data["delta"].lower()
+    assert len(client.calls) == 1  # planning only — no narration call
 
 
 def test_agent_redirects_safe_unsafe_language_without_model_call(tmp_path):
@@ -464,4 +417,61 @@ def test_neighborhood_tool_arguments_are_backfilled_from_dashboard_state():
     assert args["analysis_start_date"] == "2024-01-01"
     assert args["analysis_end_date"] == "2024-01-31"
     assert args["radii_m"] == [250]
+
+
+def test_agent_clarifies_underspecified_request(tmp_path):
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    # compare with only one resolvable place -> AssistantClarification -> clarify token, NOT error.
+    client = FakeClient(
+        [
+            '{"type":"tool_call","tool_name":"compare_places",'
+            '"arguments":{"queries":["Library stop"]}}',
+        ]
+    )
+    try:
+        events = asyncio.run(
+            _collect(
+                session,
+                user_hash,
+                [AssistantChatMessage(role="user", content="Compare it.")],
+                AssistantDashboardState(
+                    analysis_start_date=date(2024, 1, 1),
+                    analysis_end_date=date(2024, 1, 31),
+                    radii_m=[250],
+                ),
+                client,
+            )
+        )
+    finally:
+        session.close()
+
+    assert [event.event for event in events] == ["meta", "token", "done"]
+    assert "at least two places" in events[1].data["delta"]
+
+
+def test_agent_reports_unreachable_classifier(tmp_path):
+    from app.assistant.llm_client import LlmUnavailable
+
+    class RaisingClient:
+        calls: list = []
+
+        async def complete(self, messages, *, role, temperature=None, max_tokens=None):
+            raise LlmUnavailable("endpoint down")
+
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    try:
+        events = asyncio.run(
+            _collect(
+                session,
+                user_hash,
+                [AssistantChatMessage(role="user", content="Compare A and B.")],
+                AssistantDashboardState(selected_place_ids=["place-1"]),
+                RaisingClient(),
+            )
+        )
+    finally:
+        session.close()
+
+    assert events[-1].event == "error"
+    assert "Couldn't reach the analyst" in events[-1].data["message"]
 

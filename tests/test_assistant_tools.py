@@ -289,10 +289,12 @@ def test_compare_places_by_name_persists_analysis_and_compares(tmp_path, monkeyp
 
 
 def test_compare_places_requires_two_places(tmp_path, monkeypatch):
+    from app.assistant.tools import AssistantClarification
+
     session, user_hash = _session_with_place_and_crime(tmp_path)
     monkeypatch.setattr("app.assistant.tools.build_provider", lambda settings: _FakeProvider([]))
     try:
-        with pytest.raises(AssistantToolError):
+        with pytest.raises(AssistantClarification):
             execute_tool(
                 session,
                 user_hash,
@@ -302,6 +304,41 @@ def test_compare_places_requires_two_places(tmp_path, monkeypatch):
                     "analysis_start_date": "2024-01-01",
                     "analysis_end_date": "2024-01-31",
                     "radius_m": 250,
+                },
+            )
+    finally:
+        session.close()
+
+
+def test_add_place_clarifies_when_not_found(tmp_path, monkeypatch):
+    from app.assistant.tools import AssistantClarification
+
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    monkeypatch.setattr("app.assistant.tools.build_provider", lambda settings: _FakeProvider([]))
+    try:
+        with pytest.raises(AssistantClarification):
+            execute_tool(session, user_hash, "add_place", {"query": "Nonexistent Florble Cafe"})
+    finally:
+        session.close()
+
+
+def test_analyze_places_clarifies_without_place(tmp_path, monkeypatch):
+    from app.assistant.tools import AssistantClarification
+
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    monkeypatch.setattr("app.assistant.tools.build_provider", lambda settings: _FakeProvider([]))
+    try:
+        with pytest.raises(AssistantClarification):
+            execute_tool(
+                session,
+                user_hash,
+                "analyze_places",
+                {
+                    "queries": [],
+                    "place_ids": [],
+                    "analysis_start_date": "2024-01-01",
+                    "analysis_end_date": "2024-01-31",
+                    "radii_m": [250],
                 },
             )
     finally:

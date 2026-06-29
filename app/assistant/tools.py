@@ -46,6 +46,14 @@ class AssistantToolError(ValueError):
     """Raised when an assistant tool request is invalid or cannot be executed."""
 
 
+class AssistantClarification(Exception):
+    """The request is underspecified/ambiguous — ask the user, do not error.
+
+    Deliberately NOT a ValueError, so execute_tool's `except ValueError`
+    re-wrap does not swallow it; the agent renders it as a clarifying question.
+    """
+
+
 class EmptyArgs(BaseModel):
     pass
 
@@ -102,7 +110,9 @@ def _add_place(session: Session, user_id_hash: str, query: str) -> dict[str, Any
     provider = build_provider(get_settings())
     resolved = resolve_place_queries(session, user_id_hash, [query], provider)
     if not resolved.place_ids:
-        raise AssistantToolError(f"Could not find a place for '{query}'.")
+        raise AssistantClarification(
+            f"Could not find a place for '{query}'. Try a more specific address or landmark name."
+        )
     place_id = resolved.place_ids[0]
     place = session.get(PlaceCluster, place_id)
     if place is None:
@@ -149,7 +159,7 @@ def _settings_used(
 def _analyze_places(session: Session, user_id_hash: str, args: AnalyzePlacesArgs) -> dict[str, Any]:
     resolved = _resolve_or_select(session, user_id_hash, args.queries, args.place_ids)
     if not resolved.place_ids:
-        raise AssistantToolError("Name a place to analyze, or select one on the dashboard.")
+        raise AssistantClarification("Name a place to analyze, or select one on the dashboard.")
     radii = list(dict.fromkeys(args.radii_m))
     radius_m = radii[0]
     analysis = analyze_selected_places(
@@ -205,7 +215,7 @@ def _compare_places(
 ) -> dict[str, Any]:
     resolved = _resolve_or_select(session, user_id_hash, args.queries, args.place_ids)
     if len(resolved.place_ids) < 2:
-        raise AssistantToolError(
+        raise AssistantClarification(
             "Name at least two places to compare, or select them on the dashboard."
         )
     # Persist an analysis run at this radius so the dashboard summary has rows for the cards.
