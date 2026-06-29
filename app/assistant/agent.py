@@ -8,14 +8,15 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.assistant.llm_client import AssistantLlmClient, LlmUnavailable
-from app.assistant.prompts import build_followup_messages, build_planning_messages
+from app.assistant.prompts import build_planning_messages
 from app.assistant.schemas import (
     AssistantChatMessage,
     AssistantDashboardState,
     AssistantStreamEvent,
 )
 from app.assistant.semantic_layer import build_semantic_context
-from app.assistant.tools import AssistantToolError, execute_tool
+from app.assistant.summaries import build_tool_summary
+from app.assistant.tools import AssistantClarification, AssistantToolError, execute_tool
 from app.config import get_settings
 
 # Reject requests that ask the assistant to score/rank places by safety, danger, or risk —
@@ -34,6 +35,9 @@ SELECTION_TOOLS = (
     "get_neighborhood_analysis",
     "get_incident_details",
     "analyze_places",
+)
+_UNREACHABLE_MESSAGE = (
+    "Couldn't reach the analyst to interpret your request. The rest of Waypoint still works."
 )
 
 
@@ -74,37 +78,41 @@ async def run_assistant_turn(
             max_tokens=1024,
         )
         plan = _parse_model_json(raw_plan)
-        max_tool_calls = max(1, settings.assistant_max_tool_calls)
-        tool_results: list[dict[str, Any]] = []
-        tool_calls = 0
-        while plan.get("type") == "tool_call" and tool_calls < max_tool_calls:
-            tool_name = str(plan.get("tool_name"))
+    except LlmUnavailable:
+        yield AssistantStreamEvent(event="error", data={"message": _UNREACHABLE_MESSAGE})
+        return
+    except ValueError as exc:
+        yield AssistantStreamEvent(event="error", data={"message": str(exc)})
+        return
+
+    if plan.get("type") == "tool_call":
+        tool_name = str(plan.get("tool_name"))
+        try:
             tool_result = execute_tool(
                 session,
                 user_id_hash,
                 tool_name,
                 _tool_arguments(tool_name, dashboard_state, plan.get("arguments")),
             )
-            yield AssistantStreamEvent(event="tool", data=tool_result)
-            tool_results.append(tool_result)
-            tool_calls += 1
-            raw_next = await llm_client.complete(
-                build_followup_messages(
-                    messages,
-                    context,
-                    tool_results,
-                    force_final=tool_calls >= max_tool_calls,
-                ),
-                role=settings.assistant_role,
-                temperature=0.2,
-                max_tokens=1024,
-            )
-            plan = _parse_model_json(raw_next)
-        message = _final_message(plan)
-        yield AssistantStreamEvent(event="token", data={"delta": message})
+        except AssistantClarification as exc:
+            yield AssistantStreamEvent(event="token", data={"delta": str(exc)})
+            yield AssistantStreamEvent(event="done", data={})
+            return
+        except (AssistantToolError, ValueError) as exc:
+            yield AssistantStreamEvent(event="error", data={"message": str(exc)})
+            return
+        yield AssistantStreamEvent(event="tool", data=tool_result)
+        yield AssistantStreamEvent(event="token", data={"delta": build_tool_summary(tool_result)})
         yield AssistantStreamEvent(event="done", data={})
-    except (AssistantToolError, LlmUnavailable, ValueError) as exc:
+        return
+
+    try:
+        message = _final_message(plan)
+    except ValueError as exc:
         yield AssistantStreamEvent(event="error", data={"message": str(exc)})
+        return
+    yield AssistantStreamEvent(event="token", data={"delta": message})
+    yield AssistantStreamEvent(event="done", data={})
 
 
 def _recent_user_texts(
