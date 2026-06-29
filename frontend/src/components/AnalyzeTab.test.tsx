@@ -38,6 +38,16 @@ const homePlace: NeighborhoodPlace = {
   method: "wald_log_rate_ratio",
   overdispersion_status: "poisson_ok", minimum_data_status: "met",
   nearest_incident_m: 42, monthly_counts: [1, 2, 1, 3, 2, 3], type_mix: [{ label: "ASSAULT", count: 7 }],
+  temporal: {
+    // weekdays 17:00 → 4 each (20 total); Sat 02:00 → 20. total_with_time = 40.
+    hour_by_dow: Array.from({ length: 7 }, (_, d) =>
+      Array.from({ length: 24 }, (_, h) => (d <= 4 && h === 17 ? 4 : d === 5 && h === 2 ? 20 : 0)),
+    ),
+    hour_counts: Array.from({ length: 24 }, (_, h) => (h === 17 ? 20 : h === 2 ? 20 : 0)),
+    dow_counts: [4, 4, 4, 4, 4, 20, 0],
+    total_with_time: 40,
+    without_time: 0,
+  },
 };
 
 const neighborhood: NeighborhoodAnalysis = {
@@ -287,5 +297,50 @@ describe("AnalyzeTab", () => {
       />,
     );
     expect(container.querySelectorAll(".mc-spark span").length).toBe(6);
+  });
+
+  it("renders hour and day temporal profiles with the window callout", () => {
+    const { container } = render(
+      <AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} neighborhood={neighborhood} onChange={vi.fn()} onRun={vi.fn()} />,
+    );
+    const profiles = container.querySelectorAll(".mc-temporal-profile");
+    expect(profiles.length).toBe(2);
+    expect(profiles[0].querySelectorAll(".mc-temporal-bar").length).toBe(24);
+    expect(profiles[1].querySelectorAll(".mc-temporal-bar").length).toBe(7);
+    // default window = weekdays 16–19 → hour 17 (20) / 40 = 50%
+    expect(screen.getByText(/50% of the 40 reported incidents with a recorded time/i)).toBeInTheDocument();
+  });
+
+  it("recomputes the callout when the travel window changes", () => {
+    render(
+      <AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} neighborhood={neighborhood} onChange={vi.fn()} onRun={vi.fn()} />,
+    );
+    // Weekends 16–19 contains none of the seeded cells (Sat activity is at 02:00) → 0%.
+    fireEvent.click(screen.getByRole("button", { name: "Weekends" }));
+    expect(screen.getByText(/0% of the 40 reported incidents with a recorded time/i)).toBeInTheDocument();
+  });
+
+  it("shows a low-sample caution and a missing-time note", () => {
+    const lowN: NeighborhoodPlace = {
+      ...homePlace,
+      temporal: { ...homePlace.temporal!, total_with_time: 8, without_time: 3 },
+    };
+    render(
+      <AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} neighborhood={{ ...neighborhood, places: [lowN] }} onChange={vi.fn()} onRun={vi.fn()} />,
+    );
+    expect(screen.getByText(/Based on 8 incidents — interpret with caution\./i)).toBeInTheDocument();
+    expect(screen.getByText(/3 incidents had no recorded time/i)).toBeInTheDocument();
+  });
+
+  it("shows an empty temporal state when no incidents have a recorded time", () => {
+    const noTime: NeighborhoodPlace = {
+      ...homePlace,
+      temporal: { hour_counts: Array(24).fill(0), dow_counts: Array(7).fill(0), hour_by_dow: Array.from({ length: 7 }, () => Array(24).fill(0)), total_with_time: 0, without_time: 0 },
+    };
+    const { container } = render(
+      <AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} neighborhood={{ ...neighborhood, places: [noTime] }} onChange={vi.fn()} onRun={vi.fn()} />,
+    );
+    expect(screen.getByText("No reported incidents with a recorded time in this area.")).toBeInTheDocument();
+    expect(container.querySelectorAll(".mc-temporal-bar").length).toBe(0);
   });
 });

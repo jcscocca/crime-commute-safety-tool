@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from dataclasses import asdict
 from datetime import date
 from math import pi
 from typing import Any
@@ -14,6 +15,7 @@ from app.analysis.rate_tests import (
     compare_incident_rates,
     dispersion_status,
 )
+from app.analysis.temporal import build_temporal_profile
 from app.models import CrimeIncident
 from app.normalization.geo import haversine_m
 from app.schemas import CrimeIncidentData, PlaceClusterData
@@ -237,6 +239,7 @@ def neighborhood_analysis_for_places(
                     "decision": "baseline_unavailable",
                     "place_incident_count": len(entry.get("place_incidents", [])),
                     "type_mix": _type_mix(entry.get("place_incidents", [])),
+                    "temporal": asdict(build_temporal_profile(entry.get("place_incidents", []))),
                 }
             )
             continue
@@ -249,6 +252,7 @@ def neighborhood_analysis_for_places(
                     "minimum_data_status": "baseline_too_small",
                     "place_incident_count": len(entry.get("place_incidents", [])),
                     "type_mix": _type_mix(entry.get("place_incidents", [])),
+                    "temporal": asdict(build_temporal_profile(entry.get("place_incidents", []))),
                 }
             )
             continue
@@ -292,6 +296,7 @@ def neighborhood_analysis_for_places(
                 "nearest_incident_m": nearest,
                 "monthly_counts": place_monthly,
                 "type_mix": _type_mix(place_incidents),
+                "temporal": asdict(build_temporal_profile(place_incidents)),
             }
         )
 
