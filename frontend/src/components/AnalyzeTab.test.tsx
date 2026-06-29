@@ -85,7 +85,10 @@ describe("AnalyzeTab", () => {
         onRun={vi.fn()}
       />,
     );
-    expect(screen.getByText(/above its beat/i)).toBeInTheDocument();
+    expect(
+      screen.getByText("Home has more reported incidents than its surrounding beat."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("✓ statistically clear")).toBeInTheDocument();
     expect(screen.getByText("4.0×")).toBeInTheDocument();
     const ids = new Set(METHODS_DEFINITIONS.map((d) => d.id));
     for (const id of ["reportedIncidentRate", "beatBaselineRate", "rateRatio", "confidenceInterval", "adjustedPValue", "overdispersion", "minimumDataStatus", "nearestIncident", "monthlyTrend"]) {
@@ -132,8 +135,10 @@ describe("AnalyzeTab", () => {
         onRun={vi.fn()}
       />,
     );
-    expect(screen.getByText(/neighborhood baseline unavailable/i)).toBeInTheDocument();
-    expect(screen.getByText(/3 reported incidents in range; no beat baseline\./i)).toBeInTheDocument();
+    expect(screen.getByText("No neighborhood baseline available for Cabin.")).toBeInTheDocument();
+    expect(
+      screen.getByText(/3 reported incidents in range; no beat baseline\./i),
+    ).toBeInTheDocument();
   });
 
   it("renders one line per pairwise comparison", () => {

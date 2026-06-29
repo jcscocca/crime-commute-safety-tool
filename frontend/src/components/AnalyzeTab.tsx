@@ -7,6 +7,7 @@ import type {
   Place,
 } from "../types";
 import { ANALYSIS_MIN_DATE } from "../lib/analysisDefaults";
+import { decisionHeadline } from "../lib/verdictCopy";
 import { MethodsAppendix } from "./MethodsAppendix";
 
 const INCIDENT_TABLE_MIN = 560;
@@ -42,15 +43,6 @@ const CATEGORIES: { value: string; label: string }[] = [
   { value: "PERSON", label: "Person" },
   { value: "SOCIETY", label: "Society" },
 ];
-
-const DECISION_COPY: Record<NeighborhoodPlace["decision"], { label: string; tone: string }> = {
-  above_clear: { label: "above its beat · statistically clear", tone: "hot" },
-  below_clear: { label: "below its beat · statistically clear", tone: "ok" },
-  not_clear: { label: "not statistically clear", tone: "muted" },
-  insufficient_data: { label: "insufficient data", tone: "muted" },
-  model_warning: { label: "too few months to model reliably", tone: "muted" },
-  baseline_unavailable: { label: "neighborhood baseline unavailable", tone: "muted" },
-};
 
 function titleCase(value: string) {
   return value
@@ -99,19 +91,39 @@ function barHeight(value: number, all: number[]) {
   return Math.round((value / max) * 100);
 }
 
-function VerdictBlock({ place }: { place: NeighborhoodPlace }) {
-  const copy = DECISION_COPY[place.decision];
+function ComparisonBars({ rateRatio }: { rateRatio: number }) {
+  const CAP = 3;
+  const width = (value: number) => `${(Math.min(value, CAP) / CAP) * 100}%`;
   return (
-    <section className={`mc-verdict tone-${copy.tone}`} aria-label={`Verdict for ${place.place_label}`}>
-      <div className="mc-verdict-head">
-        {place.rate_ratio != null ? <span className="mc-ratio">{place.rate_ratio.toFixed(1)}×</span> : null}
-        <span className="mc-verdict-label">{copy.label}</span>
+    <div className="mc-cmpbars" aria-hidden="true">
+      <div className="mc-cmpbar">
+        <span className="name">surrounding beat</span>
+        <span className="track"><span className="fill beat" style={{ width: width(1) }} /></span>
+        <span className="val">1.0×</span>
       </div>
+      <div className="mc-cmpbar">
+        <span className="name">this place</span>
+        <span className="track"><span className="fill place" style={{ width: width(rateRatio) }} /></span>
+        <span className="val">{rateRatio.toFixed(1)}×</span>
+      </div>
+    </div>
+  );
+}
+
+function VerdictCard({ place, windowLabel }: { place: NeighborhoodPlace; windowLabel: string }) {
+  const { headline, chip } = decisionHeadline(place);
+  return (
+    <section className="mc-verdict" aria-label={`Verdict for ${place.place_label}`}>
+      <div className="mc-verdict-head">
+        <span className={`mc-vchip ${chip.tone}`}>{chip.label}</span>
+      </div>
+      <p className="mc-verdict-headline">{headline}</p>
       {place.baseline_available ? (
         <>
           <p className="mc-verdict-sub">
-            {place.place_label} vs surrounding beat {place.beat} (excludes this area): {place.place_rate?.toFixed(2)} vs {place.beat_rate?.toFixed(2)} /km²·day
+            {place.place_incident_count} reported incidents within {place.radius_m} m · {windowLabel}
           </p>
+          {place.rate_ratio != null ? <ComparisonBars rateRatio={place.rate_ratio} /> : null}
           {place.monthly_counts?.length ? (
             <div className="mc-spark" aria-hidden="true">
               {place.monthly_counts.map((n, i) => (
@@ -120,10 +132,11 @@ function VerdictBlock({ place }: { place: NeighborhoodPlace }) {
             </div>
           ) : null}
           <details className="mc-analytical">
-            <summary>Analytical detail</summary>
+            <summary>How we know</summary>
             <dl>
+              <div><dt>Place vs beat rate</dt><dd>{place.place_rate?.toFixed(2)} vs {place.beat_rate?.toFixed(2)} /km²·day</dd></div>
               <div><dt>95% CI (this comparison)</dt><dd>{place.ci_lower != null ? `${place.ci_lower.toFixed(1)}–${place.ci_upper?.toFixed(1)}×` : "—"}</dd></div>
-              <div><dt>Adjusted p-value</dt><dd>{place.adjusted_p_value?.toFixed(3)}</dd></div>
+              <div><dt>Adjusted p-value</dt><dd>{place.adjusted_p_value != null ? place.adjusted_p_value.toFixed(3) : "—"}</dd></div>
               <div><dt>Exact p-value</dt><dd>{place.exact_p_value != null ? place.exact_p_value.toFixed(3) : "—"}</dd></div>
               <div><dt>Dispersion</dt><dd>{place.overdispersion_status}</dd></div>
               <div><dt>Method</dt><dd>{place.method}</dd></div>
@@ -135,11 +148,6 @@ function VerdictBlock({ place }: { place: NeighborhoodPlace }) {
                 {place.type_mix.map((t) => <li key={t.label}>{t.label} · {t.count}</li>)}
               </ul>
             ) : null}
-            <p className="mc-analytical-note">
-              The 95% CI is for this single comparison. The verdict also adjusts for
-              comparing multiple places (Benjamini–Hochberg) and requires at least a 25%
-              rate difference, so a CI that only just clears 1× can still read “not clear.”
-            </p>
           </details>
         </>
       ) : (
@@ -267,6 +275,7 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
   const canRun = selected.length >= 1 && !running;
   const width = panelWidthPx ?? Infinity;
   const incidentLayout = width >= INCIDENT_TABLE_MIN ? "table" : "cards";
+  const windowLabel = `${analysis.startDate} – ${analysis.endDate}`;
 
   return (
     <div className="mc-panel is-active" role="tabpanel" aria-label="Analyze">
@@ -318,7 +327,9 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
         </div>
       ) : (
         <>
-          {neighborhood?.places?.map((place) => <VerdictBlock key={place.place_id} place={place} />)}
+          {neighborhood?.places?.map((place) => (
+            <VerdictCard key={place.place_id} place={place} windowLabel={windowLabel} />
+          ))}
 
           {neighborhood?.pairwise?.length ? <PairwiseSection neighborhood={neighborhood} /> : null}
 
