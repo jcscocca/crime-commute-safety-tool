@@ -548,3 +548,112 @@ def test_assistant_answer_stream_emits_no_safety_ranking_language(tmp_path):
     finally:
         session.close()
 
+
+def test_agent_redirects_object_first_ranking_with_determiners_and_possessives(tmp_path):
+    # #60: the rank/rate/score arm must catch ranking requests regardless of the determiner or
+    # possessive before the place-noun. #59 only handled these/those/them/the.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    phrasings = [
+        "Rate my places",
+        "Rank this place",
+        "Score all the spots",
+        "Rank your neighborhoods",
+        "Rate that block",
+    ]
+    try:
+        for phrasing in phrasings:
+            client = FakeClient(['{"type":"final","message":"OK."}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=phrasing)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert [event.event for event in events] == ["meta", "token", "done"], phrasing
+            assert "reported incident" in events[1].data["delta"], phrasing
+            assert client.calls == [], phrasing
+    finally:
+        session.close()
+
+
+def test_agent_redirects_additional_safety_synonyms(tmp_path):
+    # #60: broadened lexicon — synonyms beyond safe/danger/risk must also trip the guard.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    phrasings = [
+        "Is this area hazardous?",
+        "How perilous is downtown?",
+        "Is it crime-free around here?",
+    ]
+    try:
+        for phrasing in phrasings:
+            client = FakeClient(['{"type":"final","message":"OK."}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=phrasing)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert [event.event for event in events] == ["meta", "token", "done"], phrasing
+            assert "reported incident" in events[1].data["delta"], phrasing
+            assert client.calls == [], phrasing
+    finally:
+        session.close()
+
+
+def test_agent_does_not_redirect_allowed_count_or_neutral_phrasings(tmp_path):
+    # #60 guard against over-matching: incident-count ranking and neutral phrasings are ALLOWED
+    # and must reach the model, not the safety redirect.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    phrasings = [
+        "Which area has the most crime?",
+        "Is my data secure?",
+        "What is the reported incident rate near place-1?",
+    ]
+    try:
+        for phrasing in phrasings:
+            client = FakeClient(['{"type":"final","message":"Here is the reported context."}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=phrasing)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert len(client.calls) == 1, phrasing  # reached the model, not the redirect
+            assert events[1].data["delta"] == "Here is the reported context.", phrasing
+    finally:
+        session.close()
+
+
+def test_agent_redirects_safety_language_in_model_final_message(tmp_path):
+    # #60 output-side guard: even when a request slips past the input guard, a model final
+    # answer containing safety-ranking language must be replaced with the redirect, not streamed.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    client = FakeClient(['{"type":"final","message":"Area A is safer than Area B."}'])
+    try:
+        events = asyncio.run(
+            _collect(
+                session,
+                user_hash,
+                [AssistantChatMessage(role="user", content="Where should I walk?")],
+                AssistantDashboardState(selected_place_ids=["place-1"]),
+                client,
+            )
+        )
+    finally:
+        session.close()
+
+    assert [event.event for event in events] == ["meta", "token", "done"]
+    delta = events[1].data["delta"]
+    assert "safer" not in delta  # the model's safety-ranking phrasing must not leak
+    assert "reported incident" in delta  # replaced with the standard redirect
+    assert len(client.calls) == 1  # the model WAS called (input guard didn't fire)
+
