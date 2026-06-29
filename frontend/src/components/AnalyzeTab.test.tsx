@@ -85,8 +85,14 @@ describe("AnalyzeTab", () => {
         onRun={vi.fn()}
       />,
     );
-    expect(screen.getByText(/above its beat/i)).toBeInTheDocument();
+    expect(
+      screen.getByText("Home has more reported incidents than its surrounding beat."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("✓ statistically clear")).toBeInTheDocument();
     expect(screen.getByText("4.0×")).toBeInTheDocument();
+    expect(
+      screen.getByText(/within 250 m · 2026-01-01 – 2026-06-30/),
+    ).toBeInTheDocument();
     const ids = new Set(METHODS_DEFINITIONS.map((d) => d.id));
     for (const id of ["reportedIncidentRate", "beatBaselineRate", "rateRatio", "confidenceInterval", "adjustedPValue", "overdispersion", "minimumDataStatus", "nearestIncident", "monthlyTrend"]) {
       expect(ids.has(id)).toBe(true);
@@ -132,8 +138,10 @@ describe("AnalyzeTab", () => {
         onRun={vi.fn()}
       />,
     );
-    expect(screen.getByText(/neighborhood baseline unavailable/i)).toBeInTheDocument();
-    expect(screen.getByText(/3 reported incidents in range; no beat baseline\./i)).toBeInTheDocument();
+    expect(screen.getByText("No neighborhood baseline available for Cabin.")).toBeInTheDocument();
+    expect(
+      screen.getByText(/3 reported incidents in range; no beat baseline\./i),
+    ).toBeInTheDocument();
   });
 
   it("renders one line per pairwise comparison", () => {
@@ -191,6 +199,7 @@ describe("AnalyzeTab", () => {
       />,
     );
 
+    fireEvent.click(screen.getByText(/See the 1 reported incident\b/i));
     const table = screen.getByRole("table");
     expect(screen.getByText("Reported incidents near selected places")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Place" })).toBeInTheDocument();
@@ -246,12 +255,14 @@ describe("AnalyzeTab", () => {
   it("renders incidents as cards (no table) when the panel is narrow", () => {
     render(<AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} panelWidthPx={380} incidentDetails={oneIncident} onChange={vi.fn()} onRun={vi.fn()} />);
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText(/See the 1 reported incident\b/i));
     expect(screen.getByText("100 BLOCK MAIN ST", { exact: false })).toBeInTheDocument();
     expect(screen.getByText("42 m")).toBeInTheDocument();
   });
 
   it("renders incidents as a full table when the panel is wide", () => {
     render(<AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} panelWidthPx={640} incidentDetails={oneIncident} onChange={vi.fn()} onRun={vi.fn()} />);
+    fireEvent.click(screen.getByText(/See the 1 reported incident\b/i));
     expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
@@ -263,7 +274,7 @@ describe("AnalyzeTab", () => {
   });
 
   it("renders a sparkline bar for each monthly_counts entry", () => {
-    // homePlace has monthly_counts of length 6; the VerdictBlock renders one <span> per entry
+    // homePlace has monthly_counts of length 6; the VerdictCard renders one <span> per entry
     const { container } = render(
       <AnalyzeTab
         selected={[home]}
