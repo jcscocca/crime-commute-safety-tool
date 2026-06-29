@@ -447,3 +447,5 @@ input.mc-inp:focus{outline:2px solid var(--clay-soft);outline-offset:1px;}
 .mc-incident-reveal>summary::before{content:"▸";font-size:10px;transition:transform .15s ease;}
 .mc-incident-reveal[open]>summary::before{transform:rotate(90deg);}
 .mc-incident-reveal>summary:hover{color:var(--text);}
+.mc-incident-reveal>summary::-webkit-details-marker{display:none;}
+.mc-analytical>summary::-webkit-details-marker{display:none;}

@@ -337,7 +337,7 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
 
           {incidentDetails && incidentDetails.incidents.length > 0 ? (
             <details className="mc-incident-reveal">
-              <summary>See the {incidentDetails.total_count} reported incidents</summary>
+              <summary>See the {incidentDetails.total_count} reported incident{incidentDetails.total_count === 1 ? "" : "s"}</summary>
               {incidentLayout === "table" ? (
                 <IncidentDetailsTable details={incidentDetails} />
               ) : (
