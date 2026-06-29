@@ -1,0 +1,191 @@
+# API Contract
+
+This document covers the auth model, tier contracts, enforcement invariant, and transport
+notes for the Waypoint API. The live `/openapi.json` (and Swagger UI at `/docs`) is the
+field-level source of truth; this document covers rules and tier structure only.
+
+> Verified against `d30235b` (2026-06-29).
+
+⚠ **Invariant:** Waypoint reports *reported incident context*. The API must not score
+safety, rank places as safe/unsafe/dangerous, or claim a user was present at an incident.
+The assistant refuses safety-score requests by design (`app/assistant/agent.py`). This
+invariant applies to code, copy, and any future endpoints.
+
+---
+
+## 1. Auth model
+
+### Session cookie
+
+`POST /sessions` creates an anonymous session token (HMAC-signed, 24 h TTL) and sets it
+as an `HttpOnly` cookie named `mca_session` (`MCA_SESSION_SECRET` is the signing key).
+The cookie is `Secure` in `prod`/`production` environments; settable explicitly via
+`MCA_SESSION_COOKIE_SECURE`. Logic lives in `app/sessions.py`.
+
+The `public_user_hash` function in `app/sessions.py` derives a stable pseudonymous hash
+from the session token:
+
+```
+SHA-256( MCA_USER_HASH_SALT + ":public-session:" + session_id )
+```
+
+### FastAPI dependencies (`app/api/deps.py`)
+
+| Dependency | Accepts | Rejects with |
+|---|---|---|
+| `required_public_user_hash` | Valid `mca_session` cookie only | HTTP 401 |
+| `current_user_hash` | Valid cookie **or** `X-Demo-User-Id` header (hashed via `hash_demo_user`) | Never rejects — falls back to demo identity |
+
+`required_public_user_hash` is used by all public endpoints. `current_user_hash` is the
+internal-tier fallback that allows demo/scripted access without a browser session.
+
+The `X-Demo-User-Id` header value is hashed deterministically via
+`app/services/users.hash_demo_user` using `MCA_USER_HASH_SALT`. It is never stored raw.
+
+### Admin token
+
+`POST /admin/crime/ingest/socrata` requires an `X-Admin-Token` header whose value must
+equal `MCA_ADMIN_INGEST_TOKEN`. The guard is defined inline in
+`app/api/routes_admin_crime.py` (`require_admin_ingest_token` dependency). The endpoint
+appears in the public OpenAPI schema (it is not `include_in_schema=False`) but returns
+HTTP 403 without a matching token.
+
+---
+
+## 2. Tier reference
+
+### Public tier
+
+Endpoints appear in `/openapi.json`. All require `required_public_user_hash` (valid
+session cookie; HTTP 401 otherwise), except `/sessions`, `/health`, and `/input-modes`
+which are unauthenticated or session-creating.
+
+| Endpoint | Method | Router file | Request schema | Response schema |
+|---|---|---|---|---|
+| `/sessions` | POST | `app/api/routes_sessions.py` | — | `{"session_state": "created"}` |
+| `/health` | GET | `app/api/routes_health.py` | — | `{"status": "ok"}` |
+| `/input-modes` | GET | `app/api/routes_input_modes.py` | — | `{"modes": [...]}` |
+| `/places` | GET | `app/api/routes_places.py` | — | `{"count": int, "places": [...]}` |
+| `/places` | POST | `app/api/routes_public_places.py` | `ManualPlaceCreate` (`app/places/schemas.py`) | `ManualPlaceResponse` |
+| `/places/bulk` | POST | `app/api/routes_public_places.py` | `BulkPlaceCreate` | `BulkPlaceCreateResponse` |
+| `/places/{place_id}` | PATCH | `app/api/routes_public_places.py` | `ManualPlaceUpdate` | `ManualPlaceResponse` |
+| `/places/{place_id}` | DELETE | `app/api/routes_public_places.py` | — | 204 No Content |
+| `/dashboard/summary` | GET | `app/api/routes_dashboard.py` | — | `dict` |
+| `/dashboard/analyze` | POST | `app/api/routes_public_dashboard.py` | `DashboardAnalyzeRequest` (`app/api/dashboard_schemas.py`) | `dict[str, int]` |
+| `/dashboard/incidents` | POST | `app/api/routes_public_dashboard.py` | `DashboardIncidentDetailsRequest` | `dict` |
+| `/dashboard/compare` | POST | `app/api/routes_public_dashboard.py` | `DashboardCompareRequest` | `dict` |
+| `/dashboard/neighborhood` | POST | `app/api/routes_public_dashboard.py` | `DashboardAnalyzeRequest` | `dict` |
+| `/dashboard/freshness` | GET | `app/api/routes_public_dashboard.py` | — | `dict` |
+| `/dashboard/geocode` | GET | `app/api/routes_public_dashboard.py` | `?q=` query param | `list[GeocodeResultSchema]` |
+| `/routes/alternatives` | POST | `app/api/routes_public_routes.py` | `RouteRequestCreate` (`app/routing/schemas.py`) | `dict` |
+| `/routes/requests/{request_id}/comparison` | GET | `app/api/routes_public_routes.py` | — | `dict` |
+| `/assistant/chat` | POST | `app/api/routes_assistant.py` | `AssistantChatRequest` (`app/assistant/schemas.py`) | SSE stream (see §4) |
+| `/uploads` | POST | `app/api/routes_uploads.py` | multipart file upload | `dict` (gated — see §4) |
+| `/uploads` | DELETE | `app/api/routes_uploads.py` | — | `dict` (gated — see §4) |
+| `/exports/tableau/place-summary.csv` | GET | `app/api/routes_exports.py` | — | CSV attachment |
+| `/exports/tableau/route-alternatives.csv` | GET | `app/api/routes_exports.py` | — | CSV attachment |
+| `/exports/tableau/route-segments.csv` | GET | `app/api/routes_exports.py` | — | CSV attachment |
+| `/exports/tableau/route-context.csv` | GET | `app/api/routes_exports.py` | — | CSV attachment |
+
+### Internal tier
+
+Endpoints have `include_in_schema=False` and are absent from `/openapi.json`. All use
+`current_user_hash` (session cookie or `X-Demo-User-Id` header; never rejects). Prefixes
+are `/internal/` exclusively; the legacy bare paths (`/analysis/`, `/imports`, `/crime/`)
+were retired and must not be re-exposed.
+
+| Endpoint | Method | Router file | Request schema | Notes |
+|---|---|---|---|---|
+| `/internal/places` | GET | `app/api/routes_places.py` | — | Mirror of `GET /places` with demo-identity fallback |
+| `/internal/dashboard/summary` | GET | `app/api/routes_dashboard.py` | — | Mirror of `GET /dashboard/summary` |
+| `/internal/imports` | POST | `app/api/routes_imports.py` | multipart file | Raw personal data import |
+| `/internal/imports/{import_id}` | GET | `app/api/routes_imports.py` | — | Import batch summary |
+| `/internal/imports/{import_id}/normalize` | POST | `app/api/routes_imports.py` | — | Normalize import batch |
+| `/internal/crime/ingest/sample` | POST | `app/api/routes_crime.py` | — | Load sample crime data |
+| `/internal/crime/summarize` | POST | `app/api/routes_crime.py` | `CrimeSummarizeRequest` (inline in router) | Summarize crime for user |
+| `/internal/analysis/sites/compare` | POST | `app/api/routes_analysis.py` | `SiteComparisonRequest` (`app/analysis/schemas.py`) | Statistical site comparison |
+| `/internal/analysis/routes/compare` | POST | `app/api/routes_analysis.py` | `RouteComparisonRequest` (`app/analysis/schemas.py`) | Statistical route comparison |
+| `/internal/analysis/comparisons/{comparison_id}` | GET | `app/api/routes_analysis.py` | — | Retrieve stored comparison |
+| `/internal/routes/alternatives` | POST | `app/api/routes_routes.py` | `RouteRequestCreate` (`app/routing/schemas.py`) | Allows `provider` override |
+| `/internal/routes/requests/{request_id}/comparison` | GET | `app/api/routes_routes.py` | — | Route request comparison |
+| `/internal/exports/tableau/place-summary.csv` | GET | `app/api/routes_exports.py` | — | Mirror of public export with demo-identity fallback |
+
+### Admin tier
+
+The single admin endpoint appears in the public OpenAPI schema but is gated by token.
+
+| Endpoint | Method | Router file | Auth | Notes |
+|---|---|---|---|---|
+| `/admin/crime/ingest/socrata` | POST | `app/api/routes_admin_crime.py` | `X-Admin-Token: MCA_ADMIN_INGEST_TOKEN` (HTTP 403 without it) | Ingests or backfills SPD data from Seattle Socrata |
+
+---
+
+## 3. Internal-surface invariant
+
+⚠ **Internal endpoints must never appear on bare public paths.** This is enforced by
+`tests/test_internal_surface.py`, which:
+
+1. **`test_public_paths_present_in_schema`** — asserts all known public paths are present
+   in the generated `/openapi.json`. Fails if a public endpoint is accidentally
+   `include_in_schema=False`.
+
+2. **`test_legacy_and_internal_paths_absent_from_schema`** — asserts no path beginning
+   with `/internal/`, `/analysis/`, `/imports`, or `/crime/` appears in `/openapi.json`.
+   This is the primary guard against accidentally re-exposing internal endpoints.
+
+3. **`test_internal_endpoint_still_served`** — confirms that `POST
+   /internal/crime/ingest/sample` returns HTTP 200 (hidden from schema but still
+   reachable), verifying that `include_in_schema=False` does not disable the route.
+
+The test file enumerates exact `FORBIDDEN_PREFIXES` and `PUBLIC_PATHS` sets — consult it
+directly for the canonical list.
+
+---
+
+## 4. Gating and transport notes
+
+### Personal uploads (`/uploads`)
+
+`POST /uploads` and `DELETE /uploads` are public-tier endpoints (session-cookie
+authenticated, in schema) but return **HTTP 404** unless `MCA_PUBLIC_ENABLE_PERSONAL_UPLOADS=true`
+is set. The gate is checked at request time inside the handler (`app/api/routes_uploads.py`),
+not at startup. The `/input-modes` response also reflects this flag via
+`app/input_modes.supported_input_modes`.
+
+Default: `MCA_PUBLIC_ENABLE_PERSONAL_UPLOADS` is `false`; uploads are disabled in the
+default configuration.
+
+### Assistant chat (`/assistant/chat`)
+
+`POST /assistant/chat` responds with **Server-Sent Events** (`text/event-stream`). The
+handler returns a `StreamingResponse` yielding SSE-formatted events. Each event is shaped
+as `AssistantStreamEvent` (`app/assistant/schemas.py`), with `event` in
+`{"meta", "tool", "token", "done", "error"}`.
+
+The LLM backing the assistant is called via `MCA_LLM_BASE_URL` / `MCA_LLM_MODEL`
+(OpenAI-compatible). An optional failover node is configured via `MCA_LLM_FALLBACK_BASE_URL`
+/ `MCA_LLM_FALLBACK_MODEL`. If both are set, `FailoverLlmClient` is used. If the LLM is
+unreachable, only the chat panel is affected; the rest of the API is unaffected.
+
+### Exports split
+
+`app/api/routes_exports.py` defines **both** public and internal export endpoints in the
+same router file:
+
+- **Public** (`required_public_user_hash`, in schema): `GET /exports/tableau/place-summary.csv`,
+  `GET /exports/tableau/route-alternatives.csv`, `GET /exports/tableau/route-segments.csv`,
+  `GET /exports/tableau/route-context.csv`.
+- **Internal** (`current_user_hash`, `include_in_schema=False`): `GET /internal/exports/tableau/place-summary.csv`
+  only. The three route export endpoints (`route-alternatives`, `route-segments`,
+  `route-context`) have no internal mirror.
+
+---
+
+## 5. Source of truth
+
+- **`/docs`** — Swagger UI; shows all public and admin endpoints with full request/response
+  schemas.
+- **`/openapi.json`** — Machine-readable OpenAPI 3.x schema; the canonical field-level
+  source of truth. Internal endpoints (`include_in_schema=False`) are intentionally absent.
+- Router files in `app/api/routes_*.py` — the authoritative source for path strings,
+  HTTP methods, auth dependencies, and which endpoints are public vs. internal.

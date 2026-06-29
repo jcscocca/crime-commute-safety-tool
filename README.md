@@ -267,6 +267,9 @@ data through the admin endpoint.
 The dashboard drives the API for you, and FastAPI publishes interactive docs at `/docs`
 (Swagger UI) and `/openapi.json`. The public endpoints are grouped below.
 
+For internal architecture — system overview, data model, the full API contract, the assistant
+design, and the roadmap — see [`docs/`](docs/README.md).
+
 > Endpoints marked *internal* are hidden from the OpenAPI schema (`/internal/...`), allow
 > the demo-identity fallback, and are not called by the dashboard UI. Do not expose them
 > on bare public paths — `tests/test_internal_surface.py` enforces this.
