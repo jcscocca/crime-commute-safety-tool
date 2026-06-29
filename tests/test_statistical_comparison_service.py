@@ -628,3 +628,75 @@ def test_compare_route_request_floors_near_empty_candidate(tmp_path):
     assert pairwise["winner_option_id"] is None
     # Invariant: even a floored verdict reports reported-incident context, no safety language.
     assert "safe" not in result["overview"]["summary_text"].lower()
+
+
+def test_candidate_selection_alone_does_not_manufacture_a_winner():
+    # Selective-inference guard. The candidate is the lowest observed-rate option, chosen FROM
+    # the data; Benjamini-Hochberg corrects the pairwise multiplicity but not that selection.
+    # The decision stays conservative anyway: a winner needs the candidate to be statistically
+    # lower than EVERY alternative AND materially lower (rate_ratio <= 0.80) than each. Here
+    # three options have similar rates with ample data — the empirical-min candidate (A) is the
+    # lowest but is not >=20% below either rival (A/B = 16/18 = 0.89, A/C = 16/19 = 0.84, both
+    # above the 0.80 floor) — so NO winner is declared despite A being singled out. The verdict
+    # is not_statistically_clear (insufficient evidence), NOT insufficient_data. See
+    # docs/analysis/statistical-route-place-comparison.md (Candidate Selection And Selective
+    # Inference).
+    result = build_statistical_comparison(
+        user_id_hash="user",
+        comparison_type="route",
+        geometry_type=GeometryType.ROUTE_CORRIDOR,
+        radius_m=500,
+        analysis_start_date=date(2024, 1, 1),
+        analysis_end_date=date(2024, 1, 31),
+        offense_category=None,
+        offense_subcategory=None,
+        nibrs_group=None,
+        options=[
+            AnalysisOptionResult(
+                option_id="a",
+                option_label="Route A",
+                geometry_type=GeometryType.ROUTE_CORRIDOR,
+                radius_m=500,
+                incident_count=16,
+                exposure=30.0,
+                exposure_unit="square_km_days",
+                incident_rate=16 / 30.0,
+            ),
+            AnalysisOptionResult(
+                option_id="b",
+                option_label="Route B",
+                geometry_type=GeometryType.ROUTE_CORRIDOR,
+                radius_m=500,
+                incident_count=18,
+                exposure=30.0,
+                exposure_unit="square_km_days",
+                incident_rate=18 / 30.0,
+            ),
+            AnalysisOptionResult(
+                option_id="c",
+                option_label="Route C",
+                geometry_type=GeometryType.ROUTE_CORRIDOR,
+                radius_m=500,
+                incident_count=19,
+                exposure=30.0,
+                exposure_unit="square_km_days",
+                incident_rate=19 / 30.0,
+            ),
+        ],
+        period_counts_by_option_id={
+            "a": [4, 4, 4, 4],
+            "b": [5, 4, 5, 4],
+            "c": [5, 5, 5, 4],
+        },
+    )
+
+    assert result.decision_class == DecisionClass.NOT_STATISTICALLY_CLEAR
+    assert result.recommendation_option_id is None
+    assert result.recommendation_label is None
+    # This is about evidence, not missing data: every pair clears the data floors.
+    assert all(pairwise.minimum_data_status == "met" for pairwise in result.pairwise_results)
+    # Selection alone crowns no one: no pair reaches the statistically-lower bar.
+    assert all(
+        pairwise.decision_class != DecisionClass.STATISTICALLY_LOWER
+        for pairwise in result.pairwise_results
+    )
