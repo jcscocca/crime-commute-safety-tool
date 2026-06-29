@@ -125,7 +125,7 @@ source for the second pass) and are only discarded at the public-upload completi
 | `centroid_latitude`, `centroid_longitude` | Full float (exact centroid of member stops) | Internal computation only (analysis radius queries, re-clustering) |
 | `display_latitude`, `display_longitude` | Rounded to 3 decimal places (~111 m grid) | Returned to the frontend and exported |
 
-The snapping is performed by `app/normalization/geo.snap_to_grid(lat, lon, decimals=3)`,
+The snapping is performed by `app/normalization/geo.snap_to_grid(lat, lon)` (its `decimals` argument defaults to `3`),
 called inside `_build_cluster` in `app/normalization/clusters.py`. This produces a
 display position that cannot be reverse-engineered to a precise home or workplace address.
 
@@ -189,7 +189,7 @@ erDiagram
         string source_type
         string file_hash_sha256
         string status
-        bool raw_retention_until
+        datetime raw_retention_until
         string privacy_mode
     }
 
