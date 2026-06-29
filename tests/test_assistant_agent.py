@@ -132,7 +132,8 @@ def test_agent_runs_workflow_tool_with_deterministic_summary(tmp_path):
 
     assert [event.event for event in events] == ["meta", "tool", "token", "done"]
     assert events[1].data["tool_name"] == "compare_places"
-    assert events[2].data["delta"]  # a non-empty deterministic summary
+    # the real deterministic compare summary rendered (not the "Done." fallback)
+    assert "reported incidents within 250 m" in events[2].data["delta"].lower()
     assert len(client.calls) == 1  # planning only — no narration call
 
 
