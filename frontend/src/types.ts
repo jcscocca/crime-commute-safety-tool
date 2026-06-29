@@ -195,6 +195,14 @@ export type AssistantStreamEvent =
   | { event: "done"; data: Record<string, unknown> }
   | { event: "error"; data: { message?: string } };
 
+export type TemporalProfile = {
+  hour_counts: number[]; // length 24, local hour 0–23
+  dow_counts: number[]; // length 7, Mon..Sun
+  hour_by_dow: number[][]; // 7×24 joint counts
+  total_with_time: number;
+  without_time: number;
+};
+
 export type NeighborhoodPlace = {
   place_id: string;
   place_label: string;
@@ -217,6 +225,7 @@ export type NeighborhoodPlace = {
   nearest_incident_m?: number | null;
   monthly_counts?: number[];
   type_mix: { label: string; count: number }[];
+  temporal?: TemporalProfile | null;
 };
 
 export type NeighborhoodPair = {
