@@ -442,3 +442,8 @@ input.mc-inp:focus{outline:2px solid var(--clay-soft);outline-offset:1px;}
 .mc-cmpbar .fill.beat{background:rgba(255,255,255,.22);}
 .mc-cmpbar .fill.place{background:var(--slate);}
 .mc-cmpbar .val{width:40px;flex:none;font-family:var(--f-mono);color:var(--text);}
+.mc-incident-reveal{margin-top:4px;}
+.mc-incident-reveal>summary{cursor:pointer;font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);list-style:none;display:inline-flex;align-items:center;gap:6px;}
+.mc-incident-reveal>summary::before{content:"▸";font-size:10px;transition:transform .15s ease;}
+.mc-incident-reveal[open]>summary::before{transform:rotate(90deg);}
+.mc-incident-reveal>summary:hover{color:var(--text);}

@@ -335,7 +335,16 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
 
           {neighborhood?.pairwise?.length ? <PairwiseSection neighborhood={neighborhood} /> : null}
 
-          {incidentLayout === "table" ? (
+          {incidentDetails && incidentDetails.incidents.length > 0 ? (
+            <details className="mc-incident-reveal">
+              <summary>See the {incidentDetails.total_count} reported incidents</summary>
+              {incidentLayout === "table" ? (
+                <IncidentDetailsTable details={incidentDetails} />
+              ) : (
+                <IncidentDetailsCards details={incidentDetails} />
+              )}
+            </details>
+          ) : incidentLayout === "table" ? (
             <IncidentDetailsTable details={incidentDetails} />
           ) : (
             <IncidentDetailsCards details={incidentDetails} />

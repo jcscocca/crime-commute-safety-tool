@@ -199,6 +199,7 @@ describe("AnalyzeTab", () => {
       />,
     );
 
+    fireEvent.click(screen.getByText(/See the 1 reported incidents/i));
     const table = screen.getByRole("table");
     expect(screen.getByText("Reported incidents near selected places")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Place" })).toBeInTheDocument();
@@ -254,12 +255,14 @@ describe("AnalyzeTab", () => {
   it("renders incidents as cards (no table) when the panel is narrow", () => {
     render(<AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} panelWidthPx={380} incidentDetails={oneIncident} onChange={vi.fn()} onRun={vi.fn()} />);
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText(/See the 1 reported incidents/i));
     expect(screen.getByText("100 BLOCK MAIN ST", { exact: false })).toBeInTheDocument();
     expect(screen.getByText("42 m")).toBeInTheDocument();
   });
 
   it("renders incidents as a full table when the panel is wide", () => {
     render(<AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} panelWidthPx={640} incidentDetails={oneIncident} onChange={vi.fn()} onRun={vi.fn()} />);
+    fireEvent.click(screen.getByText(/See the 1 reported incidents/i));
     expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
