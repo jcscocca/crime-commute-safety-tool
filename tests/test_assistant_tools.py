@@ -289,10 +289,12 @@ def test_compare_places_by_name_persists_analysis_and_compares(tmp_path, monkeyp
 
 
 def test_compare_places_requires_two_places(tmp_path, monkeypatch):
+    from app.assistant.tools import AssistantClarification
+
     session, user_hash = _session_with_place_and_crime(tmp_path)
     monkeypatch.setattr("app.assistant.tools.build_provider", lambda settings: _FakeProvider([]))
     try:
-        with pytest.raises(AssistantToolError):
+        with pytest.raises(AssistantClarification):
             execute_tool(
                 session,
                 user_hash,
