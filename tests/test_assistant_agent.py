@@ -475,3 +475,76 @@ def test_agent_reports_unreachable_classifier(tmp_path):
     assert events[-1].event == "error"
     assert "Couldn't reach the analyst" in events[-1].data["message"]
 
+
+def test_agent_redirects_object_first_ranking_without_safety_words(tmp_path):
+    # Object-first ranking phrasings that do NOT contain safety vocabulary ("safe", "danger",
+    # "risk") must still trip the pre-LLM guard. These previously bypassed it because the
+    # optional determiner clause `(?:these|those|them|the\s+)?` attached the trailing `\s+`
+    # only to "the", so "rank these places" never matched the noun that followed.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    phrasings = [
+        "Rank these places",
+        "Rank those neighborhoods",
+        "Score these areas",
+        "Rate these blocks",
+    ]
+    try:
+        for phrasing in phrasings:
+            # The benign final response would only be consumed if the guard wrongly let the
+            # turn reach the model; client.calls == [] proves it short-circuited first.
+            client = FakeClient(['{"type":"final","message":"OK."}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=phrasing)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert [event.event for event in events] == ["meta", "token", "done"], phrasing
+            assert "reported incident" in events[1].data["delta"], phrasing
+            assert client.calls == [], phrasing
+    finally:
+        session.close()
+
+
+def test_assistant_answer_stream_emits_no_safety_ranking_language(tmp_path):
+    # Output-side invariant guard: the assistant's *answer* paths (the deterministic tool
+    # summaries) must never emit safety-ranking vocabulary. The deliberate refusal message is
+    # exempt by design — it explains the refusal *using* those words — so this exercises the
+    # answer-producing tool flows, not the refusal path.
+    import re as _re
+
+    banned = _re.compile(
+        r"\b(?:safe(?:ty|st|r)?|unsafe|danger(?:ous)?|risk(?:y|ier|iest)?)\b",
+        _re.IGNORECASE,
+    )
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    state = AssistantDashboardState(
+        selected_place_ids=["place-1", "place-2"],
+        analysis_start_date=date(2024, 1, 1),
+        analysis_end_date=date(2024, 1, 31),
+        radii_m=[250],
+    )
+    try:
+        for tool_name in ("compare_places", "run_place_analysis"):
+            client = FakeClient(
+                [f'{{"type":"tool_call","tool_name":"{tool_name}","arguments":{{}}}}']
+            )
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content="Summarize the selection.")],
+                    state,
+                    client,
+                )
+            )
+            deltas = [event.data["delta"] for event in events if event.event == "token"]
+            assert deltas, tool_name  # an answer summary was actually streamed
+            for delta in deltas:
+                assert not banned.search(delta), f"{tool_name}: {delta!r}"
+    finally:
+        session.close()
+
