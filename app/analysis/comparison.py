@@ -38,6 +38,14 @@ def build_statistical_comparison(
     if len(options) < 2:
         raise ValueError("At least two options are required.")
 
+    # Candidate selection is data-dependent: the lowest observed-rate option is chosen, then
+    # tested against every other. Benjamini-Hochberg (below) corrects the multiplicity of the
+    # k-1 pairwise tests but NOT this selection, so a reported per-pair adjusted p-value is
+    # mildly optimistic (selective inference / "winner's curse"). That is deliberate and safe
+    # here because the *decision* is conservative: _overall_decision requires the candidate to
+    # be statistically lower than EVERY alternative, and the effect-size floor (rate_ratio
+    # <= 0.80) plus the data floors must also hold — so selection alone cannot manufacture a
+    # winner. See docs/analysis/statistical-route-place-comparison.md.
     candidate = min(options, key=lambda option: option.incident_rate)
     raw_pairwise: list[PairwiseComparisonResult] = []
     p_values: list[float] = []

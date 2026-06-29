@@ -50,6 +50,29 @@ When more than two options are compared, the app applies a Benjamini-Hochberg ad
 control the false discovery rate across pairwise comparisons. An option is recommended only
 when it passes the conservative threshold against every relevant alternative.
 
+### Candidate Selection And Selective Inference
+
+The compared option that is tested is chosen from the data: the app selects the option with
+the lowest observed exposure-adjusted rate and tests it against each of the others. The
+Benjamini-Hochberg step corrects for the multiplicity of those pairwise comparisons, but it
+does not add a penalty for the act of selecting the lowest-rate option in the first place.
+Considered alone, that selection biases the result toward finding a "lower" option (a
+winner's-curse / selective-inference effect), so a reported per-pair adjusted p-value is
+slightly optimistic.
+
+The overall procedure is nonetheless conservative, because a recommendation requires the
+selected option to clear every guard against every alternative at once:
+
+- it must be statistically lower than every other option, not just one, and
+- the adjusted rate ratio against each must be at or below 0.80 — a materially lower rate, not
+  a marginal one, and
+- the data floors (at least 30 analysis days, positive exposure for every option, a per-option
+  minimum count, and a combined count of at least 10) must hold.
+
+Because the selected option must dominate all alternatives by a material margin, selection
+alone cannot manufacture a recommendation; the design errs toward `not_statistically_clear`
+rather than toward over-claiming a lower-incident option.
+
 ## Recommendation Threshold
 
 - adjusted p-value below 0.05
