@@ -120,3 +120,27 @@ def test_oversized_buffer_marks_baseline_too_small(tmp_path):
     place = result["places"][0]
     assert place["minimum_data_status"] == "baseline_too_small"
     assert place["decision"] == "insufficient_data"
+
+
+def test_neighborhood_analysis_attaches_temporal_profile(tmp_path):
+    session, user_hash, place_id = session_with_places_and_beat_crime(tmp_path)
+    result = neighborhood_analysis_for_places(
+        session=session,
+        user_id_hash=user_hash,
+        place_ids=[place_id],
+        radius_m=250,
+        analysis_start_date=date(2026, 1, 1),
+        analysis_end_date=date(2026, 6, 30),
+        offense_category=None,
+        offense_subcategory=None,
+        nibrs_group=None,
+        area_lookup={"M3": 3.0},
+        beat_polygons=_M3_POLYGONS,
+    )
+    temporal = result["places"][0]["temporal"]
+    assert len(temporal["hour_counts"]) == 24
+    assert len(temporal["dow_counts"]) == 7
+    # The fixture's 5 in-radius "near" incidents are dated datetime(2026, m, 12) -> hour 0.
+    assert temporal["total_with_time"] == 5
+    assert temporal["hour_counts"][0] == 5
+    assert temporal["without_time"] == 0
