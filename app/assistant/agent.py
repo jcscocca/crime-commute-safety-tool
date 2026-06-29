@@ -25,7 +25,7 @@ from app.config import get_settings
 # users at the supported neutral framing (reported-incident counts / exposure-adjusted rates).
 _SAFETY_SCORE_PATTERN = re.compile(
     r"\b(?:safe(?:ty|st|r)?|unsafe|danger(?:ous)?|risk(?:y|ier|iest)?)\b"
-    r"|\b(?:rank|rate|score)\b\s+(?:these|those|them|the\s+)?"
+    r"|\b(?:rank|rate|score)\b\s+(?:(?:these|those|them|the)\s+)?"
     r"(?:place|block|area|neighbou?rhood|route|street|spot|option|location)s?\b",
     re.IGNORECASE,
 )
