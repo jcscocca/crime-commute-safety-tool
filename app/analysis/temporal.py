@@ -28,6 +28,12 @@ def local_hour_dow(dt: datetime) -> tuple[int, int]:
 
 
 def build_temporal_profile(incidents: Iterable[CrimeIncidentData]) -> TemporalProfile:
+    """Descriptive hour-of-day / day-of-week profile for a set of incidents.
+
+    ``hour_counts`` and ``dow_counts`` are the marginals of the ``hour_by_dow`` joint
+    matrix. Incidents with no ``offense_start_utc`` are counted in ``without_time`` (not
+    dropped), so callers can report how many incidents lacked a recorded time.
+    """
     hour_by_dow = [[0] * 24 for _ in range(7)]
     total_with_time = 0
     without_time = 0
