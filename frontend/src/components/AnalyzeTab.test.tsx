@@ -90,6 +90,9 @@ describe("AnalyzeTab", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("✓ statistically clear")).toBeInTheDocument();
     expect(screen.getByText("4.0×")).toBeInTheDocument();
+    expect(
+      screen.getByText(/within 250 m · 2026-01-01 – 2026-06-30/),
+    ).toBeInTheDocument();
     const ids = new Set(METHODS_DEFINITIONS.map((d) => d.id));
     for (const id of ["reportedIncidentRate", "beatBaselineRate", "rateRatio", "confidenceInterval", "adjustedPValue", "overdispersion", "minimumDataStatus", "nearestIncident", "monthlyTrend"]) {
       expect(ids.has(id)).toBe(true);
