@@ -150,6 +150,8 @@ A second, softer layer appears in the system prompt (`PLANNING_SYSTEM_PROMPT` in
 
 The pre-LLM guard matches keywords with word-boundary anchors, which prevents false triggers on substrings like "safely" or "Safeway". However, it can be bypassed by paraphrasing (e.g., "which location would you feel more comfortable visiting?") or by requests that omit the flagged vocabulary. The guard is breadth-limited by its lexicon; it is not a semantic classifier. The system prompt provides a second line of defence, but a sufficiently unusual paraphrase could reach the model without triggering either layer.
 
+**Verified gap (as of `d30235b`):** the optional noun-determiner clause `(?:these|those|them|the\s+)?` attaches the trailing `\s+` only to `the`, so object-first requests like *"rank these places"* or *"score these areas"* slip past the pre-LLM guard (only *"rank the places"* is caught). One-line fix, tracked as the top Phase 1 item in [`../ROADMAP.md`](../ROADMAP.md).
+
 ---
 
 ## 7. Per-turn request flow
