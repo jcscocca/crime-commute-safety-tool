@@ -110,7 +110,9 @@ def _add_place(session: Session, user_id_hash: str, query: str) -> dict[str, Any
     provider = build_provider(get_settings())
     resolved = resolve_place_queries(session, user_id_hash, [query], provider)
     if not resolved.place_ids:
-        raise AssistantClarification(f"Could not find a place for '{query}'.")
+        raise AssistantClarification(
+            f"Could not find a place for '{query}'. Try a more specific address or landmark name."
+        )
     place_id = resolved.place_ids[0]
     place = session.get(PlaceCluster, place_id)
     if place is None:
