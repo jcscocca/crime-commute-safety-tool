@@ -9,7 +9,7 @@ from app.analysis.schemas import (
 )
 from app.db import get_sessionmaker
 from app.main import create_app
-from app.models import CrimeIncident, RouteRequest
+from app.models import CrimeIncident, RouteAlternative, RouteRequest
 from app.schemas import CrimeIncidentData
 from app.services.analysis_service import (
     _monthly_counts,
@@ -527,3 +527,104 @@ def test_monthly_counts_align_zero_count_months():
     )
 
     assert counts == [1, 0, 2]
+
+
+def test_compare_route_request_floors_near_empty_candidate(tmp_path):
+    # End-to-end through the route SERVICE path (not just the engine): a near-empty candidate
+    # corridor must NOT be declared the lower-incident "winner" on combined count alone. The
+    # per-option MIN_PLACE_COUNT floor lives in the shared build_statistical_comparison engine;
+    # this proves compare_route_request actually feeds per-option counts into it, so the route
+    # path applies the floor just like the site/neighborhood paths (the rigor asymmetry the
+    # roadmap flagged does not exist).
+    create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    session = get_sessionmaker()()
+    user_hash = "route-floor-user"
+    session.add(
+        RouteRequest(
+            id="rr-floor",
+            user_id_hash=user_hash,
+            origin_label="Origin",
+            origin_latitude=47.610,
+            origin_longitude=-122.340,
+            destination_label="Destination",
+            destination_latitude=47.662,
+            destination_longitude=-122.300,
+            mode="transit",
+            analysis_start_date=date(2024, 1, 1),
+            analysis_end_date=date(2024, 2, 29),
+        )
+    )
+    session.flush()  # parent route_requests row must exist before its alternatives (FK)
+    # Two corridors ~5 km apart so their 500 m buffers never overlap.
+    session.add_all(
+        [
+            RouteAlternative(
+                id="alt-a",
+                route_request_id="rr-floor",
+                user_id_hash=user_hash,
+                provider_route_id="prov-a",
+                route_label="Route A",
+                rank=1,
+                mode_mix="transit",
+                summary_geometry="47.610,-122.340;47.612,-122.340",
+            ),
+            RouteAlternative(
+                id="alt-b",
+                route_request_id="rr-floor",
+                user_id_hash=user_hash,
+                provider_route_id="prov-b",
+                route_label="Route B",
+                rank=2,
+                mode_mix="transit",
+                summary_geometry="47.660,-122.300;47.662,-122.300",
+            ),
+        ]
+    )
+    # Candidate corridor A: a single incident (below MIN_PLACE_COUNT=3). Corridor B: 20.
+    session.add(
+        CrimeIncident(
+            id="inc-a-1",
+            offense_start_utc=datetime(2024, 1, 15, tzinfo=UTC),
+            offense_category="PROPERTY",
+            latitude=47.611,
+            longitude=-122.340,
+        )
+    )
+    session.add_all(
+        [
+            CrimeIncident(
+                id=f"inc-b-{index}",
+                offense_start_utc=datetime(2024, 1 + (index % 2), 5 + index, tzinfo=UTC),
+                offense_category="PROPERTY",
+                latitude=47.661,
+                longitude=-122.300,
+            )
+            for index in range(20)
+        ]
+    )
+    session.commit()
+
+    result = compare_route_request(
+        session=session,
+        user_id_hash=user_hash,
+        request=RouteComparisonRequest(
+            route_request_id="rr-floor",
+            radius_m=500,
+            offense_category="PROPERTY",
+        ),
+    )
+    session.close()
+
+    assert result is not None
+    options = {option["label"]: option for option in result["overview"]["options"]}
+    assert options["Route A"]["incident_count"] == 1  # candidate sits below the per-option floor
+    assert options["Route B"]["incident_count"] == 20  # combined count is well over the floor
+    # The floor blocks declaring the near-empty candidate the lower-incident winner.
+    assert result["overview"]["decision_class"] == "insufficient_data"
+    assert result["overview"]["recommendation_option_id"] is None
+    assert result["overview"]["recommendation_label"] is None
+    pairwise = result["analytical"]["pairwise_results"][0]
+    assert pairwise["minimum_data_status"] == "option_count_too_low"
+    assert pairwise["winner_option_id"] is None
+    # Invariant: even a floored verdict reports reported-incident context, no safety language.
+    assert "safe" not in result["overview"]["summary_text"].lower()

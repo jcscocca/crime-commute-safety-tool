@@ -61,9 +61,10 @@ It is grounded in what you currently have selected (places, date range, radii, a
 filters) and is policy-constrained: it reports incident context and will refuse to label a place
 as safe or unsafe.
 
-Under the hood the assistant plans with an LLM and can call a small set of read-only tools
-(`get_dashboard_summary`, `run_place_analysis`, `compare_places`, `get_incident_details`,
-`suggest_followups`). Responses stream back to the browser token by token.
+Under the hood the assistant plans with a single LLM call and can invoke a small set of tools
+(`add_place`, `select_places`, `analyze_places`, `compare_places`, `get_dashboard_summary`,
+`suggest_followups`) that drive the dashboard pane. Responses stream back to the browser token by
+token.
 
 The assistant talks directly to an **OpenAI-compatible LLM endpoint** (any server exposing a
 `/chat/completions` API — llama.cpp/llama-swap, vLLM, etc.). Waypoint reaches it at
