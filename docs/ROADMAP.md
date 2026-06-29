@@ -29,8 +29,8 @@ the data/ops durability, and the product-breadth items are all closed. No queued
 |---|---|
 | **Production** | Analytical engine + neighborhood stats (overdispersion, BH correction, point-in-polygon beat assignment), places CRUD/bulk/geocoding (Seattle-region-locked), dashboard analyze/compare/incidents, Tableau place-summary + route exports, sessions/tiers, config/secrets validators (salt/secret/admin-token all gated in prod boot), CI (SQLite + Postgres lanes), migrations |
 | **Beta-ready** | Assistant (decision-tree router, streaming SSE, friendly offline state + Retry, markdown), Routes/OTP (live OTP + mock fallback, per-leg breakdown, export links), single-host ThinkPad deploy stack, Socrata incremental backfill + data-freshness endpoint, sensitivity-class UI (place creation + exports), personal-upload (enabled on single-host trial, flag-gated elsewhere), seed dataset |
-| **Half-baked** | Real-data query perf still has residual full-table paths outside the main summarize path; data-freshness surface exposed via API but not surfaced in the UI; Postgres-in-prod (CI-proven but not long-run validated); MapWorkspace still a 497-line hub (not split into per-tab hooks) |
-| **Open — invariant risk** | Safety-refusal guard substantially broadened (broad regex, scans last 8 user turns) but a regex gap lets "rank these places" / "score these areas" bypass it (missing `\s+` inside optional noun clause); no output-side guard test on the assistant response token stream |
+| **Half-baked** | Real-data query perf still has residual full-table paths outside the main summarize path; Postgres-in-prod (CI-proven but not long-run validated) |
+| **Open — invariant risk** | Safety-refusal guard hardened (object-first regex gap fixed #59; output-side guard + broadened ranking/determiner detection #63). Residual: synonym-lexicon + non-English breadth (lower-priority follow-up, Phase 4 H4) |
 | **Deprecated / dead** | LocalAgent gateway + `MCA_LOCALAGENT_BASE_URL`, `statistical-comparisons.csv` public export (removed — was dead surface), ~6 internal duplicate routers (internal-gated, still present) |
 
 ---
@@ -70,9 +70,22 @@ the data/ops durability, and the product-breadth items are all closed. No queued
 - [x] **Personal-upload disposition decided:** enabled on single-host ThinkPad trial (`MCA_PUBLIC_ENABLE_PERSONAL_UPLOADS=true` in `.env.deploy.example` with explicit "keep OFF for shared/public" guardrail), with consent/retention copy in `docs/DEPLOY.md` (#43).
 - [x] **Data-freshness indicator:** the dashboard topbar shows a "Data through <date>" pill sourced from `GET /dashboard/freshness` (`frontend/src/components/DataFreshness.tsx`), so users know the shared SPD dataset isn't live.
 
-## What's next
+## Phase 4 — Harden & polish + new capabilities
+*The next slate, chosen 2026-06-29. Worked one item at a time per Conventions.*
 
-All of the planned work (Phases 0–3) is complete — there is no queued work. Waypoint is a disciplined, low-debt internal-trial v1. When a new unit of work is chosen, it follows the cadence in **Conventions** below.
+**Harden & polish**
+- [ ] **H1 · Query-perf sweep** — fix the residual full-table query paths outside `summarize_for_user`; add indexes / SQL-filtered paths.
+- [ ] **H2 · Long-run Postgres validation** — exercise the prod stack on Postgres under sustained/load conditions beyond the CI parity smoke.
+- [ ] **H3 · Address-search polish** — debounce, result ranking, error/empty states, recent searches across Places + Routes.
+- [ ] **H4 · Assistant guard breadth** — close the residual synonym-lexicon / non-English gaps in the safety-refusal guard.
+
+**New capabilities**
+- [x] **C1 · Temporal analysis** — descriptive hour-of-day + day-of-week incident profiles around a place, with a travel-window highlight, on the Analyze tab. Pure `app/analysis/temporal.py` wired into the analyze path; `offense_start_utc` read as naive Seattle local. Spec/plan: `docs/superpowers/{specs,plans}/2026-06-29-temporal-analysis*`.
+- [ ] **C2 · Incident category breakdown** — surface the mix of incident types (not just counts) with the same baseline rigor.
+- [ ] **C3 · Saved views** — lightweight cross-session persistence to save & revisit an analysis/comparison.
+- [ ] **C4 · Second data source** — integrate another dataset (e.g. SPD 911 calls).
+
+> Deferred temporal follow-ups (after C1): comparative/baseline temporal (rate-ratio per bucket), route corridor-temporal, an assistant temporal tool, and renaming the misnamed `offense_start_utc` column (holds local time) — a separate migration.
 
 ## Conventions
 - Each unchecked box above is a candidate unit of work; large ones get their own `docs/superpowers/` spec → plan → PR (the established cadence).
