@@ -78,6 +78,8 @@ def crime_data_freshness(
     dashboard load; a race only causes a redundant recompute, so no lock is needed.
     """
     global _freshness_cache, _freshness_expires
+    # The cached dict is returned by reference and shared across cache hits; callers must treat
+    # it as read-only (the sole caller hands it straight to JSON serialization).
     if _freshness_cache is not None and now() < _freshness_expires:
         return _freshness_cache
     value = _compute_freshness(session)

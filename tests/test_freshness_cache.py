@@ -22,6 +22,7 @@ def test_freshness_is_cached_within_ttl_then_recomputes_after_expiry():
     clock = {"t": 1000.0}
     now = lambda: clock["t"]  # noqa: E731
 
+    # session is unused in these tests: _compute_freshness is mocked, so None never reaches a DB.
     with patch.object(crime_service, "_compute_freshness", return_value=_FAKE) as spy:
         first = crime_data_freshness(None, now=now)
         clock["t"] = 1000.0 + FRESHNESS_CACHE_TTL_S - 1  # still within the TTL
