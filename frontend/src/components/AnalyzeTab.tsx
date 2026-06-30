@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type {
   AnalysisSettings,
+  CategoryShare,
   IncidentDetail,
   IncidentDetailsResponse,
   NeighborhoodAnalysis,
@@ -242,6 +243,32 @@ function TemporalSection({ temporal, windowLabel }: { temporal: TemporalProfile;
   );
 }
 
+function CategoryBreakdown({ rows }: { rows: CategoryShare[] }) {
+  if (!rows.length) return null;
+  return (
+    <div className="mc-cat-breakdown">
+      <span className="mc-cat-title">Incident types</span>
+      {rows.map((row) => (
+        <div key={row.label} className="mc-cat-row">
+          <span className="mc-cat-label">{row.label}</span>
+          <span className="mc-cat-shares">
+            {Math.round(row.place_share * 100)}% here
+            {row.beat_share !== null
+              ? ` · ${Math.round(row.beat_share * 100)}% nearby`
+              : null}
+          </span>
+          <span className="mc-cat-bar" aria-hidden="true">
+            <span className="mc-cat-fill place" style={{ width: `${Math.round(row.place_share * 100)}%` }} />
+            {row.beat_share !== null ? (
+              <span className="mc-cat-fill beat" style={{ width: `${Math.round(row.beat_share * 100)}%` }} />
+            ) : null}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function VerdictCard({ place, windowLabel }: { place: NeighborhoodPlace; windowLabel: string }) {
   const { headline, chip } = decisionHeadline(place);
   return (
@@ -275,15 +302,14 @@ function VerdictCard({ place, windowLabel }: { place: NeighborhoodPlace; windowL
               <div><dt>Adequacy</dt><dd>{place.minimum_data_status}</dd></div>
               <div><dt>Nearest</dt><dd>{place.nearest_incident_m != null ? `${Math.round(place.nearest_incident_m)} m` : "—"}</dd></div>
             </dl>
-            {place.type_mix?.length ? (
-              <ul className="mc-typemix">
-                {place.type_mix.map((t) => <li key={t.label}>{t.label} · {t.count}</li>)}
-              </ul>
-            ) : null}
+            <CategoryBreakdown rows={place.category_breakdown} />
           </details>
         </>
       ) : (
-        <p className="mc-verdict-sub">{place.place_incident_count} reported incidents in range; no beat baseline.</p>
+        <>
+          <p className="mc-verdict-sub">{place.place_incident_count} reported incidents in range; no beat baseline.</p>
+          <CategoryBreakdown rows={place.category_breakdown} />
+        </>
       )}
       {place.temporal ? <TemporalSection temporal={place.temporal} windowLabel={windowLabel} /> : null}
     </section>

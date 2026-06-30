@@ -122,3 +122,46 @@ def test_neighborhood_endpoint_includes_temporal_and_no_safety_language(neighbor
     blob = json.dumps(body).lower()
     for banned in ("unsafe", "dangerous", "safest", "risky", "avoid "):
         assert banned not in blob
+
+
+def test_neighborhood_endpoint_includes_category_breakdown_and_no_type_mix(neighborhood_client):
+    import json
+
+    client, place_id = neighborhood_client
+    response = client.post(
+        "/dashboard/neighborhood",
+        json={
+            "place_ids": [place_id],
+            "analysis_start_date": "2026-01-01",
+            "analysis_end_date": "2026-06-30",
+            "radii_m": [250],
+            "offense_category": None,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    place = body["places"][0]
+
+    # type_mix must be gone.
+    assert "type_mix" not in place
+
+    # category_breakdown must be present and well-formed.
+    bd = place["category_breakdown"]
+    assert isinstance(bd, list)
+    assert len(bd) >= 1
+    for row in bd:
+        assert set(row.keys()) == {"label", "place_count", "place_share", "beat_share"}
+        assert isinstance(row["label"], str)
+        assert isinstance(row["place_count"], int)
+        assert isinstance(row["place_share"], float)
+        # beat_share is float or null.
+        assert row["beat_share"] is None or isinstance(row["beat_share"], float)
+
+    # The fixture seeds place incidents with offense_category="PROPERTY" and no
+    # offense_subcategory, so the label falls back to the category name.
+    assert bd[0]["label"] == "PROPERTY"
+
+    # Invariant: no safety language anywhere in the payload.
+    blob = json.dumps(body).lower()
+    for banned in ("unsafe", "dangerous", "safest", "risky", "avoid "):
+        assert banned not in blob

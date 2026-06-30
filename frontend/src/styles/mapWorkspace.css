@@ -229,8 +229,6 @@
 .mc-analytical dl>div{display:grid;gap:2px;padding:7px 9px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid var(--line);}
 .mc-analytical dt{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);}
 .mc-analytical dd{margin:0;font-family:var(--f-mono);font-size:12px;color:var(--text);overflow-wrap:anywhere;}
-.mc-typemix{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0 0;padding:0;list-style:none;}
-.mc-typemix li{font-family:var(--f-mono);font-size:11px;color:var(--dim);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:7px;padding:2px 8px;}
 .mc-pairwise{display:grid;gap:8px;margin:0 0 16px;}
 .mc-pairwise ul{display:grid;gap:7px;margin:0;padding:0;list-style:none;}
 .mc-pairwise li{padding:9px 11px;border-radius:11px;background:var(--ink-raise);border:1px solid var(--line);font-size:12.5px;line-height:1.5;color:var(--text);overflow-wrap:anywhere;}
@@ -468,3 +466,13 @@ input.mc-inp:focus{outline:2px solid var(--clay-soft);outline-offset:1px;}
 .mc-temporal-hours input{width:46px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:6px;color:var(--text);padding:3px 5px;font-family:var(--f-mono);}
 .mc-temporal-callout{margin:0;font-size:12px;color:var(--text);}
 .mc-temporal-note{margin:0;font-size:11px;color:var(--faint);}
+/* Category breakdown — incident type mix, place-share vs beat-share, neutral palette */
+.mc-cat-breakdown{margin-top:12px;padding-top:11px;border-top:1px solid var(--line);display:grid;gap:6px;}
+.mc-cat-title{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);}
+.mc-cat-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 10px;font-size:11.5px;}
+.mc-cat-label{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mc-cat-shares{color:var(--dim);white-space:nowrap;font-variant-numeric:tabular-nums;}
+.mc-cat-bar{grid-column:1/-1;display:flex;gap:3px;height:4px;}
+.mc-cat-fill{display:block;height:100%;border-radius:2px;}
+.mc-cat-fill.place{background:var(--slate);}
+.mc-cat-fill.beat{background:rgba(255,255,255,.18);}
