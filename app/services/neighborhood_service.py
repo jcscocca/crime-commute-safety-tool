@@ -104,14 +104,6 @@ def _beat_incidents(
     return [_incident_data(r) for r in session.scalars(stmt).all()]
 
 
-def _type_mix(incidents: list[CrimeIncidentData]) -> list[dict[str, Any]]:
-    counter: Counter[str] = Counter()
-    for incident in incidents:
-        label = incident.offense_subcategory or incident.offense_category or "Uncategorized"
-        counter[label] += 1
-    return [{"label": label, "count": count} for label, count in counter.most_common(6)]
-
-
 def _category_breakdown(
     place_incidents: list[CrimeIncidentData],
     baseline_incidents: list[CrimeIncidentData] | None,
@@ -305,7 +297,9 @@ def neighborhood_analysis_for_places(
                     "baseline_available": False,
                     "decision": "baseline_unavailable",
                     "place_incident_count": len(entry.get("place_incidents", [])),
-                    "type_mix": _type_mix(entry.get("place_incidents", [])),
+                    "category_breakdown": _category_breakdown(
+                        entry.get("place_incidents", []), None
+                    ),
                     "temporal": asdict(build_temporal_profile(entry.get("place_incidents", []))),
                 }
             )
@@ -318,7 +312,9 @@ def neighborhood_analysis_for_places(
                     "decision": "insufficient_data",
                     "minimum_data_status": "baseline_too_small",
                     "place_incident_count": len(entry.get("place_incidents", [])),
-                    "type_mix": _type_mix(entry.get("place_incidents", [])),
+                    "category_breakdown": _category_breakdown(
+                        entry.get("place_incidents", []), None
+                    ),
                     "temporal": asdict(build_temporal_profile(entry.get("place_incidents", []))),
                 }
             )
@@ -362,7 +358,7 @@ def neighborhood_analysis_for_places(
                 "decision": result.decision,
                 "nearest_incident_m": nearest,
                 "monthly_counts": place_monthly,
-                "type_mix": _type_mix(place_incidents),
+                "category_breakdown": _category_breakdown(place_incidents, beat_incidents),
                 "temporal": asdict(build_temporal_profile(place_incidents)),
             }
         )

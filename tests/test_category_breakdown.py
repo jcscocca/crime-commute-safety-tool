@@ -59,7 +59,9 @@ def test_fewer_than_top_n_labels_produces_no_other():
 
 
 def test_custom_top_n():
-    incidents = [_inc(subcategory="A")] * 3 + [_inc(subcategory="B")] * 2 + [_inc(subcategory="C")] * 1
+    incidents = (
+        [_inc(subcategory="A")] * 3 + [_inc(subcategory="B")] * 2 + [_inc(subcategory="C")] * 1
+    )
     rows = _category_breakdown(incidents, None, top_n=2)
     labels = [r["label"] for r in rows]
     assert "A" in labels
