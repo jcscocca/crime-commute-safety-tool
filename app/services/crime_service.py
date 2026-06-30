@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.crime.seattle_socrata import load_crime_csv
+from app.crime.sources import SOURCE_SPD_CRIME
 from app.crime.summaries import summarize_place_crime
 from app.models import CrimeIncident, PlaceCluster, PlaceCrimeSummary
 from app.schemas import CrimeIncidentData, PlaceClusterData, PlaceCrimeSummaryData
@@ -114,6 +115,7 @@ def _incidents_near_clusters(
     radii_m: list[int],
     analysis_start_date: date,
     analysis_end_date: date,
+    source_dataset: str = SOURCE_SPD_CRIME,
 ) -> list[CrimeIncidentData]:
     """Load only incidents within the clusters' combined bounding box and date range,
     rather than the whole ``crime_incidents`` table. ``summarize_place_crime`` re-filters
@@ -141,6 +143,7 @@ def _incidents_near_clusters(
     observed = func.coalesce(CrimeIncident.offense_start_utc, CrimeIncident.report_utc)
     stmt = (
         select(CrimeIncident)
+        .where(CrimeIncident.source_dataset == source_dataset)
         .where(CrimeIncident.latitude.is_not(None))
         .where(CrimeIncident.longitude.is_not(None))
         .where(CrimeIncident.latitude >= min(lats) - lat_pad)
