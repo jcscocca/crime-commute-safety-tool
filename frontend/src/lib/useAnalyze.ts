@@ -61,6 +61,7 @@ export function useAnalyze({ selectedIds, analysis, refreshWithFallback, setErro
       analysis_end_date: analysis.endDate,
       radii_m: [analysis.radiusM],
       offense_category: analysis.offenseCategory || null,
+      layer: analysis.layer,
     };
     try {
       await analyzePlaces(payload);

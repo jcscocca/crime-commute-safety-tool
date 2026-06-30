@@ -87,6 +87,14 @@ which are unauthenticated or session-creating.
 | `/exports/tableau/route-segments.csv` | GET | `app/api/routes_exports.py` | — | CSV attachment |
 | `/exports/tableau/route-context.csv` | GET | `app/api/routes_exports.py` | — | CSV attachment |
 
+The `/dashboard/analyze`, `/dashboard/incidents`, `/dashboard/compare`, and
+`/dashboard/neighborhood` request bodies accept an optional `layer` field (`"reported"`
+default, or `"calls"`). It selects the incident-context layer: `"reported"` unions the SPD
+crime + arrests datasets, `"calls"` queries SPD 911 calls for service. The route maps the
+layer to its `source_dataset`s via `app/crime/sources.py::sources_for_layer`; an unknown
+value is a 422. The layers are mutually exclusive (a 911 call is never counted with the
+report it produced).
+
 ### Internal tier
 
 Endpoints have `include_in_schema=False` and are absent from `/openapi.json`. All use

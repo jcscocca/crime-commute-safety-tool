@@ -20,6 +20,7 @@ type AnalyzePlacesPayload = {
   offense_category?: string | null;
   offense_subcategory?: string | null;
   nibrs_group?: string | null;
+  layer?: string;
 };
 
 type ComparePlacesPayload = {
@@ -30,6 +31,7 @@ type ComparePlacesPayload = {
   offense_category?: string | null;
   offense_subcategory?: string | null;
   nibrs_group?: string | null;
+  layer?: string;
 };
 
 type IncidentDetailsPayload = AnalyzePlacesPayload & {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from datetime import date
 from typing import Any
 
@@ -43,6 +44,7 @@ def compare_site_options(
     offense_category: str | None,
     offense_subcategory: str | None,
     nibrs_group: str | None,
+    sources: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     site_options = [
         option
@@ -61,6 +63,7 @@ def compare_site_options(
         offense_category=offense_category,
         offense_subcategory=offense_subcategory,
         nibrs_group=nibrs_group,
+        sources=sources,
     )
     option_results: list[AnalysisOptionResult] = []
     period_counts_by_option_id: dict[str, list[int]] = {}

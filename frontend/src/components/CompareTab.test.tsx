@@ -8,7 +8,7 @@ import type { AnalysisSettings, DashboardSummary, Place } from "../types";
 
 const home: Place = { id: "p1", display_label: "Home", latitude: 47.61, longitude: -122.33, visit_count: 5, total_dwell_minutes: null, inferred_place_type: "manual_place", sensitivity_class: "normal" };
 const office: Place = { ...home, id: "p2", display_label: "Office" };
-const analysis: AnalysisSettings = { startDate: "2026-01-01", endDate: "2026-06-24", radiusM: 250, offenseCategory: "PROPERTY" };
+const analysis: AnalysisSettings = { startDate: "2026-01-01", endDate: "2026-06-24", radiusM: 250, offenseCategory: "PROPERTY", layer: "reported" };
 
 const summary: DashboardSummary = {
   totals: { place_count: 2, visit_count: 10, incident_count: 180 },

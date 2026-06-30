@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import asdict
 from datetime import date
 from math import pi
@@ -87,12 +88,14 @@ def _beat_incidents(
     offense_subcategory,
     nibrs_group,
     source_dataset: str = SOURCE_SPD_CRIME,
+    sources: Sequence[str] | None = None,
 ) -> list[CrimeIncidentData]:
+    effective_sources = tuple(sources) if sources is not None else (source_dataset,)
     start_at, end_at = _analysis_datetime_bounds(start, end)
     observed = func.coalesce(CrimeIncident.offense_start_utc, CrimeIncident.report_utc)
     stmt = (
         select(CrimeIncident)
-        .where(CrimeIncident.source_dataset == source_dataset)
+        .where(CrimeIncident.source_dataset.in_(effective_sources))
         .where(CrimeIncident.beat == beat)
         .where(observed >= start_at)
         .where(observed <= end_at)
@@ -190,6 +193,7 @@ def neighborhood_analysis_for_places(
     nibrs_group: str | None,
     area_lookup: dict[str, float],
     beat_polygons: BeatPolygons,
+    sources: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     _validate_date_range(analysis_start_date, analysis_end_date)
     days = _analysis_days(analysis_start_date, analysis_end_date)
@@ -203,6 +207,7 @@ def neighborhood_analysis_for_places(
         offense_category=offense_category,
         offense_subcategory=offense_subcategory,
         nibrs_group=nibrs_group,
+        sources=sources,
     )
 
     raw, p_values = [], []
@@ -224,6 +229,7 @@ def neighborhood_analysis_for_places(
             offense_category,
             offense_subcategory,
             nibrs_group,
+            sources=sources,
         )
         # Rest of beat: the surrounding baseline EXCLUDING the place's own buffer, so the
         # place is not compared against itself. Carve the buffer out by distance (incidents

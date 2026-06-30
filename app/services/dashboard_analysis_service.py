@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, time
 from math import cos, radians
 from typing import Any
@@ -31,6 +32,7 @@ def analyze_selected_places(
     offense_category: str | None,
     offense_subcategory: str | None,
     nibrs_group: str | None,
+    sources: Sequence[str] | None = None,
 ) -> dict[str, int]:
     _validate_date_range(analysis_start_date, analysis_end_date)
     clusters = [_cluster_data(row) for row in _selected_clusters(session, user_id_hash, place_ids)]
@@ -43,6 +45,7 @@ def analyze_selected_places(
         offense_category=offense_category,
         offense_subcategory=offense_subcategory,
         nibrs_group=nibrs_group,
+        sources=sources,
     )
     summaries = summarize_place_crime(
         clusters,
@@ -79,6 +82,7 @@ def compare_selected_places(
     offense_category: str | None,
     offense_subcategory: str | None,
     nibrs_group: str | None,
+    sources: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     clusters = _selected_clusters(session, user_id_hash, place_ids)
     if len(clusters) < 2:
@@ -105,6 +109,7 @@ def compare_selected_places(
         offense_category=offense_category,
         offense_subcategory=offense_subcategory,
         nibrs_group=nibrs_group,
+        sources=sources,
     )
 
 
@@ -119,6 +124,7 @@ def incident_details_for_places(
     offense_subcategory: str | None,
     nibrs_group: str | None,
     limit: int,
+    sources: Sequence[str] | None = None,
 ) -> dict[str, object]:
     _validate_date_range(analysis_start_date, analysis_end_date)
     if not radii_m:
@@ -141,6 +147,7 @@ def incident_details_for_places(
         offense_category=offense_category,
         offense_subcategory=offense_subcategory,
         nibrs_group=nibrs_group,
+        sources=sources,
     )
     rows = _incident_detail_rows(clusters, incidents, radius_m)
     limited_rows = rows[:limit]
@@ -186,15 +193,17 @@ def _filtered_incidents(
     offense_subcategory: str | None,
     nibrs_group: str | None,
     source_dataset: str = SOURCE_SPD_CRIME,
+    sources: Sequence[str] | None = None,
 ) -> list[CrimeIncidentData]:
     if not radii_m:
         return []
 
+    effective_sources = tuple(sources) if sources is not None else (source_dataset,)
     start_at, end_at = _analysis_datetime_bounds(analysis_start_date, analysis_end_date)
     observed_at = func.coalesce(CrimeIncident.offense_start_utc, CrimeIncident.report_utc)
     statement = (
         select(CrimeIncident)
-        .where(CrimeIncident.source_dataset == source_dataset)
+        .where(CrimeIncident.source_dataset.in_(effective_sources))
         .where(observed_at >= start_at)
         .where(observed_at <= end_at)
         .where(CrimeIncident.latitude.is_not(None))

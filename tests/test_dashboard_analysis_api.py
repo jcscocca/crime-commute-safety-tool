@@ -148,6 +148,71 @@ def test_dashboard_analyze_filters_candidates_before_summarizing(tmp_path):
     assert dashboard["totals"]["incident_count"] == 1
 
 
+def _seed_layered_incident(client: TestClient, *, source: str, external_id: str) -> None:
+    """Add one incident for ``source`` at the Downtown place so layer queries can tell the
+    reported (crime+arrests) layer apart from the 911 calls layer."""
+    session = get_sessionmaker()()
+    session.add(
+        CrimeIncident(
+            id=external_id,
+            external_incident_id=external_id,
+            source_dataset=source,
+            offense_start_utc=datetime(2024, 1, 12, tzinfo=UTC),
+            offense_category="PROPERTY" if source == "seattle_spd_crime" else None,
+            offense_subcategory="THEFT" if source == "seattle_spd_911" else None,
+            latitude=47.6094,
+            longitude=-122.3334,
+        )
+    )
+    session.commit()
+    session.close()
+
+
+def test_dashboard_incidents_reported_layer_unions_crime_and_arrests(tmp_path):
+    client = _client_with_places_and_crime(tmp_path)
+    # incident-a (crime) is already at the Downtown place; add an arrest and a 911 call there.
+    _seed_layered_incident(client, source="seattle_spd_arrests", external_id="arr-1")
+    _seed_layered_incident(client, source="seattle_spd_911", external_id="call-1")
+    place_id = client.get("/places").json()["places"][0]["id"]
+    body = {
+        "place_ids": [place_id],
+        "analysis_start_date": "2024-01-01",
+        "analysis_end_date": "2024-01-31",
+        "radii_m": [250],
+    }
+
+    reported = client.post("/dashboard/incidents", json={**body, "layer": "reported"}).json()
+    calls = client.post("/dashboard/incidents", json={**body, "layer": "calls"}).json()
+    default = client.post("/dashboard/incidents", json=body).json()
+
+    # reported = crime (incident-a) + arrest (arr-1); the 911 call is excluded.
+    reported_ids = {row["incident_id"] for row in reported["incidents"]}
+    assert reported_ids == {"incident-a", "arr-1"}
+    # calls layer sees only the 911 row.
+    assert {row["incident_id"] for row in calls["incidents"]} == {"call-1"}
+    # No layer specified defaults to the reported layer.
+    assert {row["incident_id"] for row in default["incidents"]} == reported_ids
+
+
+def test_dashboard_analyze_rejects_unknown_layer(tmp_path):
+    client = _client_with_places_and_crime(tmp_path)
+    place_id = client.get("/places").json()["places"][0]["id"]
+
+    response = client.post(
+        "/dashboard/analyze",
+        json={
+            "place_ids": [place_id],
+            "analysis_start_date": "2024-01-01",
+            "analysis_end_date": "2024-01-31",
+            "radii_m": [250],
+            "layer": "nope",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "layer must be one of" in response.text
+
+
 def test_dashboard_analyze_rejects_duplicate_radii(tmp_path):
     client = _client_with_places_and_crime(tmp_path)
     places = client.get("/places").json()["places"]

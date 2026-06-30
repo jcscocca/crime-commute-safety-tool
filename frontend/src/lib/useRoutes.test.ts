@@ -13,6 +13,7 @@ const analysis: AnalysisSettings = {
   endDate: "2026-06-30",
   radiusM: 250,
   offenseCategory: "",
+  layer: "reported",
 };
 
 function comparison(): RouteComparison {

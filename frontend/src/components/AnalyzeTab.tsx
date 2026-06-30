@@ -56,6 +56,11 @@ const CATEGORIES: { value: string; label: string }[] = [
   { value: "SOCIETY", label: "Society" },
 ];
 
+const LAYERS: { value: AnalysisSettings["layer"]; label: string }[] = [
+  { value: "reported", label: "Reported incidents" },
+  { value: "calls", label: "911 calls" },
+];
+
 function titleCase(value: string) {
   return value
     .toLowerCase()
@@ -438,9 +443,28 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
     ? `${neighborhood.analysis_start_date} – ${neighborhood.analysis_end_date}`
     : "";
 
+  const isCallsLayer = analysis.layer === "calls";
+
   return (
     <div className="mc-panel is-active" role="tabpanel" aria-label="Analyze">
       <div className="mc-querybar">
+        <div className="mc-field">
+          <label id="layer-label">Data layer</label>
+          <div className="mc-chips" role="group" aria-labelledby="layer-label">
+            {LAYERS.map((layer) => (
+              <button
+                key={layer.value}
+                type="button"
+                className={`mc-chip${analysis.layer === layer.value ? " on" : ""}`}
+                aria-pressed={analysis.layer === layer.value}
+                onClick={() => onChange({ layer: layer.value })}
+              >
+                {layer.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="mc-field">
           <label htmlFor="analysis-start-date">Date range</label>
           <div className="mc-inputs">
@@ -460,22 +484,32 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
           </div>
         </div>
 
-        <div className="mc-field">
-          <label id="category-label">Incident categories</label>
-          <div className="mc-chips" role="group" aria-labelledby="category-label">
-            {CATEGORIES.map((category) => (
-              <button key={category.value || "all"} type="button" className={`mc-chip${analysis.offenseCategory === category.value ? " on" : ""}`} aria-pressed={analysis.offenseCategory === category.value} onClick={() => onChange({ offenseCategory: category.value })}>
-                {category.label}
-              </button>
-            ))}
+        {isCallsLayer ? null : (
+          <div className="mc-field">
+            <label id="category-label">Incident categories</label>
+            <div className="mc-chips" role="group" aria-labelledby="category-label">
+              {CATEGORIES.map((category) => (
+                <button key={category.value || "all"} type="button" className={`mc-chip${analysis.offenseCategory === category.value ? " on" : ""}`} aria-pressed={analysis.offenseCategory === category.value} onClick={() => onChange({ offenseCategory: category.value })}>
+                  {category.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mc-querybar-run">
           <span className="note">{selected.length} place{selected.length === 1 ? "" : "s"} · {analysis.radiusM} m</span>
           <button type="button" className="mc-cta" disabled={!canRun} onClick={onRun}>{running ? "Running…" : "Run analysis"}</button>
         </div>
       </div>
+
+      {isCallsLayer ? (
+        <p className="mc-layer-note" role="note">
+          911 calls are <strong>requests for service</strong>, not confirmed incidents. The same
+          event can generate several calls, many are proactive officer activity, and a call does
+          not mean a crime occurred. Counts below are call volume, not reported crime.
+        </p>
+      ) : null}
 
       {error ? <p className="mc-inline-error" role="alert">{error}</p> : null}
 

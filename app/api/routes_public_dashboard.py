@@ -20,6 +20,7 @@ from app.api.dashboard_schemas import (
 )
 from app.api.deps import required_public_user_hash
 from app.config import get_settings
+from app.crime.sources import sources_for_layer
 from app.db import get_session
 from app.geocoding.providers import GeocodeProvider, GeocoderUpstreamError, build_provider
 from app.services.crime_service import crime_data_freshness
@@ -61,6 +62,7 @@ def analyze_dashboard_places(
             offense_category=request.offense_category,
             offense_subcategory=request.offense_subcategory,
             nibrs_group=request.nibrs_group,
+            sources=sources_for_layer(request.layer),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -84,6 +86,7 @@ def dashboard_incidents(
             offense_subcategory=request.offense_subcategory,
             nibrs_group=request.nibrs_group,
             limit=request.limit,
+            sources=sources_for_layer(request.layer),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -106,6 +109,7 @@ def compare_dashboard_places(
             offense_category=request.offense_category,
             offense_subcategory=request.offense_subcategory,
             nibrs_group=request.nibrs_group,
+            sources=sources_for_layer(request.layer),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -130,6 +134,7 @@ def dashboard_neighborhood(
             nibrs_group=request.nibrs_group,
             area_lookup=_beat_areas(),
             beat_polygons=_beat_polygons(),
+            sources=sources_for_layer(request.layer),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

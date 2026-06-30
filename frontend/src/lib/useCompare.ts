@@ -47,6 +47,7 @@ export function useCompare({ selectedIds, analysis, setError }: CompareDeps): Co
         analysis_end_date: analysis.endDate,
         radius_m: analysis.radiusM,
         offense_category: analysis.offenseCategory || null,
+        layer: analysis.layer,
       });
       if (versionRef.current === version) setComparison(result);
     } catch {

@@ -31,7 +31,7 @@ export function MapWorkspace() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [analysis, setAnalysis] = useState<AnalysisSettings>(() => {
     const window = currentYearAnalysisWindow();
-    return { startDate: window.analysis_start_date, endDate: window.analysis_end_date, radiusM: 250, offenseCategory: "" };
+    return { startDate: window.analysis_start_date, endDate: window.analysis_end_date, radiusM: 250, offenseCategory: "", layer: "reported" };
   });
 
   const data = useDashboardData();
