@@ -389,7 +389,11 @@ describe("AnalyzeTab", () => {
     );
     const rows = container.querySelectorAll(".mc-cat-row");
     expect(rows.length).toBe(2);
-    expect(Array.from(rows).some((el) => el.textContent?.includes("Other"))).toBe(true);
+    const otherRow = Array.from(rows).find((el) => el.textContent?.includes("Other"));
+    expect(otherRow).toBeTruthy();
+    // Other row: 29% here · 5% nearby.
+    expect(otherRow!.textContent).toMatch(/29%/);
+    expect(otherRow!.textContent).toMatch(/5%/);
   });
 
   it("hides the category breakdown section when category_breakdown is empty", () => {
@@ -401,5 +405,26 @@ describe("AnalyzeTab", () => {
       <AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} neighborhood={{ ...neighborhood, places: [noBreakdown] }} onChange={vi.fn()} onRun={vi.fn()} />,
     );
     expect(container.querySelector(".mc-cat-breakdown")).not.toBeInTheDocument();
+  });
+
+  it("renders the category breakdown for a degraded place with place share only", () => {
+    const degraded: NeighborhoodPlace = {
+      ...homePlace,
+      place_id: "p3", place_label: "Cabin", baseline_available: false,
+      decision: "baseline_unavailable", place_incident_count: 7,
+      category_breakdown: [
+        { label: "Theft", place_count: 5, place_share: 0.71, beat_share: null },
+        { label: "Assault", place_count: 2, place_share: 0.29, beat_share: null },
+      ],
+    };
+    const { container } = render(
+      <AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} neighborhood={{ ...neighborhood, places: [degraded] }} onChange={vi.fn()} onRun={vi.fn()} />,
+    );
+    const rows = container.querySelectorAll(".mc-cat-row");
+    expect(rows.length).toBe(2);
+    expect(rows[0].textContent).toMatch(/Theft/);
+    expect(rows[0].textContent).toMatch(/71%\s*here/);
+    // Degraded → no beat baseline → no "nearby" anywhere in the breakdown.
+    expect(container.querySelector(".mc-cat-breakdown")!.textContent).not.toMatch(/nearby/);
   });
 });

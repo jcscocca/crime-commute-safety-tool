@@ -203,6 +203,8 @@ export type TemporalProfile = {
   without_time: number;
 };
 
+export type CategoryShare = { label: string; place_count: number; place_share: number; beat_share: number | null };
+
 export type NeighborhoodPlace = {
   place_id: string;
   place_label: string;
@@ -224,7 +226,7 @@ export type NeighborhoodPlace = {
   minimum_data_status?: string;
   nearest_incident_m?: number | null;
   monthly_counts?: number[];
-  category_breakdown: { label: string; place_count: number; place_share: number; beat_share: number | null }[];
+  category_breakdown: CategoryShare[];
   temporal?: TemporalProfile | null;
 };
 

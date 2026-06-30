@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type {
   AnalysisSettings,
+  CategoryShare,
   IncidentDetail,
   IncidentDetailsResponse,
   NeighborhoodAnalysis,
@@ -242,7 +243,7 @@ function TemporalSection({ temporal, windowLabel }: { temporal: TemporalProfile;
   );
 }
 
-function CategoryBreakdown({ rows }: { rows: { label: string; place_count: number; place_share: number; beat_share: number | null }[] }) {
+function CategoryBreakdown({ rows }: { rows: CategoryShare[] }) {
   if (!rows.length) return null;
   return (
     <div className="mc-cat-breakdown">
@@ -305,7 +306,10 @@ function VerdictCard({ place, windowLabel }: { place: NeighborhoodPlace; windowL
           </details>
         </>
       ) : (
-        <p className="mc-verdict-sub">{place.place_incident_count} reported incidents in range; no beat baseline.</p>
+        <>
+          <p className="mc-verdict-sub">{place.place_incident_count} reported incidents in range; no beat baseline.</p>
+          <CategoryBreakdown rows={place.category_breakdown} />
+        </>
       )}
       {place.temporal ? <TemporalSection temporal={place.temporal} windowLabel={windowLabel} /> : null}
     </section>

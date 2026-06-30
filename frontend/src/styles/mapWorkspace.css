@@ -229,8 +229,6 @@
 .mc-analytical dl>div{display:grid;gap:2px;padding:7px 9px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid var(--line);}
 .mc-analytical dt{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);}
 .mc-analytical dd{margin:0;font-family:var(--f-mono);font-size:12px;color:var(--text);overflow-wrap:anywhere;}
-.mc-typemix{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0 0;padding:0;list-style:none;}
-.mc-typemix li{font-family:var(--f-mono);font-size:11px;color:var(--dim);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:7px;padding:2px 8px;}
 .mc-pairwise{display:grid;gap:8px;margin:0 0 16px;}
 .mc-pairwise ul{display:grid;gap:7px;margin:0;padding:0;list-style:none;}
 .mc-pairwise li{padding:9px 11px;border-radius:11px;background:var(--ink-raise);border:1px solid var(--line);font-size:12.5px;line-height:1.5;color:var(--text);overflow-wrap:anywhere;}
