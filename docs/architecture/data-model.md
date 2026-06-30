@@ -165,6 +165,7 @@ Alembic manages the Postgres production schema; 7 migration scripts live in
 | `0007_geocode_cache.py` | Adds `geocode_cache` table |
 | `0008_crime_source_unique.py` | Replaces the single-column unique on `crime_incidents.external_incident_id` with a composite unique `(source_dataset, external_incident_id)` + indexes `source_dataset`; dialect-branched for SQLite/Postgres |
 | `0009_summary_layer.py` | Adds a nullable `layer` column to `analysis_runs` and `place_crime_summaries` (records which analysis layer produced a run/summary; null = legacy, read as `reported`) |
+| `0010_route_layer.py` | Adds a nullable `layer` column to `route_requests` (the incident layer the route corridor context was computed for; null = legacy, read as `reported`) |
 
 **Dual bootstrap path** (`app/db.init_db`):
 

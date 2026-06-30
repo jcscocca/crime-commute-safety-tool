@@ -3,8 +3,9 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.crime.sources import LAYER_REPORTED, LAYERS
 from app.schemas import new_id
 
 SupportedRouteMode = Literal["transit", "walk", "bike", "drive"]
@@ -58,6 +59,16 @@ class RouteRequestCreate(BaseModel):
     analysis_start_date: date | None = None
     analysis_end_date: date | None = None
     radii_m: list[RouteRadiusMeters] = Field(default_factory=lambda: [250, 500], min_length=1)
+    # Which incident layer to use for corridor context ("reported" or "calls").
+    layer: str = LAYER_REPORTED
+
+    @field_validator("layer")
+    @classmethod
+    def layer_must_be_known(cls, value: str) -> str:
+        if value not in LAYERS:
+            allowed = ", ".join(sorted(LAYERS))
+            raise ValueError(f"layer must be one of: {allowed}")
+        return value
 
 
 class RouteSegmentData(BaseModel):

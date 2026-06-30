@@ -220,6 +220,9 @@ class RouteRequest(Base):
     analysis_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     analysis_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     radii_m_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Incident layer the route corridor context was computed for ("reported"/"calls"; null =
+    # legacy, read as "reported").
+    layer: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 

@@ -59,6 +59,7 @@ describe("useRoutes", () => {
         analysis_start_date: "2026-01-01",
         analysis_end_date: "2026-06-30",
         radii_m: [250],
+        layer: "reported",
       }),
     );
     expect(result.current.running).toBe(false);

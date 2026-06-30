@@ -54,6 +54,36 @@ def test_public_route_single_alternative_has_no_comparison(tmp_path):
     assert body["statistical_comparison"] is None
 
 
+def test_public_route_carries_the_requested_layer(tmp_path):
+    client = _client(tmp_path)
+    client.post("/sessions")
+    body = {**_route_body("Capitol Hill", "Downtown Seattle"), "layer": "calls"}
+    created = client.post("/routes/alternatives", json=body).json()
+    assert created["request"]["layer"] == "calls"
+    # And it persists for the comparison re-fetch.
+    request_id = created["request"]["id"]
+    fetched = client.get(f"/routes/requests/{request_id}/comparison").json()
+    assert fetched["request"]["layer"] == "calls"
+
+
+def test_public_route_defaults_layer_to_reported(tmp_path):
+    client = _client(tmp_path)
+    client.post("/sessions")
+    created = client.post(
+        "/routes/alternatives", json=_route_body("Capitol Hill", "Downtown Seattle")
+    ).json()
+    assert created["request"]["layer"] == "reported"
+
+
+def test_public_route_rejects_unknown_layer(tmp_path):
+    client = _client(tmp_path)
+    client.post("/sessions")
+    body = {**_route_body("Capitol Hill", "Downtown Seattle"), "layer": "nope"}
+    response = client.post("/routes/alternatives", json=body)
+    assert response.status_code == 422
+    assert "layer must be one of" in response.text
+
+
 def test_public_route_comparison_roundtrip(tmp_path):
     client = _client(tmp_path)
     client.post("/sessions")

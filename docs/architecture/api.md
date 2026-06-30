@@ -96,7 +96,10 @@ value is a 422. The layers are mutually exclusive (a 911 call is never counted w
 report it produced). `/dashboard/analyze` records the layer on the `AnalysisRun` and the
 `PlaceCrimeSummary` rows it persists, so `/dashboard/summary` echoes a `layer` field.
 `/dashboard/freshness` returns coverage keyed by layer (`{"reported": {...}, "calls": {...}}`)
-so the UI pill reflects the active layer.
+so the UI pill reflects the active layer. `/routes/alternatives` also accepts `layer`
+(validated, default `reported`); it is stored on the `RouteRequest` and echoed in the
+comparison payload's `request.layer`, and selects the sources used for corridor context and
+the route statistical comparison.
 
 ### Internal tier
 

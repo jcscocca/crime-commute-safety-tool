@@ -160,6 +160,7 @@ def compare_route_request(
             offense_category=request.offense_category,
             offense_subcategory=request.offense_subcategory,
             nibrs_group=request.nibrs_group,
+            sources=request.sources,
         )
     else:
         incidents = []

@@ -122,7 +122,7 @@ export type RouteContextSummaryItem = {
 };
 
 export type RouteComparison = {
-  request: { id: string; origin: { label: string }; destination: { label: string }; mode: string };
+  request: { id: string; origin: { label: string }; destination: { label: string }; mode: string; layer?: LayerKey };
   alternatives: RouteAlternative[];
   context_summaries: RouteContextSummaryItem[];
   statistical_comparison: {
