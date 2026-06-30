@@ -263,7 +263,7 @@ git commit -m "feat(crime): source registry + SOURCE_SPD_* constants"
 
 **Files:**
 - Modify: `app/models.py:118-147` (`CrimeIncident`: drop column `unique=True`, add `__table_args__`, index `source_dataset`)
-- Create: `alembic/versions/0008_crime_source_composite_unique.py`
+- Create: `alembic/versions/0008_crime_source_unique.py`
 - Test: `tests/test_crime_source_uniqueness.py` (create)
 
 - [ ] **Step 1: Write the failing test**
@@ -1435,7 +1435,7 @@ git commit -m "feat(crime): bundled arrest seed + seed-arrests/ingest-arrests ta
 
 In `docs/architecture/data-model.md`:
 - In the Crime table row for `CrimeIncident`, note the uniqueness is now **composite `(source_dataset, external_incident_id)`** and that `source_dataset` is `seattle_spd_crime` or `seattle_spd_arrests`; add a sentence that for arrests, `offense_subcategory` holds the NIBRS offense description (source-specific) and `offense_category`/`nibrs_group` are null.
-- In the Migrations table, add a row: `0008_crime_source_composite_unique.py | Drops the single-column unique on external_incident_id, adds composite unique (source_dataset, external_incident_id) + index on source_dataset`.
+- In the Migrations table, add a row: `0008_crime_source_unique.py | Drops the single-column unique on external_incident_id, adds composite unique (source_dataset, external_incident_id) + index on source_dataset`.
 - Update the "Verified against" commit note to this branch's final commit (fill after the last commit).
 
 - [ ] **Step 2: Update the roadmap (C4 stays unchecked)**

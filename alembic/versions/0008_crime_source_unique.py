@@ -18,11 +18,16 @@ def upgrade() -> None:
     op.create_index(
         "ix_crime_incidents_source_dataset", "crime_incidents", ["source_dataset"]
     )
-    # The composite uniqueness must be created differently per backend: SQLite cannot
-    # ALTER ... ADD CONSTRAINT (nor DROP the inline single-column unique from 0001) without a
-    # table rebuild, but CREATE UNIQUE INDEX is portable. The repo's migration tests run the
-    # whole chain on SQLite, so the SQLite branch must run cleanly; Postgres (prod) gets the
-    # real UniqueConstraint that matches the model and drops the old single-column unique.
+    # Composite uniqueness is created per-backend. CREATE UNIQUE INDEX is portable, so SQLite
+    # uses it — but SQLite cannot DROP 0001's inline single-column unique without a full table
+    # rebuild (its name is an implicit autoindex), so that legacy unique SURVIVES here and the
+    # SQLite-via-migration schema is NOT cross-source coexistence-safe. That is acceptable
+    # because no runtime uses it: dev/test build the schema from create_all (composite-only,
+    # coexistence-safe) and prod is Postgres (the else branch drops the old unique and adds the
+    # real composite constraint, matching the model). The SQLite migration chain is exercised
+    # only by test_route_models_migration.py, which checks table/column/index shape, not
+    # uniqueness; cross-source coexistence on a *migrated* schema is proven on Postgres in
+    # tests/test_postgres_smoke.py.
     if op.get_bind().dialect.name == "sqlite":
         op.create_index(
             "uq_crime_source_external_id",
