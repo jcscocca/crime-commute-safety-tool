@@ -198,6 +198,14 @@ export function RoutesTab({ analysis, running, result, error, places, geocodeSea
 
       {error ? <p className="mc-inline-error" role="alert">{error}</p> : null}
 
+      {analysis.layer === "calls" ? (
+        <p className="mc-layer-note" role="note">
+          Route context shows <strong>reported incidents</strong> only — 911 call context along
+          routes isn’t available yet, so the corridor figures below are reported incidents
+          regardless of the selected layer.
+        </p>
+      ) : null}
+
       {options.length === 0 ? (
         <p className="mc-empty-list">Save places in the Places tab, or search an address above, to route between them.</p>
       ) : null}

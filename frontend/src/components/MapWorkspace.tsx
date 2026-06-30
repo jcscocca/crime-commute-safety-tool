@@ -18,6 +18,7 @@ import { BottomSheet } from "./BottomSheet";
 import { CompareTab } from "./CompareTab";
 import { DataFreshness } from "./DataFreshness";
 import { ExportTab } from "./ExportTab";
+import { LayerToggle } from "./LayerToggle";
 import { MapCanvas } from "./MapCanvas";
 import { MapLegend } from "./MapLegend";
 import { PinDraftPopover } from "./PinDraftPopover";
@@ -180,6 +181,7 @@ export function MapWorkspace() {
             <span className="mc-wordmark">Waypoint</span>
           </div>
           <div className="mc-topbar-right">
+            <LayerToggle layer={analysis.layer} onChange={(layer) => handleAnalysisChange({ layer })} />
             <DataFreshness freshness={data.freshness} />
             <div className="mc-status"><span className="dot" />Public session - Seattle</div>
           </div>

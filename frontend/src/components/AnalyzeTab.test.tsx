@@ -80,14 +80,6 @@ describe("AnalyzeTab", () => {
     expect(onRun).toHaveBeenCalled();
   });
 
-  it("switches data layer and emits the layer change", () => {
-    const onChange = vi.fn();
-    render(<AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} onChange={onChange} onRun={vi.fn()} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "911 calls" }));
-    expect(onChange).toHaveBeenCalledWith({ layer: "calls" });
-  });
-
   it("on the calls layer hides incident categories and shows the calls-for-service caveat", () => {
     render(
       <AnalyzeTab
@@ -103,6 +95,20 @@ describe("AnalyzeTab", () => {
     // Category chips are not meaningful for 911 calls (no offense category), so they're hidden.
     expect(screen.queryByRole("button", { name: "Property" })).not.toBeInTheDocument();
     expect(screen.getByText(/requests for service/i)).toBeInTheDocument();
+  });
+
+  it("warns that arrests drop out when filtering the reported layer by category", () => {
+    render(
+      <AnalyzeTab
+        selected={[home]}
+        analysis={{ ...analysis, layer: "reported", offenseCategory: "PROPERTY" }}
+        availableRadii={[250]}
+        running={false}
+        onChange={vi.fn()}
+        onRun={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/arrests carry no offense category/i)).toBeInTheDocument();
   });
 
   it("disables run when nothing is selected", () => {

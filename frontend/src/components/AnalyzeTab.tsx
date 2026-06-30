@@ -57,11 +57,6 @@ const CATEGORIES: { value: string; label: string }[] = [
   { value: "SOCIETY", label: "Society" },
 ];
 
-const LAYERS: { value: AnalysisSettings["layer"]; label: string }[] = [
-  { value: "reported", label: "Reported incidents" },
-  { value: "calls", label: "911 calls" },
-];
-
 function titleCase(value: string) {
   return value
     .toLowerCase()
@@ -451,23 +446,6 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
     <div className="mc-panel is-active" role="tabpanel" aria-label="Analyze">
       <div className="mc-querybar">
         <div className="mc-field">
-          <label id="layer-label">Data layer</label>
-          <div className="mc-chips" role="group" aria-labelledby="layer-label">
-            {LAYERS.map((layer) => (
-              <button
-                key={layer.value}
-                type="button"
-                className={`mc-chip${analysis.layer === layer.value ? " on" : ""}`}
-                aria-pressed={analysis.layer === layer.value}
-                onClick={() => onChange({ layer: layer.value })}
-              >
-                {layer.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mc-field">
           <label htmlFor="analysis-start-date">Date range</label>
           <div className="mc-inputs">
             <input id="analysis-start-date" type="date" className="mc-inp" value={analysis.startDate} min={ANALYSIS_MIN_DATE} aria-label="Start date" onChange={(event) => onChange({ startDate: event.target.value })} />
@@ -510,6 +488,12 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
           911 calls are <strong>requests for service</strong>, not confirmed incidents. The same
           event can generate several calls, many are proactive officer activity, and a call does
           not mean a crime occurred. Counts below are call volume, not reported crime.
+        </p>
+      ) : analysis.offenseCategory !== "" ? (
+        <p className="mc-layer-note" role="note">
+          Filtering by category shows <strong>reported crimes</strong> only — arrests carry no
+          offense category, so they’re excluded while a category is selected. Choose “All reported”
+          to include arrests.
         </p>
       ) : null}
 
