@@ -104,12 +104,74 @@ def _beat_incidents(
     return [_incident_data(r) for r in session.scalars(stmt).all()]
 
 
-def _type_mix(incidents: list[CrimeIncidentData]) -> list[dict[str, Any]]:
-    counter: Counter[str] = Counter()
-    for incident in incidents:
-        label = incident.offense_subcategory or incident.offense_category or "Uncategorized"
-        counter[label] += 1
-    return [{"label": label, "count": count} for label, count in counter.most_common(6)]
+def _category_breakdown(
+    place_incidents: list[CrimeIncidentData],
+    baseline_incidents: list[CrimeIncidentData] | None,
+    *,
+    top_n: int = 6,
+) -> list[dict[str, Any]]:
+    """Per-category place-share vs beat-share breakdown.
+
+    Buckets by ``offense_subcategory → offense_category → "Uncategorized"``.
+    Returns the top ``top_n`` labels by place count; remaining labels are folded
+    into a single ``"Other"`` row appended last.
+
+    ``beat_share`` is each label's share of the baseline total — the beat column does NOT
+    need to sum to 100 % (beat-only labels are excluded entirely). Callers pass the
+    *rest-of-beat* incidents (the surrounding area with the place's own buffer carved out),
+    so a row's ``place_share`` and ``beat_share`` are computed over disjoint sets — "share
+    here vs. share in the surrounding area", consistent with the rate-ratio baseline.
+    ``beat_share`` is ``None`` when ``baseline_incidents`` is ``None`` or empty.
+    """
+
+    def _label(inc: CrimeIncidentData) -> str:
+        return inc.offense_subcategory or inc.offense_category or "Uncategorized"
+
+    place_counter: Counter[str] = Counter(_label(i) for i in place_incidents)
+    place_total = sum(place_counter.values())
+
+    if place_total == 0:
+        return []
+
+    # Build baseline lookup only when baseline is usable.
+    baseline_counter: Counter[str] = Counter()
+    baseline_total = 0
+    has_baseline = baseline_incidents is not None and len(baseline_incidents) > 0
+    if has_baseline:
+        baseline_counter = Counter(_label(i) for i in baseline_incidents)
+        baseline_total = sum(baseline_counter.values())
+
+    # Sort all place labels by count desc then label asc to get a deterministic top-N.
+    sorted_labels = sorted(place_counter.keys(), key=lambda lbl: (-place_counter[lbl], lbl))
+    top_labels = sorted_labels[:top_n]
+    remainder_labels = sorted_labels[top_n:]
+
+    rows: list[dict[str, Any]] = []
+    for label in top_labels:
+        pc = place_counter[label]
+        bc = baseline_counter.get(label, 0)
+        rows.append(
+            {
+                "label": label,
+                "place_count": pc,
+                "place_share": pc / place_total,
+                "beat_share": (bc / baseline_total) if has_baseline else None,
+            }
+        )
+
+    if remainder_labels:
+        other_place = sum(place_counter[lbl] for lbl in remainder_labels)
+        other_beat = sum(baseline_counter.get(lbl, 0) for lbl in remainder_labels)
+        rows.append(
+            {
+                "label": "Other",
+                "place_count": other_place,
+                "place_share": other_place / place_total,
+                "beat_share": (other_beat / baseline_total) if has_baseline else None,
+            }
+        )
+
+    return rows
 
 
 def neighborhood_analysis_for_places(
@@ -238,7 +300,9 @@ def neighborhood_analysis_for_places(
                     "baseline_available": False,
                     "decision": "baseline_unavailable",
                     "place_incident_count": len(entry.get("place_incidents", [])),
-                    "type_mix": _type_mix(entry.get("place_incidents", [])),
+                    "category_breakdown": _category_breakdown(
+                        entry.get("place_incidents", []), None
+                    ),
                     "temporal": asdict(build_temporal_profile(entry.get("place_incidents", []))),
                 }
             )
@@ -251,7 +315,9 @@ def neighborhood_analysis_for_places(
                     "decision": "insufficient_data",
                     "minimum_data_status": "baseline_too_small",
                     "place_incident_count": len(entry.get("place_incidents", [])),
-                    "type_mix": _type_mix(entry.get("place_incidents", [])),
+                    "category_breakdown": _category_breakdown(
+                        entry.get("place_incidents", []), None
+                    ),
                     "temporal": asdict(build_temporal_profile(entry.get("place_incidents", []))),
                 }
             )
@@ -295,7 +361,7 @@ def neighborhood_analysis_for_places(
                 "decision": result.decision,
                 "nearest_incident_m": nearest,
                 "monthly_counts": place_monthly,
-                "type_mix": _type_mix(place_incidents),
+                "category_breakdown": _category_breakdown(place_incidents, beat_incidents),
                 "temporal": asdict(build_temporal_profile(place_incidents)),
             }
         )

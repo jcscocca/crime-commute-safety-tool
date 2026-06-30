@@ -144,3 +144,55 @@ def test_neighborhood_analysis_attaches_temporal_profile(tmp_path):
     assert temporal["total_with_time"] == 5
     assert temporal["hour_counts"][0] == 5
     assert temporal["without_time"] == 0
+
+
+def test_neighborhood_analysis_attaches_category_breakdown_full_result(tmp_path):
+    """Full-result branch: both place and beat incidents present → beat_share is not None."""
+    session, user_hash, place_id = session_with_places_and_beat_crime(tmp_path)
+    result = neighborhood_analysis_for_places(
+        session=session,
+        user_id_hash=user_hash,
+        place_ids=[place_id],
+        radius_m=250,
+        analysis_start_date=date(2026, 1, 1),
+        analysis_end_date=date(2026, 6, 30),
+        offense_category=None,
+        offense_subcategory=None,
+        nibrs_group=None,
+        area_lookup={"M3": 3.0},
+        beat_polygons=_M3_POLYGONS,
+    )
+    place = result["places"][0]
+    assert "type_mix" not in place
+    bd = place["category_breakdown"]
+    assert isinstance(bd, list)
+    assert len(bd) >= 1
+    # Full result has a real beat baseline → at least one row has non-null beat_share.
+    assert any(r["beat_share"] is not None for r in bd)
+    # All rows have the required keys.
+    for row in bd:
+        assert set(row.keys()) == {"label", "place_count", "place_share", "beat_share"}
+
+
+def test_neighborhood_analysis_attaches_category_breakdown_degraded(tmp_path):
+    """Degraded branch (no beat area): baseline is None → all beat_shares are None."""
+    session, user_hash, place_id = session_with_places_and_beat_crime(tmp_path)
+    result = neighborhood_analysis_for_places(
+        session=session,
+        user_id_hash=user_hash,
+        place_ids=[place_id],
+        radius_m=250,
+        analysis_start_date=date(2026, 1, 1),
+        analysis_end_date=date(2026, 6, 30),
+        offense_category=None,
+        offense_subcategory=None,
+        nibrs_group=None,
+        area_lookup={},  # no area → baseline_unavailable branch
+        beat_polygons=_M3_POLYGONS,
+    )
+    place = result["places"][0]
+    assert "type_mix" not in place
+    bd = place["category_breakdown"]
+    assert isinstance(bd, list)
+    # No beat baseline → every row has beat_share = None.
+    assert all(r["beat_share"] is None for r in bd)

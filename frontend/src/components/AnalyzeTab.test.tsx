@@ -37,7 +37,11 @@ const homePlace: NeighborhoodPlace = {
   ci_lower: 2.1, ci_upper: 7.6, adjusted_p_value: 0.002, exact_p_value: 0.012,
   method: "wald_log_rate_ratio",
   overdispersion_status: "poisson_ok", minimum_data_status: "met",
-  nearest_incident_m: 42, monthly_counts: [1, 2, 1, 3, 2, 3], type_mix: [{ label: "ASSAULT", count: 7 }],
+  nearest_incident_m: 42, monthly_counts: [1, 2, 1, 3, 2, 3],
+  category_breakdown: [
+    { label: "Theft", place_count: 5, place_share: 0.71, beat_share: 0.20 },
+    { label: "Assault", place_count: 2, place_share: 0.29, beat_share: null },
+  ],
   temporal: {
     // weekdays 17:00 → 4 each (20 total); Sat 02:00 → 20. total_with_time = 40.
     hour_by_dow: Array.from({ length: 7 }, (_, d) =>
@@ -342,5 +346,85 @@ describe("AnalyzeTab", () => {
     );
     expect(screen.getByText("No reported incidents with a recorded time in this area.")).toBeInTheDocument();
     expect(container.querySelectorAll(".mc-temporal-bar").length).toBe(0);
+  });
+
+  it("renders incident type rows with place-share and beat-share", () => {
+    const { container } = render(
+      <AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} neighborhood={neighborhood} onChange={vi.fn()} onRun={vi.fn()} />,
+    );
+    const rows = container.querySelectorAll(".mc-cat-row");
+    expect(rows.length).toBe(2);
+    // First row: Theft — 71% here · 20% nearby.
+    expect(rows[0].textContent).toMatch(/Theft/);
+    expect(rows[0].textContent).toMatch(/71%/);
+    expect(rows[0].textContent).toMatch(/20%/);
+    // Second row: Assault — 29% here, no beat share.
+    expect(rows[1].textContent).toMatch(/Assault/);
+    expect(rows[1].textContent).toMatch(/29%/);
+  });
+
+  it("shows place share only when beat_share is null", () => {
+    render(
+      <AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} neighborhood={neighborhood} onChange={vi.fn()} onRun={vi.fn()} />,
+    );
+    // Assault row has beat_share: null → shows "29% here" but no "nearby".
+    const assaultRow = Array.from(document.querySelectorAll(".mc-cat-row")).find(
+      (el) => el.textContent?.includes("Assault"),
+    );
+    expect(assaultRow).toBeTruthy();
+    expect(assaultRow!.textContent).toMatch(/29%/);
+    expect(assaultRow!.textContent).not.toMatch(/nearby/);
+  });
+
+  it('renders an "Other" row when present in category_breakdown', () => {
+    const withOther: NeighborhoodPlace = {
+      ...homePlace,
+      category_breakdown: [
+        { label: "Theft", place_count: 5, place_share: 0.71, beat_share: 0.20 },
+        { label: "Other", place_count: 2, place_share: 0.29, beat_share: 0.05 },
+      ],
+    };
+    const { container } = render(
+      <AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} neighborhood={{ ...neighborhood, places: [withOther] }} onChange={vi.fn()} onRun={vi.fn()} />,
+    );
+    const rows = container.querySelectorAll(".mc-cat-row");
+    expect(rows.length).toBe(2);
+    const otherRow = Array.from(rows).find((el) => el.textContent?.includes("Other"));
+    expect(otherRow).toBeTruthy();
+    // Other row: 29% here · 5% nearby.
+    expect(otherRow!.textContent).toMatch(/29%/);
+    expect(otherRow!.textContent).toMatch(/5%/);
+  });
+
+  it("hides the category breakdown section when category_breakdown is empty", () => {
+    const noBreakdown: NeighborhoodPlace = {
+      ...homePlace,
+      category_breakdown: [],
+    };
+    const { container } = render(
+      <AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} neighborhood={{ ...neighborhood, places: [noBreakdown] }} onChange={vi.fn()} onRun={vi.fn()} />,
+    );
+    expect(container.querySelector(".mc-cat-breakdown")).not.toBeInTheDocument();
+  });
+
+  it("renders the category breakdown for a degraded place with place share only", () => {
+    const degraded: NeighborhoodPlace = {
+      ...homePlace,
+      place_id: "p3", place_label: "Cabin", baseline_available: false,
+      decision: "baseline_unavailable", place_incident_count: 7,
+      category_breakdown: [
+        { label: "Theft", place_count: 5, place_share: 0.71, beat_share: null },
+        { label: "Assault", place_count: 2, place_share: 0.29, beat_share: null },
+      ],
+    };
+    const { container } = render(
+      <AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} neighborhood={{ ...neighborhood, places: [degraded] }} onChange={vi.fn()} onRun={vi.fn()} />,
+    );
+    const rows = container.querySelectorAll(".mc-cat-row");
+    expect(rows.length).toBe(2);
+    expect(rows[0].textContent).toMatch(/Theft/);
+    expect(rows[0].textContent).toMatch(/71%\s*here/);
+    // Degraded → no beat baseline → no "nearby" anywhere in the breakdown.
+    expect(container.querySelector(".mc-cat-breakdown")!.textContent).not.toMatch(/nearby/);
   });
 });
