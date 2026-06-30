@@ -23,7 +23,7 @@ from app.config import get_settings
 from app.crime.sources import sources_for_layer
 from app.db import get_session
 from app.geocoding.providers import GeocodeProvider, GeocoderUpstreamError, build_provider
-from app.services.crime_service import crime_data_freshness
+from app.services.crime_service import dashboard_freshness_by_layer
 from app.services.dashboard_analysis_service import (
     analyze_selected_places,
     compare_selected_places,
@@ -146,9 +146,10 @@ def dashboard_freshness(
     user_id_hash: Annotated[str, Depends(required_public_user_hash)],
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, object]:
-    # Coverage of the shared reported-incident dataset (global, not user-scoped); the
-    # session gate just keeps it on the authenticated public tier like its siblings.
-    return crime_data_freshness(session)
+    # Coverage of the shared incident dataset per layer (global, not user-scoped); the
+    # session gate just keeps it on the authenticated public tier like its siblings. The
+    # frontend pill shows the entry for the active layer.
+    return dashboard_freshness_by_layer(session)
 
 
 def get_geocode_provider() -> GeocodeProvider:

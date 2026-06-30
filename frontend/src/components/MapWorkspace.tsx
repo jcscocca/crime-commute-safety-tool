@@ -182,7 +182,7 @@ export function MapWorkspace() {
           </div>
           <div className="mc-topbar-right">
             <LayerToggle layer={analysis.layer} onChange={(layer) => handleAnalysisChange({ layer })} />
-            <DataFreshness freshness={data.freshness} />
+            <DataFreshness freshness={data.freshness} layer={analysis.layer} />
             <div className="mc-status"><span className="dot" />Public session - Seattle</div>
           </div>
         </header>

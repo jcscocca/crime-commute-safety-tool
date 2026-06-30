@@ -93,7 +93,10 @@ default, or `"calls"`). It selects the incident-context layer: `"reported"` unio
 crime + arrests datasets, `"calls"` queries SPD 911 calls for service. The route maps the
 layer to its `source_dataset`s via `app/crime/sources.py::sources_for_layer`; an unknown
 value is a 422. The layers are mutually exclusive (a 911 call is never counted with the
-report it produced).
+report it produced). `/dashboard/analyze` records the layer on the `AnalysisRun` and the
+`PlaceCrimeSummary` rows it persists, so `/dashboard/summary` echoes a `layer` field.
+`/dashboard/freshness` returns coverage keyed by layer (`{"reported": {...}, "calls": {...}}`)
+so the UI pill reflects the active layer.
 
 ### Internal tier
 

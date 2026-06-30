@@ -74,12 +74,15 @@ export type DashboardSummary = {
   };
 };
 
-export type DashboardFreshness = {
+export type FreshnessEntry = {
   incident_count: number;
   data_through: string | null;
   earliest: string | null;
   last_ingested_at: string | null;
 };
+
+/** Coverage per analysis layer (server returns one entry per layer). */
+export type DashboardFreshness = Record<LayerKey, FreshnessEntry>;
 
 export type PlaceCreate = {
   display_label: string;

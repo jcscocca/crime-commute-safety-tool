@@ -41,11 +41,15 @@ def test_freshness_reports_count_range_and_last_ingested(tmp_path):
     response = client.get("/dashboard/freshness")
     assert response.status_code == 200
     body = response.json()
-    assert body["incident_count"] == 3
-    assert body["data_through"] == "2026-06-20"
-    assert body["earliest"] == "2024-01-05"
+    # Per-layer coverage; the seeded rows are reported crime.
+    reported = body["reported"]
+    assert reported["incident_count"] == 3
+    assert reported["data_through"] == "2026-06-20"
+    assert reported["earliest"] == "2024-01-05"
     # snapshot_at defaults to the ingest/insert time, so last_ingested_at is populated.
-    assert body["last_ingested_at"] is not None
+    assert reported["last_ingested_at"] is not None
+    # The calls layer is empty here.
+    assert body["calls"]["incident_count"] == 0
 
 
 def test_freshness_empty_dataset_returns_nulls(tmp_path):
@@ -53,12 +57,13 @@ def test_freshness_empty_dataset_returns_nulls(tmp_path):
     client.post("/sessions")
     response = client.get("/dashboard/freshness")
     assert response.status_code == 200
-    assert response.json() == {
+    empty = {
         "incident_count": 0,
         "data_through": None,
         "earliest": None,
         "last_ingested_at": None,
     }
+    assert response.json() == {"reported": empty, "calls": empty}
 
 
 def test_freshness_requires_a_public_session(tmp_path):
