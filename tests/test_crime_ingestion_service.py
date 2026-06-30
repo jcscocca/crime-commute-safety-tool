@@ -601,6 +601,43 @@ def test_summarize_for_user_retains_rows_across_two_calls(tmp_path):
     session.close()
 
 
+def test_socrata_client_windows_on_source_date_field(monkeypatch):
+    from app.crime.seattle_socrata import arrest_from_mapping
+
+    captured = {}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self):
+            return json.dumps([]).encode("utf-8")
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        return FakeResponse()
+
+    monkeypatch.setattr("app.crime.seattle_socrata.urlopen", fake_urlopen)
+    client = SeattleSocrataClient(
+        base_url="https://data.seattle.gov/resource",
+        dataset_id="9bjs-7a7w",
+        mapper=arrest_from_mapping,
+        date_field="arrest_occurred_date_time",
+    )
+    client.fetch_page(limit=10, offset=0, start_date=date(2026, 4, 1), end_date=date(2026, 6, 22))
+
+    query = parse_qs(urlparse(captured["url"]).query)
+    assert "9bjs-7a7w.json" in captured["url"]
+    assert query["$order"] == ["arrest_occurred_date_time DESC"]
+    assert query["$where"] == [
+        "arrest_occurred_date_time between '2026-04-01T00:00:00' "
+        "and '2026-06-22T23:59:59'"
+    ]
+
+
 def test_ingest_crime_incidents_keys_dedup_by_source(tmp_path):
     create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
     session = get_sessionmaker()()
