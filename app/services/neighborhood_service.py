@@ -116,8 +116,11 @@ def _category_breakdown(
     Returns the top ``top_n`` labels by place count; remaining labels are folded
     into a single ``"Other"`` row appended last.
 
-    ``beat_share`` is each label's share of the beat total — the beat column does NOT
-    need to sum to 100 % (beat-only labels are excluded entirely).
+    ``beat_share`` is each label's share of the baseline total — the beat column does NOT
+    need to sum to 100 % (beat-only labels are excluded entirely). Callers pass the
+    *rest-of-beat* incidents (the surrounding area with the place's own buffer carved out),
+    so a row's ``place_share`` and ``beat_share`` are computed over disjoint sets — "share
+    here vs. share in the surrounding area", consistent with the rate-ratio baseline.
     ``beat_share`` is ``None`` when ``baseline_incidents`` is ``None`` or empty.
     """
 
