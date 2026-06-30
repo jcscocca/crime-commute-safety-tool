@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type {
   AnalysisSettings,
   IncidentDetail,
@@ -5,9 +6,19 @@ import type {
   NeighborhoodAnalysis,
   NeighborhoodPlace,
   Place,
+  TemporalProfile,
 } from "../types";
 import { ANALYSIS_MIN_DATE } from "../lib/analysisDefaults";
 import { decisionHeadline } from "../lib/verdictCopy";
+import {
+  clampInt,
+  DAYSET_DAYS,
+  DAYSET_LABELS,
+  DEFAULT_TRAVEL_WINDOW,
+  DOW_LABELS,
+  windowShare,
+  type TravelWindow,
+} from "../lib/temporalWindow";
 import { MethodsAppendix } from "./MethodsAppendix";
 
 const INCIDENT_TABLE_MIN = 560;
@@ -110,6 +121,127 @@ function ComparisonBars({ rateRatio }: { rateRatio: number }) {
   );
 }
 
+function ProfileBars({
+  counts,
+  highlight,
+  labelFor,
+  summary,
+}: {
+  counts: number[];
+  highlight: Set<number>;
+  labelFor: (index: number) => string;
+  summary: string;
+}) {
+  const max = Math.max(1, ...counts);
+  return (
+    <div className="mc-temporal-bars" role="img" aria-label={summary}>
+      {counts.map((n, i) => (
+        <span
+          key={i}
+          className={`mc-temporal-bar${highlight.has(i) ? " on" : ""}`}
+          style={{ height: `${Math.round((n / max) * 100)}%` }}
+          title={`${labelFor(i)}: ${n}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TemporalSection({ temporal, windowLabel }: { temporal: TemporalProfile; windowLabel: string }) {
+  const [tw, setTw] = useState<TravelWindow>(DEFAULT_TRAVEL_WINDOW);
+
+  if (temporal.total_with_time === 0) {
+    return (
+      <div className="mc-temporal">
+        <h6 className="mc-temporal-title">When reported incidents occurred</h6>
+        <p className="mc-empty-list">No reported incidents with a recorded time in this area.</p>
+      </div>
+    );
+  }
+
+  const dayHighlight = new Set(DAYSET_DAYS[tw.dayset]);
+  const hourHighlight = new Set<number>();
+  for (let h = tw.startHour; h < tw.endHour; h += 1) hourHighlight.add(h);
+  const { share } = windowShare(temporal, tw);
+  const hourPeak = temporal.hour_counts.indexOf(Math.max(...temporal.hour_counts));
+  const dayPeak = temporal.dow_counts.indexOf(Math.max(...temporal.dow_counts));
+
+  return (
+    <div className="mc-temporal">
+      <h6 className="mc-temporal-title">When reported incidents occurred</h6>
+
+      <div className="mc-temporal-profile">
+        <span className="mc-temporal-axis">By hour</span>
+        <ProfileBars
+          counts={temporal.hour_counts}
+          highlight={hourHighlight}
+          labelFor={(h) => `${h}:00`}
+          summary={`Reported incidents by hour of day; most around ${hourPeak}:00.`}
+        />
+      </div>
+      <div className="mc-temporal-profile">
+        <span className="mc-temporal-axis">By day</span>
+        <ProfileBars
+          counts={temporal.dow_counts}
+          highlight={dayHighlight}
+          labelFor={(d) => DOW_LABELS[d]}
+          summary={`Reported incidents by day of week; most on ${DOW_LABELS[dayPeak]}.`}
+        />
+      </div>
+
+      <div className="mc-temporal-window" role="group" aria-label="Travel window">
+        <div className="mc-chips">
+          {(["weekdays", "weekends", "all"] as const).map((ds) => (
+            <button
+              key={ds}
+              type="button"
+              className={`mc-chip${tw.dayset === ds ? " on" : ""}`}
+              aria-pressed={tw.dayset === ds}
+              onClick={() => setTw({ ...tw, dayset: ds })}
+            >
+              {DAYSET_LABELS[ds]}
+            </button>
+          ))}
+        </div>
+        <div className="mc-temporal-hours">
+          <label>
+            From
+            <input
+              type="number"
+              min={0}
+              max={23}
+              value={tw.startHour}
+              aria-label="Window start hour"
+              onChange={(e) => setTw({ ...tw, startHour: clampInt(e.target.value, 0, 23) })}
+            />
+          </label>
+          <label>
+            to
+            <input
+              type="number"
+              min={1}
+              max={24}
+              value={tw.endHour}
+              aria-label="Window end hour"
+              onChange={(e) => setTw({ ...tw, endHour: clampInt(e.target.value, 1, 24) })}
+            />
+          </label>
+        </div>
+      </div>
+
+      <p className="mc-temporal-callout">
+        {Math.round(share * 100)}% of the {temporal.total_with_time} reported incidents with a recorded time{windowLabel ? ` (${windowLabel})` : ""} fell in your travel window.
+      </p>
+      {temporal.total_with_time < 20 ? (
+        <p className="mc-temporal-note">Based on {temporal.total_with_time} incidents — interpret with caution.</p>
+      ) : null}
+      {temporal.without_time > 0 ? (
+        <p className="mc-temporal-note">{temporal.without_time} incidents had no recorded time and aren't shown here.</p>
+      ) : null}
+    </div>
+  );
+}
+
 function VerdictCard({ place, windowLabel }: { place: NeighborhoodPlace; windowLabel: string }) {
   const { headline, chip } = decisionHeadline(place);
   return (
@@ -153,6 +285,7 @@ function VerdictCard({ place, windowLabel }: { place: NeighborhoodPlace; windowL
       ) : (
         <p className="mc-verdict-sub">{place.place_incident_count} reported incidents in range; no beat baseline.</p>
       )}
+      {place.temporal ? <TemporalSection temporal={place.temporal} windowLabel={windowLabel} /> : null}
     </section>
   );
 }
