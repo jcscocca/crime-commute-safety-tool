@@ -2,7 +2,10 @@ import { useState } from "react";
 
 import type { GeocodeResult } from "../types";
 
-export type AddressSearchStatus = "idle" | "loading" | "done" | "error";
+export type AddressSearchStatus = "idle" | "loading" | "done" | "empty" | "error";
+
+export const SEARCH_EMPTY_MSG = "No matches. Drop a pin on the map instead.";
+export const SEARCH_ERROR_MSG = "Search is unavailable. Drop a pin on the map instead.";
 
 export interface AddressSearch {
   query: string;
@@ -15,7 +18,7 @@ export interface AddressSearch {
 /**
  * Shared address-search state machine for the geocode box used by both the Places map
  * search (PlaceSearch) and the Routes endpoint search (RoutesTab). Owns the query, the
- * trimmed geocode call, and the loading/done/error status; callers render the input and
+ * trimmed geocode call, and the loading/done/empty/error status; callers render the input and
  * the results however they need (a clickable list for Places, endpoint options for Routes).
  */
 export function useAddressSearch(
@@ -34,7 +37,7 @@ export function useAddressSearch(
     try {
       const found = await search(trimmed);
       setResults(found);
-      setStatus("done");
+      setStatus(found.length === 0 ? "empty" : "done");
     } catch {
       setResults([]);
       setStatus("error");

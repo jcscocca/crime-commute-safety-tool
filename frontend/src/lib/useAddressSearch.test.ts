@@ -2,10 +2,10 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { useAddressSearch } from "./useAddressSearch";
+import { SEARCH_EMPTY_MSG, SEARCH_ERROR_MSG, useAddressSearch } from "./useAddressSearch";
 
 describe("useAddressSearch", () => {
-  it("runs a trimmed search and exposes the results", async () => {
+  it("runs a trimmed search and exposes the results with done status", async () => {
     const search = vi.fn().mockResolvedValue([
       { label: "Pike Place", latitude: 47.61, longitude: -122.34, source: "nominatim" },
     ]);
@@ -45,5 +45,23 @@ describe("useAddressSearch", () => {
 
     expect(result.current.status).toBe("error");
     expect(result.current.results).toEqual([]);
+  });
+
+  it("sets empty status when the search resolves with zero results", async () => {
+    const search = vi.fn().mockResolvedValue([]);
+    const { result } = renderHook(() => useAddressSearch(search));
+
+    act(() => result.current.setQuery("xyzzy-no-match"));
+    await act(async () => {
+      await result.current.runSearch();
+    });
+
+    expect(result.current.status).toBe("empty");
+    expect(result.current.results).toEqual([]);
+  });
+
+  it("exports the shared copy constants", () => {
+    expect(SEARCH_EMPTY_MSG).toBe("No matches. Drop a pin on the map instead.");
+    expect(SEARCH_ERROR_MSG).toBe("Search is unavailable. Drop a pin on the map instead.");
   });
 });
