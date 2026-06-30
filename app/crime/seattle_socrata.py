@@ -109,6 +109,45 @@ def crime_incident_from_mapping(row: dict[str, Any]) -> CrimeIncidentData:
     )
 
 
+def arrest_from_mapping(row: dict[str, Any]) -> CrimeIncidentData:
+    latitude = _float_or_none(_first(row, "latitude", "lat", "y"))
+    longitude = _float_or_none(_first(row, "longitude", "lon", "lng", "x"))
+    return CrimeIncidentData(
+        external_incident_id=_first(row, "arrest_number"),
+        report_number=_first(row, "report_number"),
+        offense_id=None,
+        offense_start_utc=parse_datetime(
+            _first(row, "arrest_occurred_date_time", "arrest_occurred", "arrest_date")
+        ),
+        offense_end_utc=None,
+        report_utc=parse_datetime(_first(row, "arrest_reported_date_time", "arrest_reported")),
+        offense_category=None,
+        # Best-effort taxonomy: NIBRS offense description goes in offense_subcategory. This
+        # column therefore carries source-specific semantics (arrests vs SPD reports); safe
+        # because reports-only default means arrests are never queried by category here, and
+        # we never filter across sources. A unified crosswalk is a later increment.
+        offense_subcategory=_first(row, "nibrs_description"),
+        nibrs_group=None,
+        precinct=_first(row, "precinct"),
+        sector=_first(row, "sector"),
+        beat=_first(row, "beat"),
+        # The SPD Arrest export's canonical columns are `neighborhood` / `block_address`
+        # (reports use `mcpp` / `100_block_address`), so those aliases come first here.
+        mcpp=_first(row, "neighborhood", "mcpp"),
+        block_address=_first(row, "block_address", "100_block_address"),
+        latitude=latitude,
+        longitude=longitude,
+        source_dataset="seattle_spd_arrests",
+        snapshot_at=parse_datetime(_first(row, "snapshot_at")) or utc_now(),
+    )
+
+
+def load_arrest_csv(path: Path) -> list[CrimeIncidentData]:
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        return [arrest_from_mapping(row) for row in reader]
+
+
 def _date_window_where(start_date: date | None, end_date: date | None) -> str:
     if start_date and end_date:
         return (
