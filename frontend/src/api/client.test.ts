@@ -15,6 +15,7 @@ const emptyDashboardState: AssistantDashboardState = {
   offense_category: null,
   offense_subcategory: null,
   nibrs_group: null,
+  layer: "reported",
 };
 
 function sseResponse(text: string): Response {

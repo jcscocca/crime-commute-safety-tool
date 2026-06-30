@@ -14,6 +14,7 @@ const dashboardState: AssistantDashboardState = {
   offense_category: "PROPERTY",
   offense_subcategory: null,
   nibrs_group: null,
+  layer: "reported",
 };
 
 function sseResponse(text: string): Response {

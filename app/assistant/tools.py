@@ -18,6 +18,7 @@ from app.api.dashboard_schemas import (
 )
 from app.assistant.place_resolution import ResolvedPlaces, resolve_place_queries
 from app.config import get_settings
+from app.crime.sources import sources_for_layer
 from app.geocoding.providers import build_provider
 from app.models import PlaceCluster
 from app.services.dashboard_analysis_service import (
@@ -78,6 +79,7 @@ class AnalyzePlacesArgs(BaseModel):
     offense_category: str | None = None
     offense_subcategory: str | None = None
     nibrs_group: str | None = None
+    layer: str = "reported"
 
 
 class ComparePlacesByNameArgs(BaseModel):
@@ -90,6 +92,7 @@ class ComparePlacesByNameArgs(BaseModel):
     offense_category: str | None = None
     offense_subcategory: str | None = None
     nibrs_group: str | None = None
+    layer: str = "reported"
 
 
 def _require_analysis_window(
@@ -183,6 +186,7 @@ def _settings_used(
         "analysis_start_date": args.analysis_start_date.isoformat(),
         "analysis_end_date": args.analysis_end_date.isoformat(),
         "offense_category": args.offense_category,
+        "layer": args.layer,
     }
 
 
@@ -193,6 +197,7 @@ def _analyze_places(session: Session, user_id_hash: str, args: AnalyzePlacesArgs
     _require_analysis_window(args.analysis_start_date, args.analysis_end_date, args.radii_m)
     radii = list(dict.fromkeys(args.radii_m))
     radius_m = radii[0]
+    sources = sources_for_layer(args.layer)
     analysis = analyze_selected_places(
         session=session,
         user_id_hash=user_id_hash,
@@ -203,6 +208,8 @@ def _analyze_places(session: Session, user_id_hash: str, args: AnalyzePlacesArgs
         offense_category=args.offense_category,
         offense_subcategory=args.offense_subcategory,
         nibrs_group=args.nibrs_group,
+        sources=sources,
+        layer=args.layer,
     )
     neighborhood = neighborhood_analysis_for_places(
         session=session,
@@ -216,6 +223,7 @@ def _analyze_places(session: Session, user_id_hash: str, args: AnalyzePlacesArgs
         nibrs_group=args.nibrs_group,
         area_lookup=_beat_areas(),
         beat_polygons=_beat_polygons(),
+        sources=sources,
     )
     incidents = incident_details_for_places(
         session=session,
@@ -228,6 +236,7 @@ def _analyze_places(session: Session, user_id_hash: str, args: AnalyzePlacesArgs
         offense_subcategory=args.offense_subcategory,
         nibrs_group=args.nibrs_group,
         limit=AGENT_INCIDENT_LIMIT,
+        sources=sources,
     )
     return {
         "place_ids": resolved.place_ids,
@@ -250,6 +259,7 @@ def _compare_places(
             "Name at least two places to compare, or select them on the dashboard."
         )
     _require_analysis_window(args.analysis_start_date, args.analysis_end_date, args.radius_m)
+    sources = sources_for_layer(args.layer)
     # Persist an analysis run at this radius so the dashboard summary has rows for the cards.
     analyze_selected_places(
         session=session,
@@ -261,6 +271,8 @@ def _compare_places(
         offense_category=args.offense_category,
         offense_subcategory=args.offense_subcategory,
         nibrs_group=args.nibrs_group,
+        sources=sources,
+        layer=args.layer,
     )
     comparison = compare_selected_places(
         session=session,
@@ -272,6 +284,7 @@ def _compare_places(
         offense_category=args.offense_category,
         offense_subcategory=args.offense_subcategory,
         nibrs_group=args.nibrs_group,
+        sources=sources,
     )
     return {
         "place_ids": resolved.place_ids,
@@ -310,6 +323,8 @@ def execute_tool(
                 offense_category=args.offense_category,
                 offense_subcategory=args.offense_subcategory,
                 nibrs_group=args.nibrs_group,
+                sources=sources_for_layer(args.layer),
+                layer=args.layer,
             )
             validated_arguments = args.model_dump(mode="json")
         elif tool_name == "compare_places":
@@ -330,6 +345,7 @@ def execute_tool(
                 nibrs_group=args.nibrs_group,
                 area_lookup=_beat_areas(),
                 beat_polygons=_beat_polygons(),
+                sources=sources_for_layer(args.layer),
             )
             validated_arguments = args.model_dump(mode="json")
         elif tool_name == "get_incident_details":
@@ -346,6 +362,7 @@ def execute_tool(
                 offense_subcategory=args.offense_subcategory,
                 nibrs_group=args.nibrs_group,
                 limit=capped_limit,
+                sources=sources_for_layer(args.layer),
             )
             validated_arguments = {
                 **args.model_dump(mode="json"),

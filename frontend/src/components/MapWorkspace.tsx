@@ -151,6 +151,7 @@ export function MapWorkspace() {
     offense_category: analysis.offenseCategory || null,
     offense_subcategory: null,
     nibrs_group: null,
+    layer: analysis.layer,
   }), [analysis, selectedIds]);
 
   return (

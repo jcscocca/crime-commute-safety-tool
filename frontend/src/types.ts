@@ -197,6 +197,7 @@ export type AssistantDashboardState = {
   offense_category: string | null;
   offense_subcategory: string | null;
   nibrs_group: string | null;
+  layer: LayerKey;
 };
 
 export type AssistantStreamEvent =
