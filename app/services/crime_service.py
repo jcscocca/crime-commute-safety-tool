@@ -96,7 +96,8 @@ def ingest_sample_crime(session: Session) -> dict[str, int]:
         if incident.external_incident_id:
             existing = session.scalar(
                 select(CrimeIncident).where(
-                    CrimeIncident.external_incident_id == incident.external_incident_id
+                    CrimeIncident.source_dataset == incident.source_dataset,
+                    CrimeIncident.external_incident_id == incident.external_incident_id,
                 )
             )
             if existing is not None:

@@ -599,3 +599,38 @@ def test_summarize_for_user_retains_rows_across_two_calls(tmp_path):
     assert len(run_ids) == 2
 
     session.close()
+
+
+def test_ingest_crime_incidents_keys_dedup_by_source(tmp_path):
+    create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    session = get_sessionmaker()()
+    incidents = [
+        CrimeIncidentData(
+            external_incident_id="shared-99",
+            source_dataset="seattle_spd_crime",
+            offense_start_utc=datetime(2024, 1, 10, tzinfo=UTC),
+            latitude=47.609,
+            longitude=-122.333,
+        ),
+        CrimeIncidentData(
+            external_incident_id="shared-99",
+            source_dataset="seattle_spd_arrests",
+            offense_start_utc=datetime(2024, 1, 10, tzinfo=UTC),
+            latitude=47.609,
+            longitude=-122.333,
+        ),
+        CrimeIncidentData(
+            external_incident_id="shared-99",
+            source_dataset="seattle_spd_arrests",  # in-run duplicate of the arrest row
+            offense_start_utc=datetime(2024, 1, 10, tzinfo=UTC),
+            latitude=47.609,
+            longitude=-122.333,
+        ),
+    ]
+    result = ingest_crime_incidents(session, incidents)
+    assert result == {"inserted_count": 2, "skipped_count": 1}
+    rows = session.scalars(
+        select(CrimeIncident).where(CrimeIncident.external_incident_id == "shared-99")
+    ).all()
+    assert {r.source_dataset for r in rows} == {"seattle_spd_crime", "seattle_spd_arrests"}
+    session.close()
