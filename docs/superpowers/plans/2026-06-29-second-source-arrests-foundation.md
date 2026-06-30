@@ -351,45 +351,60 @@ Scaffold so the down_revision is set correctly to the current head:
 
 Run: `.venv/bin/alembic revision --rev-id 0008 -m "crime source composite unique"`
 
-Then replace the generated `upgrade()`/`downgrade()` bodies in `alembic/versions/0008_crime_source_composite_unique.py`:
+Then set `revision = "0008_crime_source_unique"` and rename the file to `alembic/versions/0008_crime_source_unique.py`. **The revision id must be ≤ 32 chars** — `tests/test_route_models_migration.py::test_alembic_revision_ids_fit_default_version_table` enforces alembic's default `version_num` width (`0008_crime_source_composite_unique` is 34 chars and fails; `0008_crime_source_unique` is 24). Replace the `upgrade()`/`downgrade()` bodies:
 
 ```python
 def upgrade() -> None:
-    # Old single-column unique was created inline (unique=True) in 0001; on Postgres its
-    # auto name is crime_incidents_external_incident_id_key. Replace with the composite.
-    op.drop_constraint(
-        "crime_incidents_external_incident_id_key", "crime_incidents", type_="unique"
-    )
-    op.create_unique_constraint(
-        "uq_crime_source_external_id",
-        "crime_incidents",
-        ["source_dataset", "external_incident_id"],
-    )
     op.create_index(
         "ix_crime_incidents_source_dataset", "crime_incidents", ["source_dataset"]
     )
+    # Per-backend: SQLite can't ALTER ADD/DROP CONSTRAINT without a table rebuild, but
+    # CREATE UNIQUE INDEX is portable. The repo runs the whole migration chain on SQLite
+    # (test_route_models_migration.py), so the SQLite branch must run cleanly; Postgres
+    # (prod) gets the real UniqueConstraint matching the model and drops the old unique.
+    if op.get_bind().dialect.name == "sqlite":
+        op.create_index(
+            "uq_crime_source_external_id",
+            "crime_incidents",
+            ["source_dataset", "external_incident_id"],
+            unique=True,
+        )
+    else:
+        op.create_unique_constraint(
+            "uq_crime_source_external_id",
+            "crime_incidents",
+            ["source_dataset", "external_incident_id"],
+        )
+        op.drop_constraint(
+            "crime_incidents_external_incident_id_key", "crime_incidents", type_="unique"
+        )
 
 
 def downgrade() -> None:
+    if op.get_bind().dialect.name == "sqlite":
+        op.drop_index("uq_crime_source_external_id", table_name="crime_incidents")
+    else:
+        op.create_unique_constraint(
+            "crime_incidents_external_incident_id_key",
+            "crime_incidents",
+            ["external_incident_id"],
+        )
+        op.drop_constraint(
+            "uq_crime_source_external_id", "crime_incidents", type_="unique"
+        )
     op.drop_index("ix_crime_incidents_source_dataset", table_name="crime_incidents")
-    op.drop_constraint("uq_crime_source_external_id", "crime_incidents", type_="unique")
-    op.create_unique_constraint(
-        "crime_incidents_external_incident_id_key",
-        "crime_incidents",
-        ["external_incident_id"],
-    )
 ```
 
-> No data backfill: `source_dataset` is `nullable=False` (migration 0001 line 85), so every existing row already carries `"seattle_spd_crime"`. If `make migrate` on the Postgres CI lane reports the drop name is wrong, run `\d crime_incidents` against that DB and substitute the actual unique-constraint name.
+> No data backfill: `source_dataset` is `nullable=False` (migration 0001), so every existing row already carries `"seattle_spd_crime"`. The Postgres `drop_constraint` uses the auto name `crime_incidents_external_incident_id_key`; if the Postgres CI lane reports it wrong, run `\d crime_incidents` and substitute the actual name.
 
-- [ ] **Step 6: Migration validation (Postgres only — do NOT run on SQLite)**
+- [ ] **Step 6: Validate the migration chain on SQLite (the repo's migration tests run it)**
 
-This migration targets Postgres. Dev/test use SQLite via `create_all`, which reflects the model's composite unique directly (already exercised by Step 4's test), and SQLite **cannot** `ALTER TABLE ... DROP CONSTRAINT` — so do **not** run `alembic upgrade head` against the local SQLite DB; it will fail. The authoritative check is the **Postgres parity lane in CI** (`alembic upgrade head` on Postgres). Confirm that lane is green on the PR. You can still sanity-check the file scaffolds cleanly with `.venv/bin/alembic history | head` (no DB connection needed).
+Run `.venv/bin/python -m pytest tests/test_route_models_migration.py tests/test_analysis_run_model.py -q` — these execute `alembic upgrade head` against fresh SQLite DBs, so the new revision must run end-to-end there (the dialect branch above ensures it does) and its id must fit the version-table width. Also confirm a single head: `.venv/bin/alembic heads` shows `0008_crime_source_unique (head)`. The Postgres parity lane in CI validates the constraint-swap branch.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add app/models.py alembic/versions/0008_crime_source_composite_unique.py tests/test_crime_source_uniqueness.py
+git add app/models.py alembic/versions/0008_crime_source_unique.py tests/test_crime_source_uniqueness.py
 git commit -m "feat(crime): composite unique (source_dataset, external_incident_id) + index"
 ```
 
