@@ -15,11 +15,16 @@ from app.parsers.base import parse_datetime
 from app.schemas import CrimeIncidentData
 
 CRIME_DATA_FLOOR = date(2018, 1, 1)
+# The SPD Call Data set is ~24x the size of the reported-crime set (10.9M rows back to 2009),
+# so it gets a much later floor — roughly a trailing 24 months from the project's current
+# horizon. A fixed calendar floor (not a rolling window) mirrors CRIME_DATA_FLOOR and keeps
+# ingest deterministic; lower it to date(2025, 7, 1) (12 months) if dev volume is too heavy.
+CALLS_DATA_FLOOR = date(2024, 7, 1)
 
 
-def floor_start_date(start_date: date | None) -> date:
-    if start_date is None or start_date < CRIME_DATA_FLOOR:
-        return CRIME_DATA_FLOOR
+def floor_start_date(start_date: date | None, floor: date = CRIME_DATA_FLOOR) -> date:
+    if start_date is None or start_date < floor:
+        return floor
     return start_date
 
 
@@ -32,12 +37,14 @@ class SeattleSocrataClient:
         *,
         mapper: Callable[[dict[str, Any]], CrimeIncidentData] | None = None,
         date_field: str = "offense_date",
+        data_floor: date = CRIME_DATA_FLOOR,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.dataset_id = dataset_id
         self.app_token = app_token
         self.mapper = mapper or crime_incident_from_mapping
         self.date_field = date_field
+        self.data_floor = data_floor
 
     def fetch_page(
         self,
@@ -46,7 +53,7 @@ class SeattleSocrataClient:
         start_date: date | None = None,
         end_date: date | None = None,
     ) -> list[CrimeIncidentData]:
-        start_date = floor_start_date(start_date)
+        start_date = floor_start_date(start_date, self.data_floor)
         query_params = {"$limit": limit, "$offset": offset}
         query_params["$order"] = f"{self.date_field} DESC"
         query_params["$where"] = _date_window_where(start_date, end_date, self.date_field)
@@ -153,10 +160,51 @@ def arrest_from_mapping(row: dict[str, Any]) -> CrimeIncidentData:
     )
 
 
+def call_from_mapping(row: dict[str, Any]) -> CrimeIncidentData:
+    # SPD Call Data (911 calls for service). Dispatch coordinates are redacted on sensitive
+    # event types — they arrive as the literal string "REDACTED", which _float_or_none coerces
+    # to None (those rows then fall out of the lat/long-gated bbox queries, exactly like a
+    # reported incident with no geocode). The dataset emits one row per responding unit, so
+    # multiple rows share a cad_event_number; using it as external_incident_id collapses them
+    # to one stored row per call via the (source_dataset, external_incident_id) upsert.
+    latitude = _float_or_none(_first(row, "dispatch_latitude", "latitude", "lat", "y"))
+    longitude = _float_or_none(_first(row, "dispatch_longitude", "longitude", "lon", "lng", "x"))
+    return CrimeIncidentData(
+        external_incident_id=_first(row, "cad_event_number"),
+        report_number=None,
+        offense_id=None,
+        offense_start_utc=parse_datetime(
+            _first(row, "cad_event_original_time_queued", "original_time_queued")
+        ),
+        offense_end_utc=None,
+        report_utc=parse_datetime(_first(row, "cad_event_arrived_time", "arrived_time")),
+        offense_category=None,
+        # Final call type carries the filterable dimension (e.g. "DISTURBANCE - OTHER"). As with
+        # arrests, offense_subcategory holds source-specific semantics; category/nibrs stay null.
+        offense_subcategory=_first(row, "final_call_type", "initial_call_type", "call_type"),
+        nibrs_group=None,
+        precinct=_first(row, "dispatch_precinct", "precinct"),
+        sector=_first(row, "dispatch_sector", "sector"),
+        beat=_first(row, "dispatch_beat", "beat"),
+        mcpp=_first(row, "dispatch_neighborhood", "neighborhood", "mcpp"),
+        block_address=_first(row, "dispatch_address", "block_address"),
+        latitude=latitude,
+        longitude=longitude,
+        source_dataset="seattle_spd_911",
+        snapshot_at=parse_datetime(_first(row, "snapshot_at")) or utc_now(),
+    )
+
+
 def load_arrest_csv(path: Path) -> list[CrimeIncidentData]:
     with path.open(newline="", encoding="utf-8-sig") as handle:
         reader = csv.DictReader(handle)
         return [arrest_from_mapping(row) for row in reader]
+
+
+def load_calls_csv(path: Path) -> list[CrimeIncidentData]:
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        return [call_from_mapping(row) for row in reader]
 
 
 def _date_window_where(

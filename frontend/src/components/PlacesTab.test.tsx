@@ -55,6 +55,12 @@ describe("PlacesTab", () => {
     expect(screen.queryByText(/visits\/week/i)).not.toBeInTheDocument();
   });
 
+  it("labels the count as calls when the summary is from the calls layer", () => {
+    renderTab({ summary: { ...summary, layer: "calls" } });
+    expect(screen.getByText("9 calls")).toBeInTheDocument();
+    expect(screen.queryByText("9 inc.")).not.toBeInTheDocument();
+  });
+
   it("toggles selection and deletion through callbacks", () => {
     const props = renderTab();
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Home" }));

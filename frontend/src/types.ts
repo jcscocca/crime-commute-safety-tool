@@ -50,6 +50,9 @@ export type IncidentDetailsResponse = {
 };
 
 export type DashboardSummary = {
+  /** The layer the persisted totals were computed for (server always sends it; optional so
+   * fixtures predating it still type-check). Absent is treated as "reported". */
+  layer?: LayerKey;
   totals: {
     place_count: number;
     visit_count: number;
@@ -71,12 +74,15 @@ export type DashboardSummary = {
   };
 };
 
-export type DashboardFreshness = {
+export type FreshnessEntry = {
   incident_count: number;
   data_through: string | null;
   earliest: string | null;
   last_ingested_at: string | null;
 };
+
+/** Coverage per analysis layer (server returns one entry per layer). */
+export type DashboardFreshness = Record<LayerKey, FreshnessEntry>;
 
 export type PlaceCreate = {
   display_label: string;
@@ -116,7 +122,7 @@ export type RouteContextSummaryItem = {
 };
 
 export type RouteComparison = {
-  request: { id: string; origin: { label: string }; destination: { label: string }; mode: string };
+  request: { id: string; origin: { label: string }; destination: { label: string }; mode: string; layer?: LayerKey };
   alternatives: RouteAlternative[];
   context_summaries: RouteContextSummaryItem[];
   statistical_comparison: {
@@ -156,11 +162,16 @@ export type GeocodeResult = {
   source: string;
 };
 
+/** Which incident-context layer the dashboard queries. "reported" unions SPD crime +
+ * arrests; "calls" is 911 calls for service. The two are mutually exclusive. */
+export type LayerKey = "reported" | "calls";
+
 export type AnalysisSettings = {
   startDate: string;
   endDate: string;
   radiusM: number;
   offenseCategory: string;
+  layer: LayerKey;
 };
 
 export type AssistantToolEffect = {
@@ -186,6 +197,7 @@ export type AssistantDashboardState = {
   offense_category: string | null;
   offense_subcategory: string | null;
   nibrs_group: string | null;
+  layer: LayerKey;
 };
 
 export type AssistantStreamEvent =

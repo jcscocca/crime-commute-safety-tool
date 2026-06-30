@@ -13,7 +13,7 @@ const home: Place = {
 };
 const office: Place = { ...home, id: "p2", display_label: "Office", visit_count: 4 };
 
-const analysis: AnalysisSettings = { startDate: "2026-01-01", endDate: "2026-06-24", radiusM: 250, offenseCategory: "PROPERTY" };
+const analysis: AnalysisSettings = { startDate: "2026-01-01", endDate: "2026-06-24", radiusM: 250, offenseCategory: "PROPERTY", layer: "reported" };
 const analyzedSummary: DashboardSummary = {
   totals: { place_count: 2, visit_count: 9, incident_count: 180 },
   privacy: { normal: 2, home_candidate: 0, work_candidate: 0, suppressed: 0 },
@@ -78,6 +78,37 @@ describe("AnalyzeTab", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /run analysis/i }));
     expect(onRun).toHaveBeenCalled();
+  });
+
+  it("on the calls layer hides incident categories and shows the calls-for-service caveat", () => {
+    render(
+      <AnalyzeTab
+        selected={[home]}
+        analysis={{ ...analysis, layer: "calls" }}
+        availableRadii={[250]}
+        running={false}
+        onChange={vi.fn()}
+        onRun={vi.fn()}
+      />,
+    );
+
+    // Category chips are not meaningful for 911 calls (no offense category), so they're hidden.
+    expect(screen.queryByRole("button", { name: "Property" })).not.toBeInTheDocument();
+    expect(screen.getByText(/requests for service/i)).toBeInTheDocument();
+  });
+
+  it("warns that arrests drop out when filtering the reported layer by category", () => {
+    render(
+      <AnalyzeTab
+        selected={[home]}
+        analysis={{ ...analysis, layer: "reported", offenseCategory: "PROPERTY" }}
+        availableRadii={[250]}
+        running={false}
+        onChange={vi.fn()}
+        onRun={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/arrests carry no offense category/i)).toBeInTheDocument();
   });
 
   it("disables run when nothing is selected", () => {
@@ -280,6 +311,29 @@ describe("AnalyzeTab", () => {
     expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
+  it("relabels incident copy to 911 calls on the calls layer", () => {
+    render(
+      <AnalyzeTab
+        selected={[home]}
+        analysis={{ ...analysis, layer: "calls" }}
+        availableRadii={[250]}
+        running={false}
+        panelWidthPx={640}
+        neighborhood={{ ...neighborhood, places: [homePlace] }}
+        incidentDetails={oneIncident}
+        onChange={vi.fn()}
+        onRun={vi.fn()}
+      />,
+    );
+    // Verdict, incident-details header, and reveal summary all reflect the active layer.
+    expect(screen.getByText(/Home has more 911 calls than its surrounding beat\./i)).toBeInTheDocument();
+    expect(screen.getByText("911 calls near selected places")).toBeInTheDocument();
+    expect(screen.getByText(/See the 1 911 call\b/i)).toBeInTheDocument();
+    // The incident table drops the (always-empty) Category column and renames Subcategory.
+    expect(screen.getByRole("columnheader", { name: "Call type" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Category" })).not.toBeInTheDocument();
+  });
+
   it("shows loading skeletons while analysis is running", () => {
     const { container } = render(<AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={true} onChange={vi.fn()} onRun={vi.fn()} />);
     expect(screen.getByText("Running analysis…")).toBeInTheDocument();
@@ -332,8 +386,8 @@ describe("AnalyzeTab", () => {
     render(
       <AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={false} neighborhood={{ ...neighborhood, places: [lowN] }} onChange={vi.fn()} onRun={vi.fn()} />,
     );
-    expect(screen.getByText(/Based on 8 incidents — interpret with caution\./i)).toBeInTheDocument();
-    expect(screen.getByText(/3 incidents had no recorded time/i)).toBeInTheDocument();
+    expect(screen.getByText(/Based on 8 reported incidents — interpret with caution\./i)).toBeInTheDocument();
+    expect(screen.getByText(/3 reported incidents had no recorded time/i)).toBeInTheDocument();
   });
 
   it("shows an empty temporal state when no incidents have a recorded time", () => {

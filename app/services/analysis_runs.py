@@ -19,6 +19,7 @@ def create_analysis_run(
     offense_category: str | None,
     offense_subcategory: str | None,
     nibrs_group: str | None,
+    layer: str | None = None,
 ) -> AnalysisRun:
     run = AnalysisRun(
         user_id_hash=user_id_hash,
@@ -28,6 +29,7 @@ def create_analysis_run(
         offense_category=offense_category,
         offense_subcategory=offense_subcategory,
         nibrs_group=nibrs_group,
+        layer=layer,
     )
     session.add(run)
     session.flush()  # populate run.id within the caller's transaction

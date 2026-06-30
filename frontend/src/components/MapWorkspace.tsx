@@ -18,6 +18,7 @@ import { BottomSheet } from "./BottomSheet";
 import { CompareTab } from "./CompareTab";
 import { DataFreshness } from "./DataFreshness";
 import { ExportTab } from "./ExportTab";
+import { LayerToggle } from "./LayerToggle";
 import { MapCanvas } from "./MapCanvas";
 import { MapLegend } from "./MapLegend";
 import { PinDraftPopover } from "./PinDraftPopover";
@@ -31,7 +32,7 @@ export function MapWorkspace() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [analysis, setAnalysis] = useState<AnalysisSettings>(() => {
     const window = currentYearAnalysisWindow();
-    return { startDate: window.analysis_start_date, endDate: window.analysis_end_date, radiusM: 250, offenseCategory: "" };
+    return { startDate: window.analysis_start_date, endDate: window.analysis_end_date, radiusM: 250, offenseCategory: "", layer: "reported" };
   });
 
   const data = useDashboardData();
@@ -150,6 +151,7 @@ export function MapWorkspace() {
     offense_category: analysis.offenseCategory || null,
     offense_subcategory: null,
     nibrs_group: null,
+    layer: analysis.layer,
   }), [analysis, selectedIds]);
 
   return (
@@ -180,7 +182,8 @@ export function MapWorkspace() {
             <span className="mc-wordmark">Waypoint</span>
           </div>
           <div className="mc-topbar-right">
-            <DataFreshness freshness={data.freshness} />
+            <LayerToggle layer={analysis.layer} onChange={(layer) => handleAnalysisChange({ layer })} />
+            <DataFreshness freshness={data.freshness} layer={analysis.layer} />
             <div className="mc-status"><span className="dot" />Public session - Seattle</div>
           </div>
         </header>

@@ -749,5 +749,6 @@ def test_analyze_places_settings_used_matches_bridge_contract(tmp_path):
         "analysis_start_date",
         "analysis_end_date",
         "offense_category",
+        "layer",
     }
 

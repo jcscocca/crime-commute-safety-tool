@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { incidentNoun } from "../lib/layerCopy";
 import { useAddressSearch, SEARCH_EMPTY_MSG, SEARCH_ERROR_MSG } from "../lib/useAddressSearch";
 import type { AnalysisSettings, GeocodeResult, Place, RouteComparison, RouteEndpointInput } from "../types";
 
@@ -142,6 +143,9 @@ export function RoutesTab({ analysis, running, result, error, places, geocodeSea
   const originOption = options.find((o) => o.key === originKey) ?? null;
   const destinationOption = options.find((o) => o.key === destinationKey) ?? null;
   const canRun = originOption !== null && destinationOption !== null && !running;
+  // Label corridor context by the layer the route was actually run for (not the live toggle,
+  // which may have changed since), falling back to the current setting before a run lands.
+  const noun = incidentNoun(result?.request.layer ?? analysis.layer);
 
   return (
     <div className="mc-panel is-active" role="tabpanel" aria-label="Routes">
@@ -213,9 +217,9 @@ export function RoutesTab({ analysis, running, result, error, places, geocodeSea
                 <p className="mc-verdict-sub">{result.statistical_comparison.overview.caveat_text}</p>
               </section>
             ) : result.alternatives.length === 1 ? (
-              <p className="mc-empty-list">One route option — nothing to compare. Reported-incident context for the corridor is below.</p>
+              <p className="mc-empty-list">One route option — nothing to compare. {noun.pluralCap} context for the corridor is below.</p>
             ) : (
-              <p className="mc-empty-list">{result.alternatives.length} route options below — not enough reported-incident context to rank them. Context for each corridor is shown per option.</p>
+              <p className="mc-empty-list">{result.alternatives.length} route options below — not enough {noun.singular} context to rank them. Context for each corridor is shown per option.</p>
             )}
 
             {result.alternatives.map((alt) => {
@@ -232,16 +236,16 @@ export function RoutesTab({ analysis, running, result, error, places, geocodeSea
                     {alt.walking_distance_m != null ? ` · ${Math.round(alt.walking_distance_m)} m walk` : ""}
                   </p>
                   <p className="mc-verdict-sub">
-                    Corridor (≤{analysis.radiusM} m): {ctx.count} reported incident{ctx.count === 1 ? "" : "s"}
+                    Corridor (≤{analysis.radiusM} m): {ctx.count} {ctx.count === 1 ? noun.singular : noun.plural}
                     {ctx.nearest != null ? ` · nearest ${Math.round(ctx.nearest)} m` : ""}
                     {ctx.types.length ? ` · ${ctx.types.join(", ")}` : ""}
                   </p>
                   {legs.length > 1 ? (
-                    <ul className="mc-breakdown" aria-label="Reported incidents near each leg's stops">
+                    <ul className="mc-breakdown" aria-label={`${noun.pluralCap} near each leg's stops`}>
                       {legs.map((leg) => (
                         <li key={leg.label} className="mc-breakdown-row">
                           <span>{leg.label}</span>
-                          <span className="cnt">{leg.count} reported incident{leg.count === 1 ? "" : "s"}</span>
+                          <span className="cnt">{leg.count} {leg.count === 1 ? noun.singular : noun.plural}</span>
                         </li>
                       ))}
                     </ul>

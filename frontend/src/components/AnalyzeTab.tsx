@@ -10,6 +10,7 @@ import type {
   TemporalProfile,
 } from "../types";
 import { ANALYSIS_MIN_DATE } from "../lib/analysisDefaults";
+import { countNoun, incidentNoun, type IncidentNoun } from "../lib/layerCopy";
 import { decisionHeadline } from "../lib/verdictCopy";
 import {
   clampInt,
@@ -148,14 +149,14 @@ function ProfileBars({
   );
 }
 
-function TemporalSection({ temporal, windowLabel }: { temporal: TemporalProfile; windowLabel: string }) {
+function TemporalSection({ temporal, windowLabel, noun }: { temporal: TemporalProfile; windowLabel: string; noun: IncidentNoun }) {
   const [tw, setTw] = useState<TravelWindow>(DEFAULT_TRAVEL_WINDOW);
 
   if (temporal.total_with_time === 0) {
     return (
       <div className="mc-temporal">
-        <h6 className="mc-temporal-title">When reported incidents occurred</h6>
-        <p className="mc-empty-list">No reported incidents with a recorded time in this area.</p>
+        <h6 className="mc-temporal-title">When {noun.plural} occurred</h6>
+        <p className="mc-empty-list">No {noun.plural} with a recorded time in this area.</p>
       </div>
     );
   }
@@ -169,7 +170,7 @@ function TemporalSection({ temporal, windowLabel }: { temporal: TemporalProfile;
 
   return (
     <div className="mc-temporal">
-      <h6 className="mc-temporal-title">When reported incidents occurred</h6>
+      <h6 className="mc-temporal-title">When {noun.plural} occurred</h6>
 
       <div className="mc-temporal-profile">
         <span className="mc-temporal-axis">By hour</span>
@@ -177,7 +178,7 @@ function TemporalSection({ temporal, windowLabel }: { temporal: TemporalProfile;
           counts={temporal.hour_counts}
           highlight={hourHighlight}
           labelFor={(h) => `${h}:00`}
-          summary={`Reported incidents by hour of day; most around ${hourPeak}:00.`}
+          summary={`${noun.pluralCap} by hour of day; most around ${hourPeak}:00.`}
         />
       </div>
       <div className="mc-temporal-profile">
@@ -186,7 +187,7 @@ function TemporalSection({ temporal, windowLabel }: { temporal: TemporalProfile;
           counts={temporal.dow_counts}
           highlight={dayHighlight}
           labelFor={(d) => DOW_LABELS[d]}
-          summary={`Reported incidents by day of week; most on ${DOW_LABELS[dayPeak]}.`}
+          summary={`${noun.pluralCap} by day of week; most on ${DOW_LABELS[dayPeak]}.`}
         />
       </div>
 
@@ -231,13 +232,13 @@ function TemporalSection({ temporal, windowLabel }: { temporal: TemporalProfile;
       </div>
 
       <p className="mc-temporal-callout">
-        {Math.round(share * 100)}% of the {temporal.total_with_time} reported incidents with a recorded time{windowLabel ? ` (${windowLabel})` : ""} fell in your travel window.
+        {Math.round(share * 100)}% of the {temporal.total_with_time} {noun.plural} with a recorded time{windowLabel ? ` (${windowLabel})` : ""} fell in your travel window.
       </p>
       {temporal.total_with_time < 20 ? (
-        <p className="mc-temporal-note">Based on {temporal.total_with_time} incidents — interpret with caution.</p>
+        <p className="mc-temporal-note">Based on {temporal.total_with_time} {countNoun(noun, temporal.total_with_time)} — interpret with caution.</p>
       ) : null}
       {temporal.without_time > 0 ? (
-        <p className="mc-temporal-note">{temporal.without_time} incidents had no recorded time and aren't shown here.</p>
+        <p className="mc-temporal-note">{temporal.without_time} {countNoun(noun, temporal.without_time)} had no recorded time and aren't shown here.</p>
       ) : null}
     </div>
   );
@@ -269,8 +270,8 @@ function CategoryBreakdown({ rows }: { rows: CategoryShare[] }) {
   );
 }
 
-function VerdictCard({ place, windowLabel }: { place: NeighborhoodPlace; windowLabel: string }) {
-  const { headline, chip } = decisionHeadline(place);
+function VerdictCard({ place, windowLabel, noun }: { place: NeighborhoodPlace; windowLabel: string; noun: IncidentNoun }) {
+  const { headline, chip } = decisionHeadline(place, noun);
   return (
     <section className="mc-verdict" aria-label={`Verdict for ${place.place_label}`}>
       <div className="mc-verdict-head">
@@ -280,7 +281,7 @@ function VerdictCard({ place, windowLabel }: { place: NeighborhoodPlace; windowL
       {place.baseline_available ? (
         <>
           <p className="mc-verdict-sub">
-            {place.place_incident_count} reported incidents within {place.radius_m} m · {windowLabel}
+            {place.place_incident_count} {countNoun(noun, place.place_incident_count)} within {place.radius_m} m · {windowLabel}
           </p>
           {place.rate_ratio != null ? <ComparisonBars rateRatio={place.rate_ratio} /> : null}
           {place.monthly_counts?.length ? (
@@ -307,11 +308,11 @@ function VerdictCard({ place, windowLabel }: { place: NeighborhoodPlace; windowL
         </>
       ) : (
         <>
-          <p className="mc-verdict-sub">{place.place_incident_count} reported incidents in range; no beat baseline.</p>
+          <p className="mc-verdict-sub">{place.place_incident_count} {countNoun(noun, place.place_incident_count)} in range; no beat baseline.</p>
           <CategoryBreakdown rows={place.category_breakdown} />
         </>
       )}
-      {place.temporal ? <TemporalSection temporal={place.temporal} windowLabel={windowLabel} /> : null}
+      {place.temporal ? <TemporalSection temporal={place.temporal} windowLabel={windowLabel} noun={noun} /> : null}
     </section>
   );
 }
@@ -335,22 +336,22 @@ function PairwiseSection({ neighborhood }: { neighborhood: NeighborhoodAnalysis 
   );
 }
 
-function IncidentDetailsTable({ details }: { details: IncidentDetailsResponse | null | undefined }) {
+function IncidentDetailsTable({ details, noun, isCalls }: { details: IncidentDetailsResponse | null | undefined; noun: IncidentNoun; isCalls: boolean }) {
   if (!details) return null;
 
   const isCapped = details.total_count > details.returned_count;
   const countText = isCapped
-    ? `Showing nearest ${details.returned_count} of ${details.total_count} matching reported incidents.`
-    : `${details.total_count} matching reported incident${details.total_count === 1 ? "" : "s"}.`;
+    ? `Showing nearest ${details.returned_count} of ${details.total_count} matching ${noun.plural}.`
+    : `${details.total_count} matching ${countNoun(noun, details.total_count)}.`;
 
   return (
-    <section className="mc-incident-details" aria-label="Reported incident details">
+    <section className="mc-incident-details" aria-label={`${noun.pluralCap} near selected places`}>
       <div className="mc-breakdown-head">
-        <h5>Reported incidents near selected places</h5>
+        <h5>{noun.pluralCap} near selected places</h5>
         <span>{details.radius_m} m</span>
       </div>
       {details.incidents.length === 0 ? (
-        <p className="mc-empty-list">No matching reported incidents for the selected filters.</p>
+        <p className="mc-empty-list">No matching {noun.plural} for the selected filters.</p>
       ) : (
         <>
           <p className="mc-incident-count">{countText}</p>
@@ -360,8 +361,9 @@ function IncidentDetailsTable({ details }: { details: IncidentDetailsResponse | 
                 <tr>
                   <th scope="col">Place</th>
                   <th scope="col">Date/time</th>
-                  <th scope="col">Category</th>
-                  <th scope="col">Subcategory</th>
+                  {/* 911 calls carry no offense category — show only the call type. */}
+                  {isCalls ? null : <th scope="col">Category</th>}
+                  <th scope="col">{isCalls ? "Call type" : "Subcategory"}</th>
                   <th scope="col">Distance</th>
                   <th scope="col">Block/address</th>
                   <th scope="col">ID</th>
@@ -372,7 +374,7 @@ function IncidentDetailsTable({ details }: { details: IncidentDetailsResponse | 
                   <tr key={`${incident.place_id}-${incident.incident_id}`}>
                     <td>{incident.place_label}</td>
                     <td>{formatIncidentTime(incident.occurred_at || incident.reported_at)}</td>
-                    <td>{incidentCategoryLabel(incident)}</td>
+                    {isCalls ? null : <td>{incidentCategoryLabel(incident)}</td>}
                     <td>{incidentSubtypeLabel(incident)}</td>
                     <td>{formatDistanceMeters(incident.distance_m)}</td>
                     <td>{incident.block_address || "Unavailable"}</td>
@@ -388,22 +390,22 @@ function IncidentDetailsTable({ details }: { details: IncidentDetailsResponse | 
   );
 }
 
-function IncidentDetailsCards({ details }: { details: IncidentDetailsResponse | null | undefined }) {
+function IncidentDetailsCards({ details, noun, isCalls }: { details: IncidentDetailsResponse | null | undefined; noun: IncidentNoun; isCalls: boolean }) {
   if (!details) return null;
 
   const isCapped = details.total_count > details.returned_count;
   const countText = isCapped
-    ? `Showing nearest ${details.returned_count} of ${details.total_count} matching reported incidents.`
-    : `${details.total_count} matching reported incident${details.total_count === 1 ? "" : "s"}.`;
+    ? `Showing nearest ${details.returned_count} of ${details.total_count} matching ${noun.plural}.`
+    : `${details.total_count} matching ${countNoun(noun, details.total_count)}.`;
 
   return (
-    <section className="mc-incident-details" aria-label="Reported incident details">
+    <section className="mc-incident-details" aria-label={`${noun.pluralCap} near selected places`}>
       <div className="mc-breakdown-head">
-        <h5>Reported incidents near selected places</h5>
+        <h5>{noun.pluralCap} near selected places</h5>
         <span>{details.radius_m} m</span>
       </div>
       {details.incidents.length === 0 ? (
-        <p className="mc-empty-list">No matching reported incidents for the selected filters.</p>
+        <p className="mc-empty-list">No matching {noun.plural} for the selected filters.</p>
       ) : (
         <>
           <p className="mc-incident-count">{countText}</p>
@@ -415,7 +417,7 @@ function IncidentDetailsCards({ details }: { details: IncidentDetailsResponse | 
                   <em>{formatDistanceMeters(incident.distance_m)}</em>
                 </div>
                 <div className="mc-icard-tags">
-                  <span>{incidentCategoryLabel(incident)}</span>
+                  {isCalls ? null : <span>{incidentCategoryLabel(incident)}</span>}
                   <span>{incidentSubtypeLabel(incident)}</span>
                   <span>{formatIncidentTime(incident.occurred_at || incident.reported_at)}</span>
                 </div>
@@ -437,6 +439,9 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
   const windowLabel = neighborhood
     ? `${neighborhood.analysis_start_date} – ${neighborhood.analysis_end_date}`
     : "";
+
+  const isCallsLayer = analysis.layer === "calls";
+  const noun = incidentNoun(analysis.layer);
 
   return (
     <div className="mc-panel is-active" role="tabpanel" aria-label="Analyze">
@@ -460,22 +465,38 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
           </div>
         </div>
 
-        <div className="mc-field">
-          <label id="category-label">Incident categories</label>
-          <div className="mc-chips" role="group" aria-labelledby="category-label">
-            {CATEGORIES.map((category) => (
-              <button key={category.value || "all"} type="button" className={`mc-chip${analysis.offenseCategory === category.value ? " on" : ""}`} aria-pressed={analysis.offenseCategory === category.value} onClick={() => onChange({ offenseCategory: category.value })}>
-                {category.label}
-              </button>
-            ))}
+        {isCallsLayer ? null : (
+          <div className="mc-field">
+            <label id="category-label">Incident categories</label>
+            <div className="mc-chips" role="group" aria-labelledby="category-label">
+              {CATEGORIES.map((category) => (
+                <button key={category.value || "all"} type="button" className={`mc-chip${analysis.offenseCategory === category.value ? " on" : ""}`} aria-pressed={analysis.offenseCategory === category.value} onClick={() => onChange({ offenseCategory: category.value })}>
+                  {category.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mc-querybar-run">
           <span className="note">{selected.length} place{selected.length === 1 ? "" : "s"} · {analysis.radiusM} m</span>
           <button type="button" className="mc-cta" disabled={!canRun} onClick={onRun}>{running ? "Running…" : "Run analysis"}</button>
         </div>
       </div>
+
+      {isCallsLayer ? (
+        <p className="mc-layer-note" role="note">
+          911 calls are <strong>requests for service</strong>, not confirmed incidents. The same
+          event can generate several calls, many are proactive officer activity, and a call does
+          not mean a crime occurred. Counts below are call volume, not reported crime.
+        </p>
+      ) : analysis.offenseCategory !== "" ? (
+        <p className="mc-layer-note" role="note">
+          Filtering by category shows <strong>reported crimes</strong> only — arrests carry no
+          offense category, so they’re excluded while a category is selected. Choose “All reported”
+          to include arrests.
+        </p>
+      ) : null}
 
       {error ? <p className="mc-inline-error" role="alert">{error}</p> : null}
 
@@ -489,24 +510,24 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
       ) : (
         <>
           {neighborhood?.places?.map((place) => (
-            <VerdictCard key={place.place_id} place={place} windowLabel={windowLabel} />
+            <VerdictCard key={place.place_id} place={place} windowLabel={windowLabel} noun={noun} />
           ))}
 
           {neighborhood?.pairwise?.length ? <PairwiseSection neighborhood={neighborhood} /> : null}
 
           {incidentDetails && incidentDetails.incidents.length > 0 ? (
             <details className="mc-incident-reveal">
-              <summary>See the {incidentDetails.total_count} reported incident{incidentDetails.total_count === 1 ? "" : "s"}</summary>
+              <summary>See the {incidentDetails.total_count} {countNoun(noun, incidentDetails.total_count)}</summary>
               {incidentLayout === "table" ? (
-                <IncidentDetailsTable details={incidentDetails} />
+                <IncidentDetailsTable details={incidentDetails} noun={noun} isCalls={isCallsLayer} />
               ) : (
-                <IncidentDetailsCards details={incidentDetails} />
+                <IncidentDetailsCards details={incidentDetails} noun={noun} isCalls={isCallsLayer} />
               )}
             </details>
           ) : incidentLayout === "table" ? (
-            <IncidentDetailsTable details={incidentDetails} />
+            <IncidentDetailsTable details={incidentDetails} noun={noun} isCalls={isCallsLayer} />
           ) : (
-            <IncidentDetailsCards details={incidentDetails} />
+            <IncidentDetailsCards details={incidentDetails} noun={noun} isCalls={isCallsLayer} />
           )}
 
           <MethodsAppendix />

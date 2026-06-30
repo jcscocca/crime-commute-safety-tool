@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     socrata_base_url: str = "https://data.seattle.gov/resource"
     socrata_dataset_id: str = "tazs-3rd5"
     socrata_arrests_dataset_id: str = "9bjs-7a7w"
+    socrata_calls_dataset_id: str = "33kz-ixgy"
     socrata_app_token: str | None = Field(default=None, validation_alias="SOCRATA_APP_TOKEN")
     raw_upload_retention: bool = False
     assistant_role: str = "waypoint_analyst"

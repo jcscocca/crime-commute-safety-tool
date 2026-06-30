@@ -158,6 +158,7 @@ describe("MapWorkspace", () => {
         analysis_end_date: window.analysis_end_date,
         radii_m: [250],
         offense_category: null,
+        layer: "reported",
       });
     });
   });
@@ -193,6 +194,7 @@ describe("MapWorkspace", () => {
         analysis_end_date: window.analysis_end_date,
         radii_m: [250],
         offense_category: null,
+        layer: "reported",
       });
     });
   });
@@ -237,6 +239,7 @@ describe("MapWorkspace", () => {
         analysis_end_date: window.analysis_end_date,
         radii_m: [250],
         offense_category: null,
+        layer: "reported",
       });
     });
   });
@@ -262,6 +265,7 @@ describe("MapWorkspace", () => {
         analysis_end_date: window.analysis_end_date,
         radii_m: [250],
         offense_category: null,
+        layer: "reported",
       });
     });
     expect(await screen.findByText("100 BLOCK MAIN ST")).toBeInTheDocument();

@@ -20,9 +20,10 @@ from app.api.dashboard_schemas import (
 )
 from app.api.deps import required_public_user_hash
 from app.config import get_settings
+from app.crime.sources import sources_for_layer
 from app.db import get_session
 from app.geocoding.providers import GeocodeProvider, GeocoderUpstreamError, build_provider
-from app.services.crime_service import crime_data_freshness
+from app.services.crime_service import dashboard_freshness_by_layer
 from app.services.dashboard_analysis_service import (
     analyze_selected_places,
     compare_selected_places,
@@ -61,6 +62,8 @@ def analyze_dashboard_places(
             offense_category=request.offense_category,
             offense_subcategory=request.offense_subcategory,
             nibrs_group=request.nibrs_group,
+            sources=sources_for_layer(request.layer),
+            layer=request.layer,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -84,6 +87,7 @@ def dashboard_incidents(
             offense_subcategory=request.offense_subcategory,
             nibrs_group=request.nibrs_group,
             limit=request.limit,
+            sources=sources_for_layer(request.layer),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -106,6 +110,7 @@ def compare_dashboard_places(
             offense_category=request.offense_category,
             offense_subcategory=request.offense_subcategory,
             nibrs_group=request.nibrs_group,
+            sources=sources_for_layer(request.layer),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -130,6 +135,7 @@ def dashboard_neighborhood(
             nibrs_group=request.nibrs_group,
             area_lookup=_beat_areas(),
             beat_polygons=_beat_polygons(),
+            sources=sources_for_layer(request.layer),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -140,9 +146,10 @@ def dashboard_freshness(
     user_id_hash: Annotated[str, Depends(required_public_user_hash)],
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, object]:
-    # Coverage of the shared reported-incident dataset (global, not user-scoped); the
-    # session gate just keeps it on the authenticated public tier like its siblings.
-    return crime_data_freshness(session)
+    # Coverage of the shared incident dataset per layer (global, not user-scoped); the
+    # session gate just keeps it on the authenticated public tier like its siblings. The
+    # frontend pill shows the entry for the active layer.
+    return dashboard_freshness_by_layer(session)
 
 
 def get_geocode_provider() -> GeocodeProvider:

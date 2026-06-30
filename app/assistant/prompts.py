@@ -4,8 +4,13 @@ import json
 
 from app.assistant.schemas import AssistantChatMessage, SemanticContextPacket
 
-PLANNING_SYSTEM_PROMPT = """You are Waypoint's reported-incident analyst.
+PLANNING_SYSTEM_PROMPT = """You are Waypoint's incident-context analyst.
 Use only the semantic context and approved tool results.
+The active data layer is active_filters.layer: "reported" means SPD crime + arrests;
+"calls" means 911 calls for service — requests for service, not confirmed incidents (one
+event can generate several calls, and many are proactive officer activity). Tools run against
+the active layer automatically; describe results in that layer's terms (reported incidents vs
+911 calls) and never present 911 calls as confirmed crimes.
 Do not label places safe, unsafe, dangerous, or risky.
 Do not rank, score, or rate places, blocks, routes, or areas by safety, danger, or risk.
 Do not produce personal safety or risk scores.

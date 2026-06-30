@@ -2,6 +2,7 @@ import type {
   AnalysisSettings,
   AssistantToolEffect,
   IncidentDetailsResponse,
+  LayerKey,
   NeighborhoodAnalysis,
 } from "../types";
 
@@ -13,6 +14,7 @@ type SettingsUsed = {
   analysis_start_date?: string;
   analysis_end_date?: string;
   offense_category?: string | null;
+  layer?: LayerKey;
 };
 
 function settingsFrom(used: SettingsUsed | undefined): Partial<AnalysisSettings> {
@@ -23,6 +25,8 @@ function settingsFrom(used: SettingsUsed | undefined): Partial<AnalysisSettings>
   if (typeof used.analysis_end_date === "string") patch.endDate = used.analysis_end_date;
   // offense_category is null for "all reported"; the UI represents that as "".
   if (used.offense_category !== undefined) patch.offenseCategory = used.offense_category ?? "";
+  // Reflect the layer the assistant ran against so the global toggle follows it.
+  if (used.layer === "reported" || used.layer === "calls") patch.layer = used.layer;
   return patch;
 }
 

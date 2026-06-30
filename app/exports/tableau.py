@@ -36,6 +36,7 @@ TABLEAU_COLUMNS = [
     "nearest_incident_m",
     "incidents_per_visit",
     "incidents_per_hour_dwell",
+    "layer",
 ]
 
 
@@ -92,4 +93,7 @@ def _row_for_cluster(
         "nearest_incident_m": summary.nearest_incident_m if summary else "",
         "incidents_per_visit": summary.incidents_per_visit if summary else "",
         "incidents_per_hour_dwell": summary.incidents_per_hour_dwell if summary else "",
+        # Which layer produced the summary, so the export isn't ambiguous between reported
+        # incidents and 911 calls; legacy/null rows are reported.
+        "layer": (summary.layer or "reported") if summary else "",
     }

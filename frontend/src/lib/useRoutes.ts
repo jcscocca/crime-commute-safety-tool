@@ -41,6 +41,7 @@ export function useRoutes(analysis: AnalysisSettings): RoutesController {
         analysis_start_date: analysis.startDate,
         analysis_end_date: analysis.endDate,
         radii_m: [analysis.radiusM],
+        layer: analysis.layer,
       });
       setResult(comparison);
     } catch (caught) {

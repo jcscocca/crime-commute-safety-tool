@@ -155,3 +155,4 @@ class PlaceCrimeSummaryData(BaseModel):
     nearest_incident_m: float | Decimal | None = None
     incidents_per_visit: float | Decimal | None = None
     incidents_per_hour_dwell: float | Decimal | None = None
+    layer: str | None = None

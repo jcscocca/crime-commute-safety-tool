@@ -1,4 +1,4 @@
-import type { DashboardFreshness } from "../types";
+import type { DashboardFreshness, LayerKey } from "../types";
 
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -17,24 +17,33 @@ function formatDate(value: string): string {
 
 /**
  * A small persistent indicator of how current the shared SPD incident dataset is, so users
- * know the data isn't live. Renders nothing until the freshness has loaded (or when no
- * incident data is present). Powered by GET /dashboard/freshness.
+ * know the data isn't live. Reflects the active layer (reported incidents vs 911 calls).
+ * Renders nothing until the freshness has loaded (or when the active layer has no data).
+ * Powered by GET /dashboard/freshness, which returns one entry per layer.
  */
-export function DataFreshness({ freshness }: { freshness: DashboardFreshness | null }) {
-  if (!freshness || !freshness.data_through) {
+export function DataFreshness({
+  freshness,
+  layer = "reported",
+}: {
+  freshness: DashboardFreshness | null;
+  layer?: LayerKey;
+}) {
+  const entry = freshness?.[layer];
+  if (!entry || !entry.data_through) {
     return null;
   }
+  const noun = layer === "calls" ? "911 calls" : "reported SPD incidents";
   const detail = [
-    `${freshness.incident_count.toLocaleString()} reported SPD incidents`,
-    freshness.earliest ? `from ${formatDate(freshness.earliest)}` : null,
-    `through ${formatDate(freshness.data_through)}`,
-    freshness.last_ingested_at ? `· ingested ${formatDate(freshness.last_ingested_at)}` : null,
+    `${entry.incident_count.toLocaleString()} ${noun}`,
+    entry.earliest ? `from ${formatDate(entry.earliest)}` : null,
+    `through ${formatDate(entry.data_through)}`,
+    entry.last_ingested_at ? `· ingested ${formatDate(entry.last_ingested_at)}` : null,
   ]
     .filter(Boolean)
     .join(" ");
   return (
     <div className="mc-status mc-freshness" title={detail}>
-      Data through {formatDate(freshness.data_through)}
+      Data through {formatDate(entry.data_through)}
     </div>
   );
 }
