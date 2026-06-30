@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RoutesTab } from "./RoutesTab";
 import type { AnalysisSettings, Place, RouteComparison } from "../types";
 
-const analysis: AnalysisSettings = { startDate: "2024-01-01", endDate: "2024-01-31", radiusM: 500, offenseCategory: "" };
+const analysis: AnalysisSettings = { startDate: "2024-01-01", endDate: "2024-01-31", radiusM: 500, offenseCategory: "", layer: "reported" };
 
 const places: Place[] = [
   { id: "p1", display_label: "Home", latitude: 47.62, longitude: -122.33, visit_count: 1, total_dwell_minutes: null, inferred_place_type: "home", sensitivity_class: "normal" },

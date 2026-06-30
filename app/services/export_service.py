@@ -46,4 +46,5 @@ def _summary_data(row: PlaceCrimeSummary) -> PlaceCrimeSummaryData:
         nearest_incident_m=row.nearest_incident_m,
         incidents_per_visit=row.incidents_per_visit,
         incidents_per_hour_dwell=row.incidents_per_hour_dwell,
+        layer=row.layer,
     )

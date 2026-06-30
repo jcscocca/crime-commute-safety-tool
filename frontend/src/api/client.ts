@@ -20,6 +20,7 @@ type AnalyzePlacesPayload = {
   offense_category?: string | null;
   offense_subcategory?: string | null;
   nibrs_group?: string | null;
+  layer?: string;
 };
 
 type ComparePlacesPayload = {
@@ -30,6 +31,7 @@ type ComparePlacesPayload = {
   offense_category?: string | null;
   offense_subcategory?: string | null;
   nibrs_group?: string | null;
+  layer?: string;
 };
 
 type IncidentDetailsPayload = AnalyzePlacesPayload & {
@@ -115,6 +117,7 @@ export function createRouteAlternatives(payload: {
   analysis_start_date: string;
   analysis_end_date: string;
   radii_m: number[];
+  layer?: string;
 }): Promise<RouteComparison> {
   return request("/routes/alternatives", { method: "POST", body: JSON.stringify(payload) });
 }

@@ -29,7 +29,11 @@ def dashboard_summary(
         else []
     )
     privacy_counts = Counter(cluster.sensitivity_class for cluster in clusters)
+    # The layer the persisted totals were computed for (null/legacy rows read as "reported"),
+    # so the UI labels counts as reported incidents vs 911 calls rather than guessing.
+    summary_layer = next((s.layer for s in summaries if s.layer), "reported")
     return {
+        "layer": summary_layer,
         "totals": {
             "place_count": len(clusters),
             "visit_count": sum(cluster.visit_count for cluster in clusters),
@@ -79,4 +83,5 @@ def _summary_payload(summary: PlaceCrimeSummary) -> dict[str, object]:
         "nearest_incident_m": summary.nearest_incident_m,
         "incidents_per_visit": summary.incidents_per_visit,
         "incidents_per_hour_dwell": summary.incidents_per_hour_dwell,
+        "layer": summary.layer,
     }

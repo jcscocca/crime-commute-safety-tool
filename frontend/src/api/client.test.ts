@@ -15,6 +15,7 @@ const emptyDashboardState: AssistantDashboardState = {
   offense_category: null,
   offense_subcategory: null,
   nibrs_group: null,
+  layer: "reported",
 };
 
 function sseResponse(text: string): Response {
@@ -73,10 +74,18 @@ describe("api client", () => {
 
   it("fetches dashboard freshness from the public endpoint", async () => {
     const payload = {
-      incident_count: 5,
-      data_through: "2026-06-22",
-      earliest: "2008-01-01",
-      last_ingested_at: "2026-06-23T00:00:00Z",
+      reported: {
+        incident_count: 5,
+        data_through: "2026-06-22",
+        earliest: "2008-01-01",
+        last_ingested_at: "2026-06-23T00:00:00Z",
+      },
+      calls: {
+        incident_count: 2,
+        data_through: "2026-06-20",
+        earliest: "2024-07-01",
+        last_ingested_at: "2026-06-23T00:00:00Z",
+      },
     };
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify(payload), {

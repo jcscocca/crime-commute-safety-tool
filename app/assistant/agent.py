@@ -171,6 +171,7 @@ def _tool_arguments(
         "offense_category": dashboard_state.offense_category,
         "offense_subcategory": dashboard_state.offense_subcategory,
         "nibrs_group": dashboard_state.nibrs_group,
+        "layer": dashboard_state.layer,
     }
     if tool_name == "compare_places":
         defaults["radius_m"] = dashboard_state.radii_m[0] if dashboard_state.radii_m else None

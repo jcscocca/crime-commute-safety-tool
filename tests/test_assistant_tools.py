@@ -46,6 +46,62 @@ def _session_with_place_and_crime(tmp_path):
     return session, user_hash
 
 
+def test_analyze_places_honors_the_active_layer(tmp_path):
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    # A 911 call at the same spot as the reported crime, so the layers are distinguishable.
+    session.add(
+        CrimeIncident(
+            id="call-1",
+            external_incident_id="call-1",
+            source_dataset="seattle_spd_911",
+            offense_start_utc=datetime(2024, 1, 12, tzinfo=UTC),
+            offense_subcategory="DISTURBANCE - OTHER",
+            latitude=47.6101,
+            longitude=-122.3301,
+        )
+    )
+    session.commit()
+    window = {
+        "place_ids": ["place-1"],
+        "analysis_start_date": "2024-01-01",
+        "analysis_end_date": "2024-01-31",
+        "radii_m": [250],
+    }
+    try:
+        calls = execute_tool(session, user_hash, "analyze_places", {**window, "layer": "calls"})
+        reported = execute_tool(
+            session, user_hash, "analyze_places", {**window, "layer": "reported"}
+        )
+    finally:
+        session.close()
+
+    calls_ids = {i["incident_id"] for i in calls["result"]["incidents"]["incidents"]}
+    assert calls_ids == {"call-1"}
+    assert calls["result"]["settings_used"]["layer"] == "calls"
+    reported_ids = {i["incident_id"] for i in reported["result"]["incidents"]["incidents"]}
+    assert reported_ids == {"incident-1"}
+
+
+def test_analyze_places_rejects_unknown_layer(tmp_path):
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    try:
+        with pytest.raises(AssistantToolError):
+            execute_tool(
+                session,
+                user_hash,
+                "analyze_places",
+                {
+                    "place_ids": ["place-1"],
+                    "analysis_start_date": "2024-01-01",
+                    "analysis_end_date": "2024-01-31",
+                    "radii_m": [250],
+                    "layer": "nope",
+                },
+            )
+    finally:
+        session.close()
+
+
 def test_unknown_tool_is_rejected(tmp_path):
     session, user_hash = _session_with_place_and_crime(tmp_path)
     try:

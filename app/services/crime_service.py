@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.crime.seattle_socrata import load_crime_csv
-from app.crime.sources import SOURCE_SPD_CRIME
+from app.crime.sources import LAYERS, SOURCE_SPD_CRIME
 from app.crime.summaries import summarize_place_crime
 from app.models import CrimeIncident, PlaceCluster, PlaceCrimeSummary
 from app.schemas import CrimeIncidentData, PlaceClusterData, PlaceCrimeSummaryData
@@ -49,8 +49,8 @@ def reset_freshness_cache() -> None:
     _freshness_expires.clear()
 
 
-def _compute_freshness(
-    session: Session, source_dataset: str = SOURCE_SPD_CRIME
+def _compute_freshness_for_sources(
+    session: Session, sources: tuple[str, ...]
 ) -> dict[str, object]:
     observed = func.coalesce(CrimeIncident.offense_start_utc, CrimeIncident.report_utc)
     count, data_through, earliest, last_ingested_at = session.execute(
@@ -59,7 +59,7 @@ def _compute_freshness(
             func.max(observed),
             func.min(observed),
             func.max(CrimeIncident.snapshot_at),
-        ).where(CrimeIncident.source_dataset == source_dataset)
+        ).where(CrimeIncident.source_dataset.in_(sources))
     ).one()
     return {
         "incident_count": count or 0,
@@ -67,6 +67,12 @@ def _compute_freshness(
         "earliest": _as_date_str(earliest),
         "last_ingested_at": _as_iso(last_ingested_at),
     }
+
+
+def _compute_freshness(
+    session: Session, source_dataset: str = SOURCE_SPD_CRIME
+) -> dict[str, object]:
+    return _compute_freshness_for_sources(session, (source_dataset,))
 
 
 def crime_data_freshness(
@@ -87,6 +93,28 @@ def crime_data_freshness(
     _freshness_cache[source_dataset] = value
     _freshness_expires[source_dataset] = now() + FRESHNESS_CACHE_TTL_S
     return value
+
+
+def dashboard_freshness_by_layer(
+    session: Session,
+    *,
+    now: Callable[[], float] = monotonic,
+) -> dict[str, dict[str, object]]:
+    """Coverage/freshness for each analysis layer (``reported`` = SPD crime + arrests unioned,
+    ``calls`` = 911), so the freshness pill reflects the layer the user is viewing rather than
+    always describing reported crime. Cached per layer like the single-source variant."""
+    result: dict[str, dict[str, object]] = {}
+    for layer, sources in LAYERS.items():
+        cache_key = f"layer:{layer}"
+        cached = _freshness_cache.get(cache_key)
+        if cached is not None and now() < _freshness_expires.get(cache_key, 0.0):
+            result[layer] = cached
+            continue
+        value = _compute_freshness_for_sources(session, sources)
+        _freshness_cache[cache_key] = value
+        _freshness_expires[cache_key] = now() + FRESHNESS_CACHE_TTL_S
+        result[layer] = value
+    return result
 
 
 def ingest_sample_crime(session: Session) -> dict[str, int]:
@@ -242,6 +270,7 @@ def _summary_model(summary: PlaceCrimeSummaryData) -> PlaceCrimeSummary:
         incidents_per_hour_dwell=float(summary.incidents_per_hour_dwell)
         if summary.incidents_per_hour_dwell is not None
         else None,
+        layer=summary.layer,
     )
 
 

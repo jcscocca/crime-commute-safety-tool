@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.analysis.schemas import RouteComparisonRequest
 from app.config import get_settings
+from app.crime.sources import sources_for_layer
 from app.models import (
     RouteAlternative,
     RouteContextSummary,
@@ -108,6 +109,7 @@ def create_route_alternatives(
         analysis_start_date=request_payload.analysis_start_date,
         analysis_end_date=request_payload.analysis_end_date,
         radii_m_json=json.dumps(request_payload.radii_m),
+        layer=request_payload.layer,
     )
     session.add(route_request)
     session.flush()
@@ -189,6 +191,7 @@ def create_route_alternatives(
                 box=bounding_box_for_points(context_points, max(request_payload.radii_m)),
                 analysis_start_date=route_request.analysis_start_date,
                 analysis_end_date=route_request.analysis_end_date,
+                sources=sources_for_layer(request_payload.layer),
             )
         else:
             incidents = []
@@ -273,6 +276,7 @@ def _create_route_statistical_comparison_if_possible(
             request=RouteComparisonRequest(
                 route_request_id=route_request.id,
                 radius_m=request_payload.radii_m[0],
+                sources=list(sources_for_layer(request_payload.layer)),
             ),
         )
     except ValueError:
@@ -371,6 +375,7 @@ def _request_to_dict(route_request: RouteRequest) -> dict[str, Any]:
         "analysis_start_date": route_request.analysis_start_date,
         "analysis_end_date": route_request.analysis_end_date,
         "radii_m": _json_list(route_request.radii_m_json),
+        "layer": route_request.layer or "reported",
         "created_at": route_request.created_at,
     }
 

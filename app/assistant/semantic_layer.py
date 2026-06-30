@@ -19,6 +19,12 @@ POLICY_CAVEATS = [
         "Reported incident data can be incomplete, delayed, or filtered by the "
         "current analysis settings."
     ),
+    (
+        "The active layer (active_filters.layer) decides what the counts mean: 'reported' is "
+        "SPD crime + arrests; 'calls' is 911 calls for service — requests, not confirmed "
+        "incidents (one event can generate several calls, and many are proactive officer "
+        "activity). Describe results using the active layer's terms."
+    ),
 ]
 
 AVAILABLE_TOOLS = [
@@ -39,16 +45,17 @@ AVAILABLE_TOOLS = [
     {
         "name": "analyze_places",
         "description": (
-            "Resolve place names (or use the current selection), run the reported-incident "
-            "analysis, and return the neighborhood-vs-beat verdicts and incident details. "
-            "Pass names as 'queries'."
+            "Resolve place names (or use the current selection), run the analysis for the "
+            "active layer (reported incidents, or 911 calls when layer is 'calls'), and return "
+            "the neighborhood-vs-beat verdicts and incident details. Pass names as 'queries'."
         ),
     },
     {
         "name": "compare_places",
         "description": (
             "Resolve two or more place names (or use the selection), run the analysis, and "
-            "compare their reported-incident context. Pass names as 'queries'."
+            "compare their context for the active layer (reported incidents or 911 calls). "
+            "Pass names as 'queries'."
         ),
     },
     {
@@ -91,6 +98,7 @@ def build_semantic_context(
             "offense_category": state.offense_category,
             "offense_subcategory": state.offense_subcategory,
             "nibrs_group": state.nibrs_group,
+            "layer": state.layer,
         },
         available_tools=AVAILABLE_TOOLS,
         policy_caveats=POLICY_CAVEATS,

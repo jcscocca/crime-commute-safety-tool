@@ -169,6 +169,9 @@ class PlaceCrimeSummary(Base):
     incidents_per_visit: Mapped[float | None] = mapped_column(Float, nullable=True)
     incidents_per_hour_dwell: Mapped[float | None] = mapped_column(Float, nullable=True)
     analysis_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    # Which analysis layer produced this summary ("reported" or "calls"); null = legacy
+    # rows, treated as "reported" on read.
+    layer: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
@@ -183,6 +186,7 @@ class AnalysisRun(Base):
     offense_category: Mapped[str | None] = mapped_column(Text, nullable=True)
     offense_subcategory: Mapped[str | None] = mapped_column(Text, nullable=True)
     nibrs_group: Mapped[str | None] = mapped_column(Text, nullable=True)
+    layer: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, index=True
     )
@@ -216,6 +220,9 @@ class RouteRequest(Base):
     analysis_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     analysis_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     radii_m_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Incident layer the route corridor context was computed for ("reported"/"calls"; null =
+    # legacy, read as "reported").
+    layer: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 

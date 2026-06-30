@@ -87,6 +87,20 @@ which are unauthenticated or session-creating.
 | `/exports/tableau/route-segments.csv` | GET | `app/api/routes_exports.py` | — | CSV attachment |
 | `/exports/tableau/route-context.csv` | GET | `app/api/routes_exports.py` | — | CSV attachment |
 
+The `/dashboard/analyze`, `/dashboard/incidents`, `/dashboard/compare`, and
+`/dashboard/neighborhood` request bodies accept an optional `layer` field (`"reported"`
+default, or `"calls"`). It selects the incident-context layer: `"reported"` unions the SPD
+crime + arrests datasets, `"calls"` queries SPD 911 calls for service. The route maps the
+layer to its `source_dataset`s via `app/crime/sources.py::sources_for_layer`; an unknown
+value is a 422. The layers are mutually exclusive (a 911 call is never counted with the
+report it produced). `/dashboard/analyze` records the layer on the `AnalysisRun` and the
+`PlaceCrimeSummary` rows it persists, so `/dashboard/summary` echoes a `layer` field.
+`/dashboard/freshness` returns coverage keyed by layer (`{"reported": {...}, "calls": {...}}`)
+so the UI pill reflects the active layer. `/routes/alternatives` also accepts `layer`
+(validated, default `reported`); it is stored on the `RouteRequest` and echoed in the
+comparison payload's `request.layer`, and selects the sources used for corridor context and
+the route statistical comparison.
+
 ### Internal tier
 
 Endpoints have `include_in_schema=False` and are absent from `/openapi.json`. All use
