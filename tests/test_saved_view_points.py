@@ -1,4 +1,7 @@
+from datetime import UTC, datetime
+
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.api.dashboard_schemas import (
@@ -6,7 +9,12 @@ from app.api.dashboard_schemas import (
     DashboardAnalyzeRequest,
     DashboardCompareRequest,
 )
+from app.db import get_sessionmaker
+from app.main import create_app
+from app.models import CrimeIncident, PlaceCluster
 from app.services.analysis_points import point_clusters
+from app.services.dashboard_analysis_service import analyze_selected_places
+from app.sessions import public_user_hash
 
 BASE = {"analysis_start_date": "2024-01-01", "analysis_end_date": "2024-01-31"}
 PT = {"latitude": 47.61, "longitude": -122.34, "label": "Pike Place"}
@@ -50,3 +58,33 @@ def test_point_clusters_map_to_display_coordinates():
     assert c.display_label == "Pike"
     assert c.cluster_method == "shared_view"
     assert c.visit_count == 1
+
+
+def _seed(tmp_path):
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'sv.sqlite3'}")
+    client = TestClient(app)
+    client.post("/sessions")
+    user_hash = public_user_hash(client.cookies.get("mca_session"))
+    session = get_sessionmaker()()
+    session.add(CrimeIncident(
+        id="i1", offense_start_utc=datetime(2024, 1, 10, tzinfo=UTC),
+        offense_category="PROPERTY", latitude=47.6094, longitude=-122.3334))
+    session.add(PlaceCluster(
+        id="place-1", user_id_hash=user_hash, cluster_version="test",
+        cluster_method="manual", centroid_latitude=47.6094, centroid_longitude=-122.3334,
+        display_latitude=47.6094, display_longitude=-122.3334, visit_count=5,
+        display_label="Downtown"))
+    session.commit()
+    return session, user_hash
+
+
+def test_analyze_points_matches_place_ids(tmp_path):
+    session, user_hash = _seed(tmp_path)
+    common = dict(radii_m=[250], analysis_start_date=datetime(2024, 1, 1).date(),
+                  analysis_end_date=datetime(2024, 1, 31).date(),
+                  offense_category=None, offense_subcategory=None, nibrs_group=None)
+    by_ids = analyze_selected_places(session, user_hash, place_ids=["place-1"], **common)
+    by_points = analyze_selected_places(
+        session, user_hash, place_ids=None,
+        points=[AnalysisPoint(latitude=47.6094, longitude=-122.3334, label="Downtown")], **common)
+    assert by_ids["summary_count"] == by_points["summary_count"] == 1
