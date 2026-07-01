@@ -87,7 +87,9 @@ def analyze_selected_places(
 def compare_selected_places(
     session: Session,
     user_id_hash: str,
-    place_ids: list[str],
+    place_ids: list[str] | None,
+    points: list[AnalysisPoint] | None = None,
+    *,
     radius_m: int,
     analysis_start_date: date,
     analysis_end_date: date,
@@ -96,7 +98,7 @@ def compare_selected_places(
     nibrs_group: str | None,
     sources: Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    clusters = _selected_clusters(session, user_id_hash, place_ids)
+    clusters = _resolve_clusters(session, user_id_hash, place_ids, points)
     if len(clusters) < 2:
         raise ValueError("Select at least two places.")
     options: list[AnalysisSiteOption] = []

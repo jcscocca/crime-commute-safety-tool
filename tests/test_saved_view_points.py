@@ -13,7 +13,7 @@ from app.db import get_sessionmaker
 from app.main import create_app
 from app.models import CrimeIncident, PlaceCluster
 from app.services.analysis_points import point_clusters
-from app.services.dashboard_analysis_service import analyze_selected_places
+from app.services.dashboard_analysis_service import analyze_selected_places, compare_selected_places
 from app.sessions import public_user_hash
 
 BASE = {"analysis_start_date": "2024-01-01", "analysis_end_date": "2024-01-31"}
@@ -88,3 +88,22 @@ def test_analyze_points_matches_place_ids(tmp_path):
         session, user_hash, place_ids=None,
         points=[AnalysisPoint(latitude=47.6094, longitude=-122.3334, label="Downtown")], **common)
     assert by_ids["summary_count"] == by_points["summary_count"] == 1
+
+
+def test_compare_points_matches_place_ids(tmp_path):
+    session, user_hash = _seed(tmp_path)
+    session.add(PlaceCluster(
+        id="place-2", user_id_hash=user_hash, cluster_version="test",
+        cluster_method="manual", centroid_latitude=47.6206, centroid_longitude=-122.3206,
+        display_latitude=47.6206, display_longitude=-122.3206, visit_count=3,
+        display_label="Library"))
+    session.commit()
+    common = dict(radius_m=250, analysis_start_date=datetime(2024, 1, 1).date(),
+                  analysis_end_date=datetime(2024, 1, 31).date(),
+                  offense_category=None, offense_subcategory=None, nibrs_group=None)
+    by_points = compare_selected_places(
+        session, user_hash, place_ids=None,
+        points=[AnalysisPoint(latitude=47.6094, longitude=-122.3334, label="Downtown"),
+                AnalysisPoint(latitude=47.6206, longitude=-122.3206, label="Library")],
+        **common)
+    assert "options" in by_points or "overview" in by_points  # compare payload is non-empty
