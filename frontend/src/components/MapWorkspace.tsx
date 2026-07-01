@@ -246,13 +246,13 @@ export function MapWorkspace() {
         ) : null}
 
         {sharedPoints ? (
-          <div className="mc-banner">
+          <div className="mc-banner" role="status">
             Shared view · reported incident context.{" "}
             <button type="button" onClick={() => setSharedPoints(null)}>Exit</button>
           </div>
         ) : null}
         {showBadLink ? (
-          <div className="mc-banner mc-banner-warn">
+          <div className="mc-banner mc-banner-warn" role="alert">
             That shared link couldn't be opened.{" "}
             <button type="button" onClick={() => setShowBadLink(false)}>Dismiss</button>
           </div>

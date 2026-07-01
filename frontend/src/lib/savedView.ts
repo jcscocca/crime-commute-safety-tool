@@ -52,10 +52,12 @@ export function decodeView(param: string): SavedView | null {
     if (wire.v !== VERSION) return null;
     if (wire.t !== "analyze" && wire.t !== "compare") return null;
     if (!Array.isArray(wire.pts) || wire.pts.length === 0) return null;
-    const points = wire.pts.map((p: { y: number; x: number; l: string }) => ({
-      latitude: p.y, longitude: p.x, label: String(p.l),
+    const points = wire.pts.map((p: { y: unknown; x: unknown; l: unknown }) => ({
+      latitude: p.y, longitude: p.x, label: p.l,
     }));
-    if (points.some((p: ViewPoint) => typeof p.latitude !== "number" || typeof p.longitude !== "number")) {
+    if (points.some((p: ViewPoint) =>
+      typeof p.latitude !== "number" || typeof p.longitude !== "number" ||
+      typeof p.label !== "string" || p.label.length === 0)) {
       return null;
     }
     return {

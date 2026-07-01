@@ -26,4 +26,12 @@ describe("savedView", () => {
     const bad = btoa(JSON.stringify({ v: 99, tab: "analyze" }));
     expect(decodeView(bad)).toBeNull();
   });
+
+  it("returns null when a point label is not a string", () => {
+    const bad = btoa(JSON.stringify({
+      v: 1, t: "analyze", pts: [{ y: 47.6, x: -122.3, l: 5 }],
+      r: 250, s: "2024-01-01", e: "2024-01-31", ly: "reported", c: null,
+    }));
+    expect(decodeView(bad)).toBeNull();
+  });
 });
