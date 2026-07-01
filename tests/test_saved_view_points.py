@@ -107,3 +107,31 @@ def test_compare_points_matches_place_ids(tmp_path):
                 AnalysisPoint(latitude=47.6206, longitude=-122.3206, label="Library")],
         **common)
     assert "options" in by_points or "overview" in by_points  # compare payload is non-empty
+
+
+def test_analyze_and_compare_via_points_http(tmp_path):
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'http.sqlite3'}")
+    client = TestClient(app)
+    client.post("/sessions")
+    session = get_sessionmaker()()
+    session.add(CrimeIncident(
+        id="h1", offense_start_utc=datetime(2024, 1, 10, tzinfo=UTC),
+        offense_category="PROPERTY", latitude=47.6094, longitude=-122.3334))
+    session.commit()
+    pts = [{"latitude": 47.6094, "longitude": -122.3334, "label": "Downtown"},
+           {"latitude": 47.6206, "longitude": -122.3206, "label": "Library"}]
+
+    a = client.post("/dashboard/analyze", json={
+        "points": pts[:1], "analysis_start_date": "2024-01-01",
+        "analysis_end_date": "2024-01-31", "radii_m": [250], "offense_category": "PROPERTY"})
+    assert a.status_code == 200 and a.json()["summary_count"] == 1
+
+    c = client.post("/dashboard/compare", json={
+        "points": pts, "analysis_start_date": "2024-01-01",
+        "analysis_end_date": "2024-01-31", "radius_m": 250})
+    assert c.status_code == 200
+
+    bad = client.post("/dashboard/analyze", json={
+        "place_ids": ["x"], "points": pts[:1], "analysis_start_date": "2024-01-01",
+        "analysis_end_date": "2024-01-31", "radii_m": [250]})
+    assert bad.status_code == 422
