@@ -30,7 +30,7 @@ vi.mock("../api/client", () => ({
 }));
 
 import { MapWorkspace } from "./MapWorkspace";
-import { analyzePlaces, createBulkPlaces, createPlace, createSession, getDashboardSummary, getIncidentDetails, getNeighborhoodAnalysis, streamAssistantChat } from "../api/client";
+import { analyzePlaces, comparePlaces, createBulkPlaces, createPlace, createSession, getDashboardSummary, getIncidentDetails, getNeighborhoodAnalysis, streamAssistantChat } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
 import { encodeView } from "../lib/savedView";
 import type { DashboardSummary, IncidentDetailsResponse, NeighborhoodAnalysis, Place } from "../types";
@@ -403,6 +403,31 @@ describe("MapWorkspace", () => {
     expect(await screen.findByText(/shared view/i)).toBeInTheDocument();
     await waitFor(() => expect(getNeighborhoodAnalysis).toHaveBeenCalledWith(
       expect.objectContaining({ points: expect.any(Array) })));
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("hydrates a shared Compare view and renders its comparison instead of the select-two prompt", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary());
+    vi.mocked(comparePlaces).mockResolvedValue({ overview: { summary_text: "More reported incidents at Pike Place." } });
+
+    const view = encodeView({
+      tab: "compare",
+      points: [
+        { latitude: 47.61, longitude: -122.34, label: "Pike Place" },
+        { latitude: 47.62, longitude: -122.33, label: "Waterfront" },
+      ],
+      radiusM: 250, startDate: "2024-01-01", endDate: "2024-01-31",
+      layer: "reported", offenseCategory: "",
+    });
+    window.history.replaceState({}, "", `/?view=${view}`);
+    render(<MapWorkspace />);
+    expect(await screen.findByText(/shared view/i)).toBeInTheDocument();
+    await waitFor(() => expect(comparePlaces).toHaveBeenCalledWith(
+      expect.objectContaining({ points: expect.any(Array) })));
+    // The shared Compare pane renders (synthetic selection ≥ 2) — not the "select two" prompt.
+    expect(screen.queryByText(/select at least two places/i)).not.toBeInTheDocument();
+    expect(await screen.findByText("More reported incidents at Pike Place.")).toBeInTheDocument();
     window.history.replaceState({}, "", "/");
   });
 });

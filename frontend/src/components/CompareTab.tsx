@@ -117,7 +117,7 @@ export function CompareTab({ selected, analysis, summary, comparison, running, o
             if (url) await navigator.clipboard.writeText(url);
           }}
         >
-          Copy link
+          Copy link to this view
         </button>
       )}
 

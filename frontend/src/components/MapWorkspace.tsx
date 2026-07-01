@@ -166,9 +166,24 @@ export function MapWorkspace() {
     if (effect.tab) setActiveTab(effect.tab);
   }
 
+  // A shared view has no persisted places to select from, so synthesize a place-shaped
+  // selection from its points. This makes selected.length correct (CompareTab renders, and
+  // canRun enables Run — which recomputes via the points path the hooks already receive).
   const selected = useMemo(
-    () => data.places.filter((place) => selectedIds.has(place.id)),
-    [data.places, selectedIds],
+    () =>
+      sharedPoints
+        ? sharedPoints.map((point, index) => ({
+            id: `shared-${index}`,
+            display_label: point.label,
+            latitude: point.latitude,
+            longitude: point.longitude,
+            visit_count: 0,
+            total_dwell_minutes: null,
+            inferred_place_type: "shared_place",
+            sensitivity_class: "normal",
+          }))
+        : data.places.filter((place) => selectedIds.has(place.id)),
+    [sharedPoints, data.places, selectedIds],
   );
 
   const buildShareUrl = useCallback((tab: "analyze" | "compare"): string | null => {
