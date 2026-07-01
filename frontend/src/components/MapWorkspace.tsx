@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 import { createBulkPlaces, createPlace, deletePlace } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
@@ -6,6 +6,7 @@ import { interpretToolResult } from "../lib/assistantBridge";
 import { DRAWER_PEEK } from "../lib/drawer";
 import { geocodingProvider } from "../lib/geocoding";
 import { defaultTileConfig } from "../lib/mapTiles";
+import { decodeView } from "../lib/savedView";
 import { useAnalyze } from "../lib/useAnalyze";
 import { useCompare } from "../lib/useCompare";
 import { useDashboardData } from "../lib/useDashboardData";
@@ -28,18 +29,44 @@ import { RoutesTab } from "./RoutesTab";
 import type { AnalysisSettings, AssistantDashboardState, PlaceCreate, TabKey } from "../types";
 
 export function MapWorkspace() {
-  const [activeTab, setActiveTab] = useState<TabKey>("places");
+  const initialView = useMemo(() => {
+    const param = new URLSearchParams(window.location.search).get("view");
+    return param ? decodeView(param) : null;
+  }, []);
+  const hadViewParam = useMemo(() => Boolean(new URLSearchParams(window.location.search).get("view")), []);
+  const [sharedPoints, setSharedPoints] = useState(initialView?.points ?? null);
+  const [showBadLink, setShowBadLink] = useState(hadViewParam && initialView === null);
+
+  const [activeTab, setActiveTab] = useState<TabKey>(initialView?.tab ?? "places");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [analysis, setAnalysis] = useState<AnalysisSettings>(() => {
+    if (initialView) {
+      return {
+        startDate: initialView.startDate,
+        endDate: initialView.endDate,
+        radiusM: initialView.radiusM,
+        offenseCategory: initialView.offenseCategory,
+        layer: initialView.layer,
+      };
+    }
     const window = currentYearAnalysisWindow();
     return { startDate: window.analysis_start_date, endDate: window.analysis_end_date, radiusM: 250, offenseCategory: "", layer: "reported" };
   });
 
   const data = useDashboardData();
   const { drawer, setCollapsed: setDrawerCollapsed, onResize: onDrawerResize, onToggleCollapsed, onPreset } = useDrawer();
-  const analyze = useAnalyze({ selectedIds, analysis, refreshWithFallback: data.refreshWithFallback, setError: data.setError });
-  const compare = useCompare({ selectedIds, analysis, setError: data.setError });
+  const analyze = useAnalyze({ selectedIds, analysis, refreshWithFallback: data.refreshWithFallback, setError: data.setError, points: sharedPoints ?? undefined });
+  const compare = useCompare({ selectedIds, analysis, setError: data.setError, points: sharedPoints ?? undefined });
   const routes = useRoutes(analysis);
+
+  // A ?view= link seeds tab/analysis/points above; run it once so the shared context
+  // (not just an empty tab) is what the recipient sees on load.
+  useEffect(() => {
+    if (!initialView) return;
+    if (initialView.tab === "compare") void compare.runCompare();
+    else void analyze.runAnalyze();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Selection and analysis-control changes drop any current Analyze/Compare results (and
   // invalidate in-flight ones) so a stale pane never lingers against a new selection.
@@ -215,6 +242,19 @@ export function MapWorkspace() {
           <div className="mc-empty">
             <h3>Map your places</h3>
             <p>Choose <strong>Add pin</strong> then click the map, or search for an address in the Places tab.</p>
+          </div>
+        ) : null}
+
+        {sharedPoints ? (
+          <div className="mc-banner">
+            Shared view · reported incident context.{" "}
+            <button type="button" onClick={() => setSharedPoints(null)}>Exit</button>
+          </div>
+        ) : null}
+        {showBadLink ? (
+          <div className="mc-banner mc-banner-warn">
+            That shared link couldn't be opened.{" "}
+            <button type="button" onClick={() => setShowBadLink(false)}>Dismiss</button>
           </div>
         ) : null}
 
