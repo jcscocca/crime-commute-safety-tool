@@ -52,7 +52,8 @@ _UNAMBIGUOUS_SAFETY_PATTERN = re.compile(
     r"|(?:zona|barrio|[aá]rea|calle|ruta|sitio|cuadra|colonia|vecindario"
     r"|distrito|manzana|avenida)s?"
     r"|ubicaci[oó]n(?:es)?)\b"
-    r"|\b(?:mal|mala|mal[oa]s)\s+(?:barrio|zona|vecindario|sector|lugar|colonia)s?\b",
+    r"|\b(?:mal|mala|mal[oa]s)\s+"
+    r"(?:(?:barrio|zona|vecindario|colonia)s?|(?:lugar|sector)(?:es)?)\b",
     re.IGNORECASE,
 )
 
