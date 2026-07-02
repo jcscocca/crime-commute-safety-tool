@@ -78,16 +78,6 @@ _PLACE_CONTEXT_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Spanish "estar seguro/tranquilo" is epistemic/emotional filler ("I'm sure", "I'm calm"),
-# not a place-safety judgment — that uses SER ("¿es seguro este barrio?"). Strip these ESTAR
-# spans before the ambiguous check so "no estoy seguro de la ubicación" reaches the model.
-_ESTAR_FILLER_PATTERN = re.compile(
-    r"\best(?:oy|[aá]s|amos)\s+"
-    r"(?:no\s+|muy\s+|m[aá]s\s+|tan\s+|bastante\s+)*"
-    r"(?:segur|tranquil)[oa]s?\b",
-    re.IGNORECASE,
-)
-
 # Back-compat alias — downstream imports (and the output-guard test) still work.
 _SAFETY_SCORE_PATTERN = _UNAMBIGUOUS_SAFETY_PATTERN
 
@@ -194,12 +184,10 @@ def _asks_for_safety_score(texts: Iterable[str]) -> bool:
 def _contains_safety_ranking(text: str) -> bool:
     if _UNAMBIGUOUS_SAFETY_PATTERN.search(text):
         return True
-    if not _PLACE_CONTEXT_PATTERN.search(text):
-        return False
-    # Drop epistemic/emotional "estar seguro/tranquilo" spans so they don't trigger the
-    # ambiguous arm (place-safety uses "ser", not "estar").
-    text = _ESTAR_FILLER_PATTERN.sub(" ", text)
-    return bool(_AMBIGUOUS_TERM_PATTERN.search(text))
+    return bool(
+        _AMBIGUOUS_TERM_PATTERN.search(text)
+        and _PLACE_CONTEXT_PATTERN.search(text)
+    )
 
 
 def _tool_arguments(
