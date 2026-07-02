@@ -34,7 +34,9 @@ export function MapWorkspace() {
     return param ? decodeView(param) : null;
   }, []);
   const hadViewParam = useMemo(() => Boolean(new URLSearchParams(window.location.search).get("view")), []);
-  const [sharedPoints, setSharedPoints] = useState(initialView?.points ?? null);
+  const [sharedPoints, setSharedPoints] = useState(
+    initialView && initialView.tab !== "routes" ? initialView.points : null,
+  );
   const [showBadLink, setShowBadLink] = useState(hadViewParam && initialView === null);
 
   const [activeTab, setActiveTab] = useState<TabKey>(initialView?.tab ?? "places");
@@ -45,7 +47,7 @@ export function MapWorkspace() {
         startDate: initialView.startDate,
         endDate: initialView.endDate,
         radiusM: initialView.radiusM,
-        offenseCategory: initialView.offenseCategory,
+        offenseCategory: initialView.tab === "routes" ? "" : initialView.offenseCategory,
         layer: initialView.layer,
       };
     }
@@ -64,7 +66,7 @@ export function MapWorkspace() {
   useEffect(() => {
     if (!initialView) return;
     if (initialView.tab === "compare") void compare.runCompare();
-    else void analyze.runAnalyze();
+    else if (initialView.tab === "analyze") void analyze.runAnalyze();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
