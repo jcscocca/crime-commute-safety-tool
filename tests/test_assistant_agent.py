@@ -1356,3 +1356,43 @@ def test_agent_redirects_rank_verb_with_punctuation_before_noun(tmp_path):
             assert client.calls == [], phrasing
     finally:
         session.close()
+
+
+def test_h4_phrasings_still_covered_by_helper():
+    # H4 follow-up regression pin: the context-scoping refactor must not regress the H4-era
+    # phrasings the guard already caught. Direct helper-level check (no session / no LLM).
+    from app.assistant.agent import _contains_safety_ranking
+
+    must_trip = [
+        # H4 English safety lexicon
+        "Which place is safest?",
+        "How risky is this area?",
+        "Rank these places by safety.",
+        "Is this a sketchy area?",
+        "Is that block shady?",
+        "Which block is the sketchiest?",
+        # H4 Spanish safety lexicon (still tripping because place-context is present)
+        "¿Qué zona es más segura?",
+        "¿Es peligroso este barrio?",
+        "¿Es inseguro caminar por aquí?",
+        "que lugar es mas seguro",
+        "¿Cuál es la seguridad de esta zona?",
+        # H4 Spanish rank arm + LatAm variants
+        "Clasifica estos barrios",
+        "clasifica estas colonias",
+        # H4 English rank arm + inflections
+        "Rate these blocks",
+        "Ranking my neighborhoods",
+    ]
+    must_pass = [
+        # H4 allow-list — neutral/legit incident-context questions
+        "What is the reported incident rate near place-1?",
+        "Which area has the most crime?",
+        "How many violent crime incidents near here?",
+        "¿Cuántos incidentes en esta zona?",
+        "¿Cuál es la ruta más rápida?",
+    ]
+    for phrasing in must_trip:
+        assert _contains_safety_ranking(phrasing), phrasing
+    for phrasing in must_pass:
+        assert not _contains_safety_ranking(phrasing), phrasing
