@@ -30,19 +30,24 @@ from app.config import get_settings
 # runs on BOTH the incoming user text and the model's final answer (see run_assistant_turn).
 _SAFETY_SCORE_PATTERN = re.compile(
     r"\b(?:safe(?:ty|st|r)?|unsafe|danger(?:ous)?|hazard(?:ous)?|peril(?:ous)?"
-    r"|risk(?:y|ier|iest)?|sketchy|shady|dodgy|seedy|scary|frightening|ghetto)\b"
+    r"|risk(?:y|ier|iest)?|sketch(?:y|ier|iest)|shad(?:y|ier|iest)"
+    r"|dodg(?:y|ier|iest)|seed(?:y|ier|iest)|scar(?:y|ier|iest)"
+    r"|frightening|ghetto)\b"
     r"|\bcrime[-\s]free\b"
-    r"|\b(?:rank|rate|score)\b\s+"
+    r"|\b(?:rank\w*|rat[ei]\w*|scor[ei]\w*)\s+"
     r"(?:(?:the|these|those|this|that|them|my|your|our|their|its|his|her|a|an|all|both"
     r"|any|some|each|every)\s+)*"
     r"(?:place|block|area|neighbou?rhood|route|street|spot|option|location)s?\b"
-    r"|\b(?:segur[oa]s?|insegur[oa]s?|peligros[oa]s?|peligro|riesgos[oa]s?|riesgos?"
+    r"|\b(?:segur(?:[oa]s?|idad(?:es)?)|insegur(?:[oa]s?|idad(?:es)?)"
+    r"|peligros(?:[oa]s?|idad(?:es)?)|peligro|riesgos[oa]s?|riesgos?"
     r"|arriesgad[oa]s?)\b"
     r"|\blibre\s+de\s+crimen\b"
     r"|\b(?:clasific|ranke|calific|puntu|puntú)\w*\s+"
     r"(?:(?:el|la|los|las|este|esta|estos|estas|ese|esa|esos|esas|mi|mis|tu|tus|su|sus"
     r"|un|una|unos|unas|todo|toda|todos|todas|cada)\s+)*"
-    r"(?:lugar(?:es)?|(?:zona|barrio|[aá]rea|calle|ruta|sitio|cuadra)s?"
+    r"(?:(?:lugar|sector)(?:es)?"
+    r"|(?:zona|barrio|[aá]rea|calle|ruta|sitio|cuadra|colonia|vecindario"
+    r"|distrito|manzana|avenida)s?"
     r"|ubicaci[oó]n(?:es)?)\b",
     re.IGNORECASE,
 )

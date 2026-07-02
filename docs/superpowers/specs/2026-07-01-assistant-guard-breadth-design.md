@@ -32,6 +32,17 @@ rank-verb→place-noun). Extend the input- and output-side guard tests.
   and refuse*, not to converse in Spanish.
 - Refactoring the guard into a per-language lexicon module. Considered and rejected for this
   increment — the regex-in-place change is the smallest diff that closes both gaps.
+- Adversarial-review moderates deliberately deferred (own follow-up when they become worth
+  the design cost):
+  - Spanish colloquials `tranquilo`/`conflictivo`/`problemático`/`mal barrio` — `tranquilo`
+    has strong benign senses ("calm"/"quiet"); needs context-scoping to add safely.
+  - `evitar` / `avoid` + place — different linguistic shape than rank/score; deserves its own
+    design pass on rank-adjacent verbs.
+  - `Estoy seguro` ("I'm sure") false-positive from the Spanish safety lexicon — fixing well
+    needs place-noun co-occurrence scoping, not a one-liner lookbehind.
+  - Punctuation between rank verb and place noun (`Rank: my places`) — low frequency.
+  - Proper-noun false positives (`Shady Grove Ave`) — needs context-scoping to `here`/`this
+    area` cues to fix without weakening the base guard.
 
 ## Approach
 
@@ -47,6 +58,10 @@ the judgment the invariant forbids — and rarely appear in benign incident talk
 
 > `sketchy`, `shady`, `dodgy`, `seedy`, `scary`, `frightening`, `ghetto`
 
+Comparative/superlative forms of the `-y`-suffixed adjectives are covered via the same
+`(?:y|ier|iest)` construction the existing `risk` arm uses, so `sketchier`/`sketchiest`/
+`shadier`/`shadiest`/… all trip too.
+
 **Deliberately excluded** to protect the false-positive boundary (these must still reach the
 model):
 - `violent` / `violence`, `menacing`, `threatening` — event/offense descriptors, not
@@ -61,12 +76,15 @@ model):
 Mirror **both** existing arms so a safety-word request and a bare rank request each trip:
 
 - **Safety lexicon:** `seguro`, `inseguro`, `peligroso`, `peligro`, `riesgo`, `arriesgado`,
-  `riesgoso` (with gender/number endings `-a/-os/-as` where applicable), plus `libre de
-  crimen` (crime-free).
+  `riesgoso` (with gender/number endings `-a/-os/-as` where applicable), plus the canonical
+  `-idad` noun forms `seguridad`, `inseguridad`, `peligrosidad` (the default Spanish
+  construction for "safety of a place"), and `libre de crimen` (crime-free).
 - **Rank arm:** rank verbs `clasificar`, `rankear`, `calificar`, `puntuar` → Spanish place
-  nouns `lugar`, `zona`, `barrio`, `área`, `calle`, `ruta`, `sitio`, `cuadra`, `ubicación`
-  (+ plurals), through any run of Spanish determiners/possessives (mirrors the English arm's
-  determiner-run handling).
+  nouns `lugar`, `zona`, `barrio`, `área`, `calle`, `ruta`, `sitio`, `cuadra`, `ubicación`,
+  plus the Latin-American variants `colonia`, `vecindario`, `sector`, `distrito`, `manzana`,
+  `avenida` (all + plurals), through any run of Spanish determiners/possessives (mirrors the
+  English arm's determiner-run handling). Seattle has a large Mexican-Spanish-speaking
+  population, so `colonia`/`manzana` are canonical.
 - **Accent tolerance:** match both accented and bare forms (`área`/`area`,
   `ubicación`/`ubicacion`), since users routinely type without accents. Coverage is the listed
   lemmas and their gender/number/imperative forms — not full verb conjugation. `\b` remains

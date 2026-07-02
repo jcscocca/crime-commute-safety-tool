@@ -901,3 +901,128 @@ def test_agent_redirects_spanish_safety_language_in_model_final_message(tmp_path
     assert "segura" not in delta  # the model's Spanish safety phrasing must not leak
     assert "reported incident" in delta  # replaced with the standard redirect
     assert len(client.calls) == 1  # the model WAS called (input guard didn't fire)
+
+
+def test_agent_redirects_spanish_idad_noun_forms(tmp_path):
+    # H4 follow-up: the canonical Spanish nouns for "safety"/"dangerousness" are seguridad,
+    # inseguridad, peligrosidad — a native speaker's default construction is "la seguridad de
+    # este barrio", not the adjective form. These must trip the guard.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    phrasings = [
+        "¿Cuál es la seguridad de esta zona?",
+        "Compara la seguridad de estos barrios",
+        "Habla de la inseguridad de este barrio",
+        "Compara la peligrosidad de estos barrios",
+    ]
+    try:
+        for phrasing in phrasings:
+            client = FakeClient(['{"type":"final","message":"OK."}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=phrasing)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert [event.event for event in events] == ["meta", "token", "done"], phrasing
+            assert "reported incident" in events[1].data["delta"], phrasing
+            assert client.calls == [], phrasing
+    finally:
+        session.close()
+
+
+def test_agent_redirects_latin_american_place_nouns_in_rank_arm(tmp_path):
+    # H4 follow-up: the Spanish rank arm must catch Latin-American place-noun variants
+    # (colonia, vecindario, sector, distrito, manzana, avenida) — Seattle has a large
+    # Mexican-Spanish-speaking population; "colonia" is the standard Mexican word for
+    # "neighborhood", "manzana" the standard block term.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    phrasings = [
+        "clasifica estas colonias",
+        "califica esta colonia",
+        "clasifica los vecindarios",
+        "clasifica estos sectores",
+        "clasifica los distritos",
+        "clasifica estas avenidas",
+        "clasifica estas manzanas",
+    ]
+    try:
+        for phrasing in phrasings:
+            client = FakeClient(['{"type":"final","message":"OK."}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=phrasing)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert [event.event for event in events] == ["meta", "token", "done"], phrasing
+            assert "reported incident" in events[1].data["delta"], phrasing
+            assert client.calls == [], phrasing
+    finally:
+        session.close()
+
+
+def test_agent_redirects_colloquial_comparative_and_superlative_forms(tmp_path):
+    # H4 follow-up: comparative/superlative forms of the new colloquial terms
+    # (sketchier/sketchiest/shadier/shadiest/dodgier/dodgiest/scariest) are the same
+    # place-ranking intent as the base forms and must also trip the guard.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    phrasings = [
+        "Which block is the sketchiest?",
+        "Which neighborhood is shadier?",
+        "Which street is scariest at night?",
+        "Which spot is dodgiest?",
+        "Which area is seediest?",
+    ]
+    try:
+        for phrasing in phrasings:
+            client = FakeClient(['{"type":"final","message":"OK."}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=phrasing)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert [event.event for event in events] == ["meta", "token", "done"], phrasing
+            assert "reported incident" in events[1].data["delta"], phrasing
+            assert client.calls == [], phrasing
+    finally:
+        session.close()
+
+
+def test_agent_redirects_english_rank_verb_inflections(tmp_path):
+    # H4 follow-up: the English rank arm must catch inflected forms (ranking/ranked/rated/
+    # scoring) targeting place nouns without a safety word — the Spanish arm already handles
+    # this via \w*; symmetry demands the English arm too.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    phrasings = [
+        "Ranking my neighborhoods",
+        "Scoring the areas please",
+        "Rated these blocks for me",
+        "Ranked my places",
+    ]
+    try:
+        for phrasing in phrasings:
+            client = FakeClient(['{"type":"final","message":"OK."}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=phrasing)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert [event.event for event in events] == ["meta", "token", "done"], phrasing
+            assert "reported incident" in events[1].data["delta"], phrasing
+            assert client.calls == [], phrasing
+    finally:
+        session.close()
