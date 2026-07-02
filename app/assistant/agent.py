@@ -41,7 +41,7 @@ _UNAMBIGUOUS_SAFETY_PATTERN = re.compile(
     r"(?:(?:the|these|those|this|that|them|my|your|our|their|its|his|her|a|an|all|both"
     r"|any|some|each|every)\s+)*"
     r"(?:place|block|area|neighbou?rhood|route|street|spot|option|location)s?\b"
-    r"|\b(?:segur(?:[oa]s?|idad(?:es)?)|insegur(?:[oa]s?|idad(?:es)?)"
+    r"|\b(?:seguridad(?:es)?|inseguridad(?:es)?"
     r"|peligros(?:[oa]s?|idad(?:es)?)|peligro|riesgos[oa]s?|riesgos?"
     r"|arriesgad[oa]s?)\b"
     r"|\blibre\s+de\s+crimen\b"
@@ -57,14 +57,20 @@ _UNAMBIGUOUS_SAFETY_PATTERN = re.compile(
 
 _AMBIGUOUS_TERM_PATTERN = re.compile(
     r"\b(?:sketch(?:y|ier|iest)|shad(?:y|ier|iest)|dodg(?:y|ier|iest)"
-    r"|seed(?:y|ier|iest)|scar(?:y|ier|iest)|frightening|ghetto)\b",
+    r"|seed(?:y|ier|iest)|scar(?:y|ier|iest)|frightening|ghetto"
+    r"|segur[oa]s?|insegur[oa]s?)\b",
     re.IGNORECASE,
 )
 
 _PLACE_CONTEXT_PATTERN = re.compile(
     r"\b(?:here|there|around|this|that|these|those|area|block"
     r"|neighbou?rhood|route|street|spot|option|location|place|corner"
-    r"|downtown|uptown|part\s+of\s+town|side\s+of\s+town)s?\b",
+    r"|downtown|uptown|part\s+of\s+town|side\s+of\s+town)s?\b"
+    r"|\b(?:aqu[ií]|all[ií]|all[aá]|ac[aá])\b"
+    r"|\b(?:(?:lugar|sector)(?:es)?"
+    r"|(?:zona|barrio|[aá]rea|calle|ruta|sitio|cuadra|colonia|vecindario"
+    r"|distrito|manzana|avenida)s?"
+    r"|ubicaci[oó]n(?:es)?)\b",
     re.IGNORECASE,
 )
 

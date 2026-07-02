@@ -1056,3 +1056,33 @@ def test_agent_does_not_redirect_english_colloquial_proper_nouns(tmp_path):
             assert events[1].data["delta"] == "Here is the reported context.", phrasing
     finally:
         session.close()
+
+
+def test_agent_does_not_redirect_spanish_epistemic_filler(tmp_path):
+    # H4 follow-up · Finding 3: bare Spanish "seguro"/"segura" as epistemic filler
+    # ("I'm sure"/"are you sure") must reach the model. These are common conversational
+    # forms with no place-context; they are the direct Spanish analog of "safely"/"Safeway"
+    # the English arm already avoids.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    phrasings = [
+        "Estoy seguro que hubo un incidente anoche",
+        "No estoy seguro de la fecha",
+        "¿Estás seguro que fue anoche?",
+        "Seguro que hay muchos incidentes",
+    ]
+    try:
+        for phrasing in phrasings:
+            client = FakeClient(['{"type":"final","message":"Here is the reported context."}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=phrasing)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert len(client.calls) == 1, phrasing
+            assert events[1].data["delta"] == "Here is the reported context.", phrasing
+    finally:
+        session.close()
