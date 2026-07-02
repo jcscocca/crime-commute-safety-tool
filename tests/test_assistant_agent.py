@@ -1486,3 +1486,35 @@ def test_agent_redirects_postposed_barrio_malo(tmp_path):
             assert client.calls == [], phrasing
     finally:
         session.close()
+
+
+
+def test_agent_redirects_estar_third_person_place_safety(tmp_path):
+    # Final-review fix²: Spanish uses ESTAR for a location's safety too — "¿está seguro este
+    # barrio?" = "is this neighborhood safe?" is a genuine place-safety ask. The epistemic-
+    # filler strip must NOT swallow 3rd-person está/están, or these bypass the guard.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    phrasings = [
+        "¿está seguro este barrio?",
+        "¿está segura esta zona?",
+        "¿están seguras estas calles?",
+        "esta zona está segura",
+        "este barrio no está seguro",
+    ]
+    try:
+        for phrasing in phrasings:
+            client = FakeClient(['{"type":"final","message":"OK."}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=phrasing)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert [event.event for event in events] == ["meta", "token", "done"], phrasing
+            assert "reported incident" in events[1].data["delta"], phrasing
+            assert client.calls == [], phrasing
+    finally:
+        session.close()

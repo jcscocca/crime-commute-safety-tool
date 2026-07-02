@@ -82,7 +82,7 @@ _PLACE_CONTEXT_PATTERN = re.compile(
 # not a place-safety judgment — that uses SER ("¿es seguro este barrio?"). Strip these ESTAR
 # spans before the ambiguous check so "no estoy seguro de la ubicación" reaches the model.
 _ESTAR_FILLER_PATTERN = re.compile(
-    r"\best(?:oy|[aá]s|[aá]|amos|[aá]n|ar)\s+"
+    r"\best(?:oy|[aá]s|amos)\s+"
     r"(?:no\s+|muy\s+|m[aá]s\s+|tan\s+|bastante\s+)*"
     r"(?:segur|tranquil)[oa]s?\b",
     re.IGNORECASE,
