@@ -61,7 +61,8 @@ _AMBIGUOUS_TERM_PATTERN = re.compile(
     r"\b(?:sketch(?:y|ier|iest)|shad(?:y|ier|iest)|dodg(?:y|ier|iest)"
     r"|seed(?:y|ier|iest)|scar(?:y|ier|iest)|frightening|ghetto"
     r"|segur[oa]s?|insegur[oa]s?|tranquil[oa]s?|conflictiv[oa]s?"
-    r"|problem[aá]tic[oa]s?)\b",
+    r"|problem[aá]tic[oa]s?|avoid(?:s|ed|ing)?"
+    r"|evit(?:a|as|ar|ando|ado|ados|ada|adas|en|emos))\b",
     re.IGNORECASE,
 )
 
