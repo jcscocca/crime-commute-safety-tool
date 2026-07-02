@@ -844,3 +844,60 @@ def test_agent_redirects_spanish_bare_rank_requests(tmp_path):
             assert client.calls == [], phrasing
     finally:
         session.close()
+
+
+def test_agent_does_not_redirect_neutral_spanish_or_incident_terms(tmp_path):
+    # H4 false-positive guard: neutral Spanish incident questions, English event/offense
+    # descriptors excluded from the lexicon, and a bare Spanish place noun without a rank verb
+    # must all reach the model — not the safety redirect.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    phrasings = [
+        "¿Cuántos incidentes en esta zona?",  # neutral Spanish count question
+        "How many violent crime incidents near here?",  # 'violent' deliberately excluded
+        "Were there any threatening incidents nearby?",  # 'threatening' deliberately excluded
+        "¿Cuál es la ruta más rápida?",  # fastest route — place noun w/o rank verb, not safety
+    ]
+    try:
+        for phrasing in phrasings:
+            client = FakeClient(['{"type":"final","message":"Here is the reported context."}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=phrasing)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert len(client.calls) == 1, phrasing  # reached the model, not the redirect
+            assert events[1].data["delta"] == "Here is the reported context.", phrasing
+    finally:
+        session.close()
+
+
+def test_agent_redirects_spanish_safety_language_in_model_final_message(tmp_path):
+    # H4 output-side guard: a model final answer containing Spanish safety vocabulary is
+    # replaced with the standard redirect, not streamed. The input ("¿Dónde debería caminar?")
+    # does NOT trip the input guard, so the model IS called (1 call) and the output guard fires.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    client = FakeClient(
+        ['{"type":"final","message":"La zona A es más segura que la zona B."}']
+    )
+    try:
+        events = asyncio.run(
+            _collect(
+                session,
+                user_hash,
+                [AssistantChatMessage(role="user", content="¿Dónde debería caminar?")],
+                AssistantDashboardState(selected_place_ids=["place-1"]),
+                client,
+            )
+        )
+    finally:
+        session.close()
+
+    assert [event.event for event in events] == ["meta", "token", "done"]
+    delta = events[1].data["delta"]
+    assert "segura" not in delta  # the model's Spanish safety phrasing must not leak
+    assert "reported incident" in delta  # replaced with the standard redirect
+    assert len(client.calls) == 1  # the model WAS called (input guard didn't fire)
