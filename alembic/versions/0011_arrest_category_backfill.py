@@ -92,7 +92,7 @@ _CROSSWALK: dict[str, tuple[str, str]] = {
 _UPDATE = text(
     "UPDATE crime_incidents SET offense_category = :cat, nibrs_group = :grp "
     "WHERE source_dataset = 'seattle_spd_arrests' "
-    "AND lower(offense_subcategory) = :desc "
+    "AND trim(lower(offense_subcategory)) = :desc "
     "AND offense_category IS NULL"
 )
 

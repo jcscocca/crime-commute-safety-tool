@@ -38,6 +38,7 @@ def test_backfill_categorizes_existing_arrests_only(tmp_path):
         _seed(session, id_="a1", source="seattle_spd_arrests", subcat="All Other Larceny")
         _seed(session, id_="a2", source="seattle_spd_arrests", subcat="Simple Assault")
         _seed(session, id_="a3", source="seattle_spd_arrests", subcat="Totally Unknown Offense")
+        _seed(session, id_="a4", source="seattle_spd_arrests", subcat="  Simple Assault  ")
         _seed(session, id_="c1", source="seattle_spd_crime", subcat="LARCENY-THEFT",
               category="PROPERTY", group="A")
         session.commit()
@@ -52,6 +53,8 @@ def test_backfill_categorizes_existing_arrests_only(tmp_path):
         assert rows["a3"].offense_category is None
         # Crime row untouched (category preserved, not re-derived).
         assert rows["c1"].offense_category == "PROPERTY"
+        # Whitespace-padded description is trimmed to match the crosswalk (mirrors the mapper).
+        assert (rows["a4"].offense_category, rows["a4"].nibrs_group) == ("PERSON", "A")
 
         # Idempotent: a second run changes nothing.
         mig._apply(session.connection())
