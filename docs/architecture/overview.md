@@ -6,7 +6,7 @@ This document describes Waypoint's system architecture for maintainers and AI co
 
 ## 1. Purpose & product invariant
 
-Waypoint is a privacy-first web application for exploring **reported Seattle SPD incident context** around saved places and commute routes. Users add places manually or via a file upload, select a date range and offense filter, and then view incident counts and exposure-adjusted rates for those places — organized into Analyze, Compare, Neighborhood, and Routes tabs.
+Waypoint is a privacy-first web application for exploring **reported Seattle SPD incident context** around saved places. Users look up an address (or add places manually or via a file upload), select a date range and offense filter, and then view incident counts and exposure-adjusted rates for those places — organized into Places, Analyze, Compare, and Export tabs.
 
 ⚠ **Invariant:** Waypoint surfaces *reported incident context only*. It must not produce safety scores, rank places as safe or unsafe, or claim a user was present at any incident. This boundary is enforced in two places: (1) copy and labels throughout the UI must use neutral, count/rate language; and (2) `app/assistant/agent.py` contains a regex guard (`_SAFETY_SCORE_PATTERN`) that intercepts any chat message matching safety-scoring language and returns a hard refusal before the LLM is ever called. Both enforcement points must be preserved in future changes.
 
@@ -38,7 +38,6 @@ app/db.py         Engine + session factory; create_all for SQLite, Alembic for P
 - `PlaceCluster` — the canonical saved-place record; carries display coordinates, visit statistics, sensitivity class
 - `CrimeIncident` — SPD reported-incident rows ingested from Seattle Socrata
 - `PlaceCrimeSummary`, `AnalysisRun` — per-place crime tallies and the run metadata that groups them
-- `RouteRequest`, `RouteAlternative`, `RouteSegment`, `RouteContextSummary` — routing pipeline
 - `StatisticalComparison`, `StatisticalComparisonOption`, `StatisticalPairwiseResult` — Compare-tab statistical results
 - `GeocodeCache` — TTL-bounded cache keyed by `(provider, query_normalized)`
 
@@ -48,9 +47,9 @@ app/db.py         Engine + session factory; create_all for SQLite, Alembic for P
 
 See `./api.md` for full endpoint-by-endpoint detail. Summary:
 
-**Public** — in OpenAPI schema; require a real session token validated by `required_public_user_hash` (`app/api/deps.py`). Endpoints: `/sessions`, `/places*`, `/dashboard/*`, `/assistant/chat`, `/exports/tableau/*`, `/routes/alternatives`, and `/uploads` (additionally gated by `MCA_PUBLIC_ENABLE_PERSONAL_UPLOADS`; responds 404 when the flag is off).
+**Public** — in OpenAPI schema; require a real session token validated by `required_public_user_hash` (`app/api/deps.py`). Endpoints: `/sessions`, `/places*`, `/dashboard/*`, `/assistant/chat`, `/exports/tableau/*`, and `/uploads` (additionally gated by `MCA_PUBLIC_ENABLE_PERSONAL_UPLOADS`; responds 404 when the flag is off).
 
-**Internal** — `include_in_schema=False`; use the permissive `current_user_hash` dependency that accepts the demo-identity fallback header `X-Demo-User-Id`. Prefixed `/internal/...`. Covers `/internal/analysis/*`, `/internal/routes/*`, `/internal/imports`, `/internal/crime/*`, `/internal/places`, `/internal/exports/*`.
+**Internal** — `include_in_schema=False`; use the permissive `current_user_hash` dependency that accepts the demo-identity fallback header `X-Demo-User-Id`. Prefixed `/internal/...`. Covers `/internal/analysis/*`, `/internal/imports`, `/internal/crime/*`, `/internal/places`, `/internal/exports/*`.
 
 ⚠ **Invariant:** Internal routers must not be re-exposed on bare public paths. `tests/test_internal_surface.py` enforces this by scanning all registered routes for internal-only prefixes appearing without `include_in_schema=False`.
 
@@ -65,13 +64,12 @@ See `./api.md` for full endpoint-by-endpoint detail. Summary:
 | Assistant | `app/assistant/agent.py` | Decision-tree chat: classify request → call one tool or return a final answer; safety-score guard lives here |
 | LLM client | `app/assistant/llm_client.py` | `OpenAiLlmClient` POSTs to `MCA_LLM_BASE_URL`; `FailoverLlmClient` wraps two clients for automatic failover |
 | Statistical analysis | `app/analysis/comparison.py` | Exposure-adjusted rate tests (Poisson / quasi-Poisson), Benjamini-Hochberg correction, `DecisionClass` output |
-| Routing | `app/routing/providers.py` | `RoutingProvider` protocol; `mock` (default) or `opentripplanner` backends selected by `MCA_ROUTING_PROVIDER` |
 | Crime ingestion | `app/crime/` | `seattle_socrata.py` fetches from Socrata; `summaries.py` aggregates `CrimeIncident` rows into `PlaceCrimeSummaryData` |
 | Upload pipeline | `app/parsers/` + `app/normalization/` | Parsers (`google_timeline`, `gpx_points`, `csv_points`, `geojson_points`, `recurring_places`, `commute_scenario`) normalize raw uploads into `StagingLocationObservation` rows |
-| Exports | `app/exports/` | `routes.py` and `tableau.py` produce Tableau-ready CSV from stored `PlaceCrimeSummary` and route data |
+| Exports | `app/exports/` | `tableau.py` produces Tableau-ready CSV from stored `PlaceCrimeSummary` data |
 | Geocoding | `app/geocoding/providers.py` | `NominatimProvider` calls Nominatim; region-locked to the Seattle-metro viewbox (`MCA_GEOCODER_VIEWBOX`, bounded by default) |
 | Places | `app/places/schemas.py` + `app/services/manual_place_service.py` | Manual and bulk place creation/update/delete; `PlaceCluster` is the canonical record |
-| Services | `app/services/` | All business logic: `dashboard_analysis_service.py`, `analysis_service.py`, `crime_service.py`, `geocoding_service.py`, `route_service.py`, `export_service.py`, `import_service.py`, `normalization_service.py`, and others |
+| Services | `app/services/` | All business logic: `dashboard_analysis_service.py`, `analysis_service.py`, `crime_service.py`, `geocoding_service.py`, `export_service.py`, `import_service.py`, `normalization_service.py`, and others |
 
 ---
 
@@ -103,7 +101,7 @@ Modules touched in order: `routes_public_dashboard` → `deps` (session cookie) 
 
 ## 6. Backend ↔ frontend
 
-`frontend/src/api/client.ts` is the sole HTTP client for the React app. It calls only the **public** tier: `/sessions`, `/places`, `/places/bulk`, `/uploads`, `/dashboard/analyze`, `/dashboard/incidents`, `/dashboard/compare`, `/dashboard/neighborhood`, `/dashboard/geocode`, `/assistant/chat`, `/routes/alternatives`, `/exports/tableau/*`, and `/input-modes`. Requests always include `credentials: "include"` so the `mca_session` cookie is attached.
+`frontend/src/api/client.ts` is the sole HTTP client for the React app. It calls only the **public** tier: `/sessions`, `/places`, `/places/bulk`, `/uploads`, `/dashboard/analyze`, `/dashboard/incidents`, `/dashboard/compare`, `/dashboard/neighborhood`, `/dashboard/geocode`, `/assistant/chat`, `/exports/tableau/*`, and `/input-modes`. Requests always include `credentials: "include"` so the `mca_session` cookie is attached.
 
 The assistant endpoint (`/assistant/chat`) is consumed as a Server-Sent Events stream: `streamAssistantChat` in `client.ts` reads `event:`/`data:` frames and dispatches them to caller-supplied handlers.
 
@@ -136,7 +134,6 @@ flowchart TD
         PP["routes_public_places\n/places (write)"]
         PL["routes_places\n/places (read)"]
         PA["routes_assistant\n/assistant/chat"]
-        PR["routes_public_routes\n/routes/alternatives"]
         PU["routes_uploads\n/uploads"]
         PE["routes_exports\n/exports/tableau/*"]
         PS["routes_sessions\n/sessions"]
@@ -146,7 +143,6 @@ flowchart TD
         IA["routes_analysis\n/internal/analysis/*"]
         IC["routes_crime\n/internal/crime/*"]
         II["routes_imports\n/internal/imports"]
-        IR["routes_routes\n/internal/routes/*"]
     end
 
     subgraph Admin["Admin tier (X-Admin-Token)"]
@@ -158,7 +154,6 @@ flowchart TD
         AS["analysis_service"]
         CS["crime_service"]
         GS["geocoding_service"]
-        RS["route_service"]
         NS["neighborhood_service"]
         ES["export_service"]
         IS["import_service"]
@@ -170,7 +165,6 @@ flowchart TD
         ANAL["analysis/comparison.py\nStatistical rate tests"]
         ASST["assistant/agent.py\nDecision-tree + LLM"]
         LLM["assistant/llm_client.py\nOpenAI-compat endpoint"]
-        ROUT["routing/providers.py\nmock / OTP"]
         CRIME["crime/ summaries.py\nSocrata ingestion"]
         PARSE["parsers/ + normalization/\nUpload pipeline"]
         EXP["exports/\nTableau CSV"]
@@ -190,7 +184,6 @@ flowchart TD
     Admin --> CRIME
     Services --> ANAL
     Services --> ASST
-    Services --> ROUT
     Services --> CRIME
     Services --> PARSE
     Services --> EXP

@@ -1,10 +1,9 @@
 # Waypoint
 
 Waypoint is a privacy-first web app for exploring **reported Seattle SPD incident context**
-around the places you care about and the routes between them. You add approximate places on a
-map, pick a radius and date range, and Waypoint shows how many reported incidents fall nearby,
-what kinds, and how places compare — plus an optional AI analyst you can ask questions in plain
-language.
+around the addresses you care about. You look up an address on a map, pick a radius and date
+range, and Waypoint shows how many reported incidents fall nearby, what kinds, and how candidate
+addresses compare — plus an optional AI analyst you can ask questions in plain language.
 
 Waypoint describes *reported incident context*. It does **not** score safety, rank places as
 safe or unsafe, or claim anyone was present when an incident happened.
@@ -16,12 +15,10 @@ safe or unsafe, or claim anyone was present when an incident happened.
   a date range, filtered by offense category (all / person / property / society).
 - Shows reported-incident counts, nearest-incident distance, the category mix, the top specific
   offenses, and the individual incident rows behind the numbers.
-- Compares two or more places side by side at a single radius.
+- Compares two or more candidate addresses side by side at a single radius.
 - Optional **Waypoint Analyst** chat that answers questions grounded in your current dashboard
-  data ("how does this stop compare to my downtown one?").
-- Compares route alternatives between generalized Seattle areas with reported-incident context
-  along each route (currently a deterministic mock routing provider).
-- Statistical, exposure-adjusted rate comparison of place buffers and route corridors.
+  data ("how does this address compare to my downtown one?").
+- Statistical, exposure-adjusted rate comparison of place buffers.
 - Exports privacy-safe, Tableau-ready CSVs using generalized display coordinates.
 - Loads a bundled Seattle crime sample for offline development, or ingests a recent window of
   real Seattle SPD open data.
@@ -89,23 +86,14 @@ is for internal demos and parser validation only. It is hidden unless you set
 `MCA_PUBLIC_ENABLE_PERSONAL_UPLOADS=true`. Uploaded files are temporary input artifacts; the
 canonical product objects are stop visits, recurring place clusters, and context summaries.
 
-## Routes and statistical comparison
+## Statistical comparison
 
-- **Route alternatives** rank alternative routes between generalized Seattle areas (mode:
-  `transit`, `walk`, `bike`, or `drive`) and, when analysis dates are supplied, attach reported-
-  incident context near route points. The default provider is a deterministic **mock** used for
-  local development, tests, and dashboard validation. A live **OpenTripPlanner** provider is also
-  built in but off by default; enable it by setting `MCA_ROUTING_PROVIDER=opentripplanner` and
-  `MCA_OPENTRIPPLANNER_BASE_URL` to a running OpenTripPlanner 2.x instance's GraphQL endpoint
-  (see the configuration table). Route
-  exports (`route-alternatives.csv`, `route-segments.csv`, `route-context.csv`) never include raw
-  GPS observations.
-- **Statistical comparison** compares place buffers and route corridors using exposure-adjusted
-  reported-incident rates, with an `Overview` mode (public summary, decision class, rates, short
-  caveat) and an `Analytical` mode (counts, exposure, rate ratio, confidence interval, p-values,
-  method, overdispersion and minimum-data status, and full caveats). Product language may say
-  "lower reported-incident rate"; it must never call a route safe, unsafe, dangerous, or
-  crime-preventing.
+Statistical comparison compares place buffers using exposure-adjusted reported-incident rates,
+with an `Overview` mode (public summary, decision class, rates, short caveat) and an
+`Analytical` mode (counts, exposure, rate ratio, confidence interval, p-values, method,
+overdispersion and minimum-data status, and full caveats). Product language may say "lower
+reported-incident rate"; it must never call a place safe, unsafe, dangerous, or
+crime-preventing.
 
 ## Privacy posture
 
@@ -248,9 +236,6 @@ salt/secret and forces secure cookies.
 | `MCA_LLM_BASE_URL` | `http://127.0.0.1:8080/v1` | OpenAI-compatible LLM endpoint base URL for the Analyst. |
 | `MCA_LLM_MODEL` | `gemma-4-26b-a4b-it-ud-q4-k-m-ctx32k` | Model name sent to the LLM endpoint. |
 | `MCA_ASSISTANT_ROLE` | `waypoint_analyst` | Analyst role label included in assistant responses. |
-| `MCA_ROUTING_PROVIDER` | `mock` | Route alternatives provider: `mock` (deterministic, default) or `opentripplanner` (live). |
-| `MCA_OPENTRIPPLANNER_BASE_URL` | _unset_ | OTP2 GTFS GraphQL endpoint (e.g. `http://localhost:8080/otp/gtfs/v1`); required when the provider is `opentripplanner`. |
-| `MCA_OPENTRIPPLANNER_TIMEOUT_S` | `10.0` | HTTP timeout (seconds) for OpenTripPlanner requests. |
 
 Normalization thresholds for the internal upload pipeline are also configurable:
 `MCA_MINIMUM_STOP_DURATION_MINUTES`, `MCA_STOP_RADIUS_M`, `MCA_CLUSTER_RADIUS_M`,
@@ -281,9 +266,8 @@ design, and the roadmap — see [`docs/`](docs/README.md).
 | Places | `GET /places` · `POST /places` · `POST /places/bulk` · `PATCH /places/{id}` · `DELETE /places/{id}` |
 | Dashboard | `GET /dashboard/summary` · `POST /dashboard/analyze` · `POST /dashboard/incidents` · `POST /dashboard/compare` |
 | Analyst | `POST /assistant/chat` (Server-Sent Events) |
-| Routes (internal) | `POST /internal/routes/alternatives` · `GET /internal/routes/requests/{id}/comparison` |
-| Statistical analysis (internal) | `POST /internal/analysis/sites/compare` · `POST /internal/analysis/routes/compare` · `GET /internal/analysis/comparisons/{id}` |
-| Exports | `GET /exports/tableau/place-summary.csv` · `route-alternatives.csv` · `route-segments.csv` · `route-context.csv` · `statistical-comparisons.csv` |
+| Statistical analysis (internal) | `POST /internal/analysis/sites/compare` · `GET /internal/analysis/comparisons/{id}` |
+| Exports | `GET /exports/tableau/place-summary.csv` · `statistical-comparisons.csv` |
 | Crime data | `POST /internal/crime/ingest/sample` · `POST /internal/crime/summarize` · `POST /admin/crime/ingest/socrata` |
 | Internal/demo | `POST /internal/imports` · `GET /internal/imports/{id}` · `POST /internal/imports/{id}/normalize` |
 

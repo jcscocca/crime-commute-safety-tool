@@ -9,7 +9,7 @@ update its doc in the same PR.
 | Doc | What it covers |
 |---|---|
 | [Architecture overview](architecture/overview.md) | System map: layers, the public/internal/admin API tiers, the subsystem index, an end-to-end request walkthrough, and the backend↔frontend boundary. **Start here.** |
-| [Data model](architecture/data-model.md) | The 15 SQLAlchemy entities, the upload→stop→cluster lifecycle, coordinate generalization, and the Alembic migration approach. |
+| [Data model](architecture/data-model.md) | The 11 SQLAlchemy entities, the upload→stop→cluster lifecycle, coordinate generalization, and the Alembic migration approach. |
 | [API contract](architecture/api.md) | Auth model (session cookie, demo identity, admin token), the three-tier endpoint reference, the internal-surface invariant, and upload/SSE transport notes. |
 | [Assistant / agent design](architecture/assistant.md) | The Waypoint Analyst: the single-LLM-call decision-tree turn, the tool toolbox + frontend bridge, deterministic summaries, and the safety-refusal guard. |
 | [Roadmap](ROADMAP.md) | Where Waypoint is going: a subsystem maturity snapshot and phased work, refreshed against current `main`. |
@@ -21,4 +21,3 @@ update its doc in the same PR.
   not a description of current state.
 - **`reference/`** — background and source material (the SPD crime-analysis suite).
 - **`DEPLOY.md`** — deployment guide for the single-host stack.
-- **`analysis/`** — statistical methodology notes.

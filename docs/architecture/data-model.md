@@ -1,6 +1,6 @@
-SQLAlchemy/Alembic schema for Waypoint's FastAPI backend: 15 mapped tables spanning the upload-to-cluster pipeline, SPD incident data, routing, statistical comparison, and infrastructure.
+SQLAlchemy/Alembic schema for Waypoint's FastAPI backend: 11 mapped tables spanning the upload-to-cluster pipeline, SPD incident data, statistical comparison, and infrastructure.
 
-> Verified against `d30235b` (2026-06-29); arrests foundation adds source_dataset discrimination.
+> Verified against `5fe1da0` (2026-07-03); route tables dropped by migration 0012, arrests foundation adds source_dataset discrimination.
 
 ---
 
@@ -51,20 +51,11 @@ are kept separate rather than joined.
 |---|---|---|---|
 | `AnalysisRun` | `analysis_runs` | Records the parameters of one dashboard analysis invocation. | `analysis_start_date`, `analysis_end_date`, `radii_m_json`, `offense_category`, `offense_subcategory`, `nibrs_group` |
 
-### Routing
-
-| Entity | Table | Purpose | Key columns |
-|---|---|---|---|
-| `RouteRequest` | `route_requests` | A user's origin→destination routing query. | `origin_label`, `origin_latitude/longitude`, `origin_display_latitude/display_longitude`, `destination_label`, `destination_latitude/longitude`, `destination_display_latitude/display_longitude`, `mode`, `departure_date`, `privacy_level`, `provider`, `status` |
-| `RouteAlternative` | `route_alternatives` | One route option returned by the routing provider for a `RouteRequest`. | `route_request_id` → `route_requests`, `route_label`, `rank`, `duration_minutes`, `distance_m`, `transfer_count`, `mode_mix`, `summary_geometry`, `provider` |
-| `RouteSegment` | `route_segments` | An individual leg of a `RouteAlternative` (walk, transit, etc.). | `route_alternative_id` → `route_alternatives`, `sequence`, `segment_type`, `mode`, `start_label`, `start_latitude/longitude`, `end_label`, `end_latitude/longitude`, `distance_m`, `duration_minutes`, `geometry` |
-| `RouteContextSummary` | `route_context_summaries` | Aggregated incident context for one alternative (or segment) at a given radius. | `route_alternative_id` → `route_alternatives`, `route_segment_id` → `route_segments` (nullable), `context_label`, `context_type`, `radius_m`, `incident_count`, `nearest_incident_m`, `incidents_per_route` |
-
 ### Statistics
 
 | Entity | Table | Purpose | Key columns |
 |---|---|---|---|
-| `StatisticalComparison` | `statistical_comparisons` | The result of a multi-option incident-rate comparison (e.g. route A vs route B). | `source_route_request_id` → `route_requests`, `comparison_type`, `geometry_type`, `radius_m`, `analysis_start_date`, `analysis_end_date`, `exposure_unit`, `decision_class`, `overview_summary_text`, `overview_caveat_text` |
+| `StatisticalComparison` | `statistical_comparisons` | The result of a multi-option incident-rate comparison (e.g. candidate address A vs address B). | `comparison_type`, `geometry_type`, `radius_m`, `analysis_start_date`, `analysis_end_date`, `exposure_unit`, `decision_class`, `overview_summary_text`, `overview_caveat_text` |
 | `StatisticalComparisonOption` | `statistical_comparison_options` | One option (arm) within a `StatisticalComparison`. | `comparison_id` → `statistical_comparisons`, `option_id`, `option_label`, `incident_count`, `exposure`, `incident_rate` |
 | `StatisticalPairwiseResult` | `statistical_pairwise_results` | A single pairwise statistical test result between two options. | `comparison_id` → `statistical_comparisons`, `option_a_id`, `option_b_id`, `decision_class`, `method`, `rate_a`, `rate_b`, `rate_ratio`, `ci_lower`, `ci_upper`, `p_value`, `adjusted_p_value`, `overdispersion_phi`, `overdispersion_status` |
 
@@ -74,7 +65,7 @@ are kept separate rather than joined.
 |---|---|---|---|
 | `GeocodeCache` | `geocode_cache` | Deduplicates geocoder calls. Unique on `(provider, query_normalized)`. | `provider`, `query_normalized`, `results_json` |
 
-Total: **15 tables** matching all 15 `__tablename__` declarations in `app/models.py`.
+Total: **11 tables** matching all 11 `__tablename__` declarations in `app/models.py`.
 
 ---
 
@@ -148,11 +139,6 @@ The snapping is performed by `app/normalization/geo.snap_to_grid(lat, lon)` (its
 called inside `_build_cluster` in `app/normalization/clusters.py`. This produces a
 display position that cannot be reverse-engineered to a precise home or workplace address.
 
-`RouteRequest` mirrors this pattern: `origin_latitude/longitude` and
-`destination_latitude/longitude` store exact router inputs, while
-`origin_display_latitude/longitude` and `destination_display_latitude/longitude` are
-the generalized equivalents surfaced to callers.
-
 ⚠ **Invariant:** Only generalized coordinates (`display_*`) should be returned in API
 responses visible to the user. Exact centroids are internal.
 
@@ -160,13 +146,13 @@ responses visible to the user. Exact centroids are internal.
 
 ## 5. Migrations
 
-Alembic manages the Postgres production schema; 7 migration scripts live in
+Alembic manages the Postgres production schema; 12 migration scripts live in
 `alembic/versions/`:
 
 | File | Content |
 |---|---|
 | `0001_initial_schema.py` | Creates `import_batches`, `place_clusters`, `crime_incidents`, `staging_location_observations`, `stop_visits`, `place_crime_summaries` |
-| `0002_route_alternatives.py` | Adds `route_requests`, `route_alternatives`, `route_segments`, `route_context_summaries` |
+| `0002_route_alternatives.py` | Adds `route_requests`, `route_alternatives`, `route_segments`, `route_context_summaries` (tables dropped by 0012) |
 | `0003_statistical_comparisons.py` | Adds `statistical_comparisons`, `statistical_comparison_options`, `statistical_pairwise_results` |
 | `0004_option_geom_metadata.py` | Adds `geometry_metadata_json` to `statistical_comparison_options` |
 | `0005_crime_filter_idx.py` | Adds indexes on `crime_incidents` for offense filter columns |
@@ -174,7 +160,9 @@ Alembic manages the Postgres production schema; 7 migration scripts live in
 | `0007_geocode_cache.py` | Adds `geocode_cache` table |
 | `0008_crime_source_unique.py` | Replaces the single-column unique on `crime_incidents.external_incident_id` with a composite unique `(source_dataset, external_incident_id)` + indexes `source_dataset`; dialect-branched for SQLite/Postgres |
 | `0009_summary_layer.py` | Adds a nullable `layer` column to `analysis_runs` and `place_crime_summaries` (records which analysis layer produced a run/summary; null = legacy, read as `reported`) |
-| `0010_route_layer.py` | Adds a nullable `layer` column to `route_requests` (the incident layer the route corridor context was computed for; null = legacy, read as `reported`) |
+| `0010_route_layer.py` | Adds a nullable `layer` column to `route_requests` (tables dropped by 0012) |
+| `0011_arrest_category_backfill.py` | Backfills `offense_category`/`nibrs_group` on existing arrest `crime_incidents` rows via the NIBRS crosswalk |
+| `0012_drop_route_tables.py` | Drops the four route tables and the `statistical_comparisons.source_route_request_id` FK/index; deletes route-sourced comparison rows (routes feature removed 2026-07) |
 
 **Dual bootstrap path** (`app/db.init_db`):
 
@@ -280,51 +268,8 @@ erDiagram
         string radii_m_json
     }
 
-    RouteRequest {
-        string id PK
-        string user_id_hash
-        string mode
-        float origin_latitude
-        float origin_longitude
-        float origin_display_latitude
-        float origin_display_longitude
-        float destination_latitude
-        float destination_longitude
-        float destination_display_latitude
-        float destination_display_longitude
-        string status
-    }
-
-    RouteAlternative {
-        string id PK
-        string route_request_id FK
-        string user_id_hash
-        int rank
-        string mode_mix
-        float duration_minutes
-    }
-
-    RouteSegment {
-        string id PK
-        string route_alternative_id FK
-        string user_id_hash
-        int sequence
-        string segment_type
-        string mode
-    }
-
-    RouteContextSummary {
-        string id PK
-        string route_alternative_id FK
-        string route_segment_id FK
-        string user_id_hash
-        int incident_count
-        int radius_m
-    }
-
     StatisticalComparison {
         string id PK
-        string source_route_request_id FK
         string user_id_hash
         string decision_class
         string exposure_unit
@@ -358,11 +303,6 @@ erDiagram
     ImportBatch ||--o{ StopVisit : "import_id"
     PlaceCluster ||--o{ StopVisit : "place_cluster_id"
     PlaceCluster ||--o{ PlaceCrimeSummary : "place_cluster_id"
-    RouteRequest ||--o{ RouteAlternative : "route_request_id"
-    RouteRequest ||--o| StatisticalComparison : "source_route_request_id"
-    RouteAlternative ||--o{ RouteSegment : "route_alternative_id"
-    RouteAlternative ||--o{ RouteContextSummary : "route_alternative_id"
-    RouteSegment ||--o{ RouteContextSummary : "route_segment_id"
     StatisticalComparison ||--o{ StatisticalComparisonOption : "comparison_id"
     StatisticalComparison ||--o{ StatisticalPairwiseResult : "comparison_id"
 ```

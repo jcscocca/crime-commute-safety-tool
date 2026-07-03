@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "waypoint-analyzer"
 version = "0.1.0"
-description = "Privacy-first reported incident analysis for selected places and route context."
+description = "Privacy-first reported incident analysis for selected places."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
