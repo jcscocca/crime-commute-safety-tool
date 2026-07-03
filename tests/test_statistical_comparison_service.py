@@ -898,3 +898,75 @@ def test_compare_route_request_reports_effectively_identical_corridors(tmp_path)
         "These route options follow essentially the same corridor at this radius, "
         "so there is no divergent segment to compare."
     )
+
+
+def test_compare_route_request_short_window_identical_corridors_do_not_raise(tmp_path):
+    # A <30-day analysis window plus effectively identical corridors must report the
+    # same-corridor outcome, not crash on an exposure=0 rate test.
+    create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    session = get_sessionmaker()()
+    user_hash = "route-short-identical-user"
+    session.add(
+        RouteRequest(
+            id="rr-short-identical",
+            user_id_hash=user_hash,
+            origin_label="Origin",
+            origin_latitude=47.600,
+            origin_longitude=-122.340,
+            destination_label="Destination",
+            destination_latitude=47.630,
+            destination_longitude=-122.340,
+            mode="transit",
+            analysis_start_date=date(2024, 1, 1),
+            analysis_end_date=date(2024, 1, 20),
+        )
+    )
+    session.flush()
+    session.add_all(
+        [
+            RouteAlternative(
+                id=f"alt-{suffix}",
+                route_request_id="rr-short-identical",
+                user_id_hash=user_hash,
+                provider_route_id=f"prov-{suffix}",
+                route_label=f"Route {suffix.upper()}",
+                rank=rank,
+                mode_mix="transit",
+                summary_geometry="47.600,-122.340;47.630,-122.340",
+            )
+            for rank, suffix in ((1, "a"), (2, "b"))
+        ]
+    )
+    session.add_all(
+        [
+            CrimeIncident(
+                id=f"inc-{index}",
+                offense_start_utc=datetime(2024, 1, 5 + index % 10, tzinfo=UTC),
+                offense_category="PROPERTY",
+                latitude=47.610,
+                longitude=-122.340,
+            )
+            for index in range(12)
+        ]
+    )
+    session.commit()
+
+    result = compare_route_request(
+        session=session,
+        user_id_hash=user_hash,
+        request=RouteComparisonRequest(
+            route_request_id="rr-short-identical",
+            radius_m=250,
+            offense_category="PROPERTY",
+        ),
+    )
+    session.close()
+
+    assert result is not None
+    pairwise = result["analytical"]["pairwise_results"][0]
+    assert pairwise["minimum_data_status"] == "corridors_effectively_identical"
+    assert result["overview"]["recommendation_option_id"] is None
+    assert result["overview"]["summary_text"] == (
+        "These route options follow essentially the same corridor at this radius, "
+        "so there is no divergent segment to compare."
+    )
