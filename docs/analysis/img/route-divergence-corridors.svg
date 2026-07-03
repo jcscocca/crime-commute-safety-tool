@@ -1,0 +1,40 @@
+<svg width="680" height="380" viewBox="0 0 680 380" role="img" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title>Divergent-corridor route comparison</title>
+  <desc>Two routes between the same origin and destination share most of their corridor. Incidents in the shared corridor land in both counts and drop out of the statistical test; only the two divergent corridors, one per route, are compared.</desc>
+  <rect x="0" y="0" width="680" height="380" rx="8" fill="#FFFFFF" stroke="#D3D1C7"/>
+  <path d="M55,200 L190,200" stroke="#888780" stroke-width="44" stroke-linecap="round" opacity="0.28" fill="none"/>
+  <path d="M490,200 L625,200" stroke="#888780" stroke-width="44" stroke-linecap="round" opacity="0.28" fill="none"/>
+  <path d="M190,200 Q340,60 490,200" stroke="#378ADD" stroke-width="44" stroke-linecap="round" opacity="0.2" fill="none"/>
+  <path d="M190,200 Q340,340 490,200" stroke="#D85A30" stroke-width="44" stroke-linecap="round" opacity="0.2" fill="none"/>
+  <path d="M55,200 L190,200" stroke="#888780" stroke-width="2.5" fill="none"/>
+  <path d="M490,200 L625,200" stroke="#888780" stroke-width="2.5" fill="none"/>
+  <path d="M190,200 Q340,60 490,200" stroke="#378ADD" stroke-width="2.5" fill="none"/>
+  <path d="M190,200 Q340,340 490,200" stroke="#D85A30" stroke-width="2.5" fill="none"/>
+  <circle cx="55" cy="200" r="5" fill="#888780"/>
+  <circle cx="625" cy="200" r="5" fill="#888780"/>
+  <circle cx="95" cy="195" r="4" fill="#888780"/>
+  <circle cx="130" cy="208" r="4" fill="#888780"/>
+  <circle cx="162" cy="193" r="4" fill="#888780"/>
+  <circle cx="520" cy="207" r="4" fill="#888780"/>
+  <circle cx="552" cy="193" r="4" fill="#888780"/>
+  <circle cx="590" cy="204" r="4" fill="#888780"/>
+  <circle cx="275" cy="150" r="4" fill="#378ADD"/>
+  <circle cx="340" cy="135" r="4" fill="#378ADD"/>
+  <circle cx="405" cy="148" r="4" fill="#378ADD"/>
+  <circle cx="262" cy="258" r="4" fill="#D85A30"/>
+  <circle cx="290" cy="268" r="4" fill="#D85A30"/>
+  <circle cx="308" cy="272" r="4" fill="#D85A30"/>
+  <circle cx="345" cy="278" r="4" fill="#D85A30"/>
+  <circle cx="372" cy="260" r="4" fill="#D85A30"/>
+  <circle cx="418" cy="247" r="4" fill="#D85A30"/>
+  <text x="55" y="165" font-size="12" fill="#5F5E5A" text-anchor="middle">origin</text>
+  <text x="625" y="165" font-size="12" fill="#5F5E5A" text-anchor="middle">destination</text>
+  <text x="340" y="78" font-size="14" font-weight="500" fill="#2C2C2A" text-anchor="middle">route A divergent corridor</text>
+  <text x="340" y="96" font-size="12" fill="#5F5E5A" text-anchor="middle">these incidents count only for A</text>
+  <text x="340" y="320" font-size="14" font-weight="500" fill="#2C2C2A" text-anchor="middle">route B divergent corridor</text>
+  <text x="340" y="338" font-size="12" fill="#5F5E5A" text-anchor="middle">these incidents count only for B</text>
+  <text x="122" y="248" font-size="14" font-weight="500" fill="#2C2C2A" text-anchor="middle">shared corridor</text>
+  <text x="122" y="266" font-size="12" fill="#5F5E5A" text-anchor="middle">identical in both counts</text>
+  <text x="558" y="248" font-size="14" font-weight="500" fill="#2C2C2A" text-anchor="middle">shared corridor</text>
+  <text x="558" y="266" font-size="12" fill="#5F5E5A" text-anchor="middle">drops out of the test</text>
+</svg>
