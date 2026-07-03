@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 const viteConfig = readFileSync(new URL("../vite.config.ts", import.meta.url), "utf8");
 const clientSrc = readFileSync(new URL("../src/api/client.ts", import.meta.url), "utf8");
 
-// First path segment of every API path the client fetches, e.g. "/routes" from
-// fetch("/routes/alternatives") or request(`/places/${id}`).
+// First path segment of every API path the client fetches, e.g. "/places" from
+// request(`/places/${id}`).
 function usedApiPrefixes(src: string): string[] {
   const prefixes = new Set<string>();
   for (const m of src.matchAll(/(?:request|fetch)\(\s*[`"']\/([a-zA-Z][\w-]*)/g)) {
@@ -15,7 +15,7 @@ function usedApiPrefixes(src: string): string[] {
   return [...prefixes];
 }
 
-// Keys declared in the Vite dev-server proxy map, e.g. "/routes" from `"/routes": backendTarget`.
+// Keys declared in the Vite dev-server proxy map, e.g. "/places" from `"/places": backendTarget`.
 function proxyKeys(config: string): string[] {
   const keys = new Set<string>();
   for (const m of config.matchAll(/[`"'](\/[a-zA-Z][\w-]*)[`"']\s*:/g)) {

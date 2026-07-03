@@ -14,7 +14,6 @@ export default defineConfig({
       "/places": backendTarget,
       "/uploads": backendTarget,
       "/dashboard": backendTarget,
-      "/routes": backendTarget,
       "/exports": backendTarget,
       "/input-modes": backendTarget,
       "/assistant": backendTarget
