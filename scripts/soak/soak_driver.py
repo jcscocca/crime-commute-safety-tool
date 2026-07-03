@@ -172,3 +172,194 @@ def summarize(rows: list[RequestRecord], budgets: dict[str, float]) -> dict:
         "drift": drift,
         "budget_breaches": breaches,
     }
+
+
+# --------------------------------------------------------------------------- #
+# Runtime (I/O glue over the pure helpers above)
+# --------------------------------------------------------------------------- #
+
+import argparse  # noqa: E402
+import csv  # noqa: E402
+import http.cookiejar  # noqa: E402
+import json  # noqa: E402
+import os  # noqa: E402
+import sys  # noqa: E402
+import threading  # noqa: E402
+import time  # noqa: E402
+import urllib.error  # noqa: E402
+import urllib.request  # noqa: E402
+
+_DEFAULT_BUDGETS: dict[str, float] = {
+    "analyze": 400.0, "neighborhood": 800.0, "incidents": 400.0,
+    "compare": 600.0, "summary": 300.0, "freshness": 100.0, "export": 500.0,
+}
+
+
+class _Recorder:
+    """Thread-safe: append rows to memory + stream to a CSV file handle."""
+
+    def __init__(self, csv_path: str) -> None:
+        self._lock = threading.Lock()
+        self.rows: list[RequestRecord] = []
+        self._fh = open(csv_path, "w", newline="")
+        self._writer = csv.writer(self._fh)
+        self._writer.writerow(["ts", "vu", "endpoint", "status", "latency_ms", "ok"])
+
+    def add(self, rec: RequestRecord) -> None:
+        with self._lock:
+            self.rows.append(rec)
+            self._writer.writerow([f"{rec.ts:.3f}", rec.vu, rec.endpoint, rec.status,
+                                   f"{rec.latency_ms:.1f}", int(rec.ok)])
+            self._fh.flush()
+
+    def snapshot(self) -> list[RequestRecord]:
+        with self._lock:
+            return list(self.rows)
+
+    def close(self) -> None:
+        with self._lock:
+            self._fh.close()
+
+
+def _new_opener() -> urllib.request.OpenerDirector:
+    return urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+
+def _timed_request(opener, method, url, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method)
+    if data is not None:
+        req.add_header("Content-Type", "application/json")
+    t0 = time.monotonic()
+    try:
+        with opener.open(req, timeout=60) as resp:
+            resp.read()
+            status = resp.status
+    except urllib.error.HTTPError as exc:
+        exc.read()
+        status = exc.code
+    except (urllib.error.URLError, TimeoutError):
+        status = 0
+    return status, (time.monotonic() - t0) * 1000.0
+
+
+def _seed_places(opener, base_url, rng) -> list[str]:
+    ids: list[str] = []
+    for label, lat, lon in rng.sample(_SEATTLE_POINTS, k=3):
+        _timed_request(opener, "POST", base_url + "/places", {
+            "display_label": f"Soak {label}", "latitude": lat, "longitude": lon, "visit_count": 3,
+        })
+    # Re-fetch the VU's places to collect ids (GET /places).
+    req = urllib.request.Request(base_url + "/places", method="GET")
+    try:
+        with opener.open(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception:
+        return ids
+    for p in (data if isinstance(data, list) else data.get("places", [])):
+        if isinstance(p, dict) and p.get("id"):
+            ids.append(p["id"])
+    return ids
+
+
+_GET_PATHS = {
+    "summary": "/dashboard/summary",
+    "freshness": "/dashboard/freshness",
+    "export": "/exports/tableau/place-summary.csv",
+}
+_POST_PATHS = {
+    "analyze": "/dashboard/analyze",
+    "neighborhood": "/dashboard/neighborhood",
+    "incidents": "/dashboard/incidents",
+    "compare": "/dashboard/compare",
+}
+
+
+def _run_vu(vu_id, base_url, deadline, think_time, seed, recorder, ramp_delay):
+    time.sleep(ramp_delay)
+    rng = random.Random(seed + vu_id)
+    opener = _new_opener()
+    _timed_request(opener, "POST", base_url + "/sessions")
+    place_ids = _seed_places(opener, base_url, rng)
+    if not place_ids:
+        return
+    while time.monotonic() < deadline:
+        ep = choose_endpoint(rng, _ENDPOINT_WEIGHTS)
+        if ep in _POST_PATHS:
+            status, ms = _timed_request(opener, "POST", base_url + _POST_PATHS[ep],
+                                        build_body(ep, rng, place_ids))
+        else:
+            status, ms = _timed_request(opener, "GET", base_url + _GET_PATHS[ep])
+        recorder.add(RequestRecord(time.time(), vu_id, ep, status, ms, 200 <= status < 400))
+        if think_time:
+            time.sleep(rng.uniform(0, think_time))
+
+
+def _reporter(recorder, deadline, stop):
+    while not stop.is_set() and time.monotonic() < deadline:
+        stop.wait(30)
+        rows = recorder.snapshot()
+        recent = [r for r in rows if r.ts >= time.time() - 30]
+        lat = [r.latency_ms for r in recent if r.ok]
+        errs = sum(1 for r in recent if not r.ok)
+        print(f"[{time.strftime('%H:%M:%S')}] total={len(rows)} "
+              f"last30s: n={len(recent)} err={errs} "
+              f"p50={percentile(lat, 50)} p95={percentile(lat, 95)} p99={percentile(lat, 99)}",
+              flush=True)
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description="Waypoint Postgres soak load driver")
+    ap.add_argument("--users", type=int, default=int(os.environ.get("SOAK_USERS", 25)))
+    ap.add_argument("--duration", default=os.environ.get("SOAK_DURATION", "2h"))
+    ap.add_argument("--ramp", type=int, default=int(os.environ.get("SOAK_RAMP", 60)))
+    ap.add_argument("--think-time", type=float, default=float(os.environ.get("SOAK_THINK", 0.2)))
+    ap.add_argument("--base-url", default=os.environ.get("SOAK_BASE_URL", "http://localhost:8000"))
+    ap.add_argument("--seed", type=int, default=int(os.environ.get("SOAK_SEED", 1)))
+    ap.add_argument("--out", default=os.environ.get("SOAK_OUT", "soak-out"))
+    ap.add_argument("--budgets", default=None, help="JSON file of per-endpoint p95 budgets")
+    args = ap.parse_args(argv)
+
+    budgets = dict(_DEFAULT_BUDGETS)
+    if args.budgets:
+        with open(args.budgets) as fh:
+            budgets.update(json.load(fh))
+
+    os.makedirs(args.out, exist_ok=True)
+    base = args.base_url.rstrip("/")
+    duration = parse_duration(args.duration)
+    recorder = _Recorder(os.path.join(args.out, "requests.csv"))
+    deadline = time.monotonic() + duration
+    stop = threading.Event()
+
+    print(f"Soak: {args.users} VUs, ramp {args.ramp}s, duration {duration}s → {base}", flush=True)
+    rep = threading.Thread(target=_reporter, args=(recorder, deadline, stop), daemon=True)
+    rep.start()
+    threads = []
+    for i in range(args.users):
+        ramp_delay = (args.ramp * i / args.users) if args.users else 0
+        t = threading.Thread(
+            target=_run_vu,
+            args=(i, base, deadline, args.think_time, args.seed, recorder, ramp_delay))
+        t.start()
+        threads.append(t)
+    try:
+        for t in threads:
+            t.join()
+    except KeyboardInterrupt:
+        print("interrupted — writing summary from data so far", flush=True)
+    stop.set()
+
+    summary = summarize(recorder.snapshot(), budgets)
+    recorder.close()
+    with open(os.path.join(args.out, "summary.json"), "w") as fh:
+        json.dump(summary, fh, indent=2)
+    print(json.dumps(summary["overall"], indent=2))
+    print("drift:", summary["drift"])
+    print("budget breaches:", summary["budget_breaches"])
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
