@@ -1,4 +1,4 @@
-.PHONY: install test lint run migrate demo seed-crime ingest-crime seed-arrests ingest-arrests seed-calls ingest-calls frontend-install frontend-test frontend-build test-all docker-build
+.PHONY: install test lint run migrate demo seed-crime ingest-crime seed-arrests ingest-arrests seed-calls ingest-calls frontend-install frontend-test frontend-build test-all docker-build soak-load soak-observe
 
 install:
 	python3.11 -m venv .venv
@@ -65,3 +65,10 @@ test-all: test lint frontend-test frontend-build
 
 docker-build:
 	docker build .
+
+# Postgres soak test (H2) — see docs/soak-testing.md. Run both from the repo root.
+soak-load:
+	.venv/bin/python scripts/soak/soak_driver.py --users $${USERS:-25} --duration $${DURATION:-2h} --out $${OUT:-soak-out}
+
+soak-observe:
+	.venv/bin/python scripts/soak/pg_observer.py --interval $${INTERVAL:-15} --duration $${DURATION:-2h} --out $${OUT:-soak-out}
