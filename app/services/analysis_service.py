@@ -8,7 +8,12 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.analysis.comparison import build_statistical_comparison
+from app.analysis.comparison import build_route_divergent_comparison, build_statistical_comparison
+from app.analysis.divergence import (
+    divergent_exposure_square_km_days,
+    divergent_length_km,
+    divergent_share,
+)
 from app.analysis.exposure import (
     count_incidents_in_place_buffer,
     count_incidents_in_route_corridor,
@@ -20,6 +25,7 @@ from app.analysis.schemas import (
     AnalysisOptionResult,
     AnalysisSiteOption,
     GeometryType,
+    PairDivergenceInput,
     RouteComparisonRequest,
     StatisticalComparisonResult,
 )
@@ -165,10 +171,14 @@ def compare_route_request(
     else:
         incidents = []
     option_results: list[AnalysisOptionResult] = []
-    period_counts_by_option_id: dict[str, list[int]] = {}
     geometry_metadata_by_option_id: dict[str, dict[str, Any]] = {}
+    points_by_alternative_id: dict[str, list[tuple[float, float]]] = {}
+    corridor_incidents_by_alternative_id: dict[str, list[CrimeIncidentData]] = {}
 
     for alternative in alternatives:
+        points_by_alternative_id[alternative.id] = parse_route_geometry(
+            alternative.summary_geometry
+        )
         matching_incidents = count_incidents_in_route_corridor(
             incidents=incidents,
             geometry=alternative.summary_geometry,
@@ -179,6 +189,7 @@ def compare_route_request(
             offense_subcategory=request.offense_subcategory,
             nibrs_group=request.nibrs_group,
         )
+        corridor_incidents_by_alternative_id[alternative.id] = matching_incidents
         exposure = route_corridor_exposure_square_km_days(
             geometry=alternative.summary_geometry,
             radius_m=request.radius_m,
@@ -195,20 +206,21 @@ def compare_route_request(
                 exposure=exposure,
             )
         )
-        period_counts_by_option_id[alternative.id] = _monthly_counts(
-            incidents=matching_incidents,
-            analysis_start_date=route_request.analysis_start_date,
-            analysis_end_date=route_request.analysis_end_date,
-        )
         geometry_metadata_by_option_id[alternative.id] = {
             "summary_geometry": alternative.summary_geometry,
             "radius_m": request.radius_m,
         }
 
-    comparison = build_statistical_comparison(
+    pair_inputs = _route_pair_divergence_inputs(
+        alternatives=alternatives,
+        points_by_alternative_id=points_by_alternative_id,
+        corridor_incidents_by_alternative_id=corridor_incidents_by_alternative_id,
+        radius_m=request.radius_m,
+        analysis_start_date=route_request.analysis_start_date,
+        analysis_end_date=route_request.analysis_end_date,
+    )
+    comparison = build_route_divergent_comparison(
         user_id_hash=user_id_hash,
-        comparison_type="route",
-        geometry_type=GeometryType.ROUTE_CORRIDOR,
         radius_m=request.radius_m,
         analysis_start_date=route_request.analysis_start_date,
         analysis_end_date=route_request.analysis_end_date,
@@ -216,7 +228,7 @@ def compare_route_request(
         offense_subcategory=request.offense_subcategory,
         nibrs_group=request.nibrs_group,
         options=option_results,
-        period_counts_by_option_id=period_counts_by_option_id,
+        pair_inputs=pair_inputs,
     )
     return _persist_and_payload(
         session,
@@ -224,6 +236,65 @@ def compare_route_request(
         source_route_request_id=route_request.id,
         geometry_metadata_by_option_id=geometry_metadata_by_option_id,
     )
+
+
+def _route_pair_divergence_inputs(
+    *,
+    alternatives: list[RouteAlternative],
+    points_by_alternative_id: dict[str, list[tuple[float, float]]],
+    corridor_incidents_by_alternative_id: dict[str, list[CrimeIncidentData]],
+    radius_m: int,
+    analysis_start_date: date,
+    analysis_end_date: date,
+) -> list[PairDivergenceInput]:
+    pair_inputs: list[PairDivergenceInput] = []
+    for index_a, alternative_a in enumerate(alternatives):
+        for alternative_b in alternatives[index_a + 1 :]:
+            points_a = points_by_alternative_id[alternative_a.id]
+            points_b = points_by_alternative_id[alternative_b.id]
+            incidents_a = corridor_incidents_by_alternative_id[alternative_a.id]
+            incidents_b = corridor_incidents_by_alternative_id[alternative_b.id]
+            # Both membership lists filter the SAME incidents_in_bbox objects, so id()
+            # identifies the same record; incidents near both corridors drop out of both.
+            ids_a = {id(incident) for incident in incidents_a}
+            ids_b = {id(incident) for incident in incidents_b}
+            only_a = [incident for incident in incidents_a if id(incident) not in ids_b]
+            only_b = [incident for incident in incidents_b if id(incident) not in ids_a]
+            length_a = divergent_length_km(points_a, points_b, radius_m)
+            length_b = divergent_length_km(points_b, points_a, radius_m)
+            pair_inputs.append(
+                PairDivergenceInput(
+                    option_a_id=alternative_a.id,
+                    option_b_id=alternative_b.id,
+                    count_a=len(only_a),
+                    count_b=len(only_b),
+                    exposure_a=divergent_exposure_square_km_days(
+                        length_km=length_a,
+                        radius_m=radius_m,
+                        analysis_start_date=analysis_start_date,
+                        analysis_end_date=analysis_end_date,
+                    ),
+                    exposure_b=divergent_exposure_square_km_days(
+                        length_km=length_b,
+                        radius_m=radius_m,
+                        analysis_start_date=analysis_start_date,
+                        analysis_end_date=analysis_end_date,
+                    ),
+                    period_counts_a=_monthly_counts(
+                        incidents=only_a,
+                        analysis_start_date=analysis_start_date,
+                        analysis_end_date=analysis_end_date,
+                    ),
+                    period_counts_b=_monthly_counts(
+                        incidents=only_b,
+                        analysis_start_date=analysis_start_date,
+                        analysis_end_date=analysis_end_date,
+                    ),
+                    divergent_share_a=divergent_share(points_a, length_a),
+                    divergent_share_b=divergent_share(points_b, length_b),
+                )
+            )
+    return pair_inputs
 
 
 def get_comparison_payload(

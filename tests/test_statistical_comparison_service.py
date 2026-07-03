@@ -700,3 +700,201 @@ def test_candidate_selection_alone_does_not_manufacture_a_winner():
         pairwise.decision_class != DecisionClass.STATISTICALLY_LOWER
         for pairwise in result.pairwise_results
     )
+
+
+def test_compare_route_request_tests_divergent_corridors_only(tmp_path):
+    # Two routes share a heavy-incident southern stretch on -122.340; A continues
+    # straight north, B jogs east via -122.310 and rejoins at the destination. The 40
+    # shared incidents land in BOTH whole corridors; the divergent test must ignore
+    # them and decide on the 10-vs-150 divergent contrast.
+    create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    session = get_sessionmaker()()
+    user_hash = "route-divergence-user"
+    session.add(
+        RouteRequest(
+            id="rr-divergent",
+            user_id_hash=user_hash,
+            origin_label="Origin",
+            origin_latitude=47.600,
+            origin_longitude=-122.340,
+            destination_label="Destination",
+            destination_latitude=47.630,
+            destination_longitude=-122.340,
+            mode="transit",
+            analysis_start_date=date(2024, 1, 1),
+            analysis_end_date=date(2024, 2, 29),
+        )
+    )
+    session.flush()
+    session.add_all(
+        [
+            RouteAlternative(
+                id="alt-direct",
+                route_request_id="rr-divergent",
+                user_id_hash=user_hash,
+                provider_route_id="prov-direct",
+                route_label="Route A",
+                rank=1,
+                mode_mix="transit",
+                summary_geometry="47.600,-122.340;47.630,-122.340",
+            ),
+            RouteAlternative(
+                id="alt-jog",
+                route_request_id="rr-divergent",
+                user_id_hash=user_hash,
+                provider_route_id="prov-jog",
+                route_label="Route B",
+                rank=2,
+                mode_mix="transit",
+                summary_geometry=(
+                    "47.600,-122.340;47.615,-122.340;47.615,-122.310;"
+                    "47.630,-122.310;47.630,-122.340"
+                ),
+            ),
+        ]
+    )
+    # 40 shared incidents on the common southern stretch (inside BOTH 250 m corridors).
+    session.add_all(
+        [
+            CrimeIncident(
+                id=f"inc-shared-{index}",
+                offense_start_utc=datetime(
+                    2024, 1 + (index % 2), 1 + (index // 2) % 27, tzinfo=UTC
+                ),
+                offense_category="PROPERTY",
+                latitude=47.605,
+                longitude=-122.340,
+            )
+            for index in range(40)
+        ]
+    )
+    # 10 incidents on A's divergent northern straight (>= 750 m from every B leg).
+    session.add_all(
+        [
+            CrimeIncident(
+                id=f"inc-a-{index}",
+                offense_start_utc=datetime(2024, 1 + (index % 2), 10 + index // 2, tzinfo=UTC),
+                offense_category="PROPERTY",
+                latitude=47.622,
+                longitude=-122.340,
+            )
+            for index in range(10)
+        ]
+    )
+    # 150 incidents on B's divergent -122.310 leg (~2.25 km from A).
+    session.add_all(
+        [
+            CrimeIncident(
+                id=f"inc-b-{index}",
+                offense_start_utc=datetime(
+                    2024, 1 + (index % 2), 1 + (index // 2) % 27, tzinfo=UTC
+                ),
+                offense_category="PROPERTY",
+                latitude=47.6225,
+                longitude=-122.310,
+            )
+            for index in range(150)
+        ]
+    )
+    session.commit()
+
+    result = compare_route_request(
+        session=session,
+        user_id_hash=user_hash,
+        request=RouteComparisonRequest(
+            route_request_id="rr-divergent",
+            radius_m=250,
+            offense_category="PROPERTY",
+        ),
+    )
+    session.close()
+
+    assert result is not None
+    assert result["geometry_type"] == "route_divergent_corridor"
+    # Context rows keep whole-corridor counts (shared incidents included).
+    options = {option["label"]: option for option in result["overview"]["options"]}
+    assert options["Route A"]["incident_count"] == 50
+    assert options["Route B"]["incident_count"] == 190
+    # The test itself saw only the divergent counts.
+    pairwise = result["analytical"]["pairwise_results"][0]
+    assert pairwise["incident_count_a"] == 10
+    assert pairwise["incident_count_b"] == 150
+    # Divergent exposure is a strict subset of the whole corridor, and B's long jog
+    # diverges far more than A's straight — pins that divergent (not whole-corridor)
+    # exposures reached the persisted rows, and that sides weren't swapped.
+    assert pairwise["exposure_a"] < options["Route A"]["exposure"]
+    assert pairwise["exposure_b"] > pairwise["exposure_a"]
+    assert "only the divergent segments were compared" in pairwise["caveat_text"]
+    assert result["overview"]["decision_class"] == "statistically_lower"
+    assert result["overview"]["recommendation_label"] == "Route A"
+    assert result["overview"]["summary_text"].startswith("Where these routes differ, Route A")
+
+
+def test_compare_route_request_reports_effectively_identical_corridors(tmp_path):
+    create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    session = get_sessionmaker()()
+    user_hash = "route-identical-user"
+    session.add(
+        RouteRequest(
+            id="rr-identical",
+            user_id_hash=user_hash,
+            origin_label="Origin",
+            origin_latitude=47.600,
+            origin_longitude=-122.340,
+            destination_label="Destination",
+            destination_latitude=47.630,
+            destination_longitude=-122.340,
+            mode="transit",
+            analysis_start_date=date(2024, 1, 1),
+            analysis_end_date=date(2024, 2, 29),
+        )
+    )
+    session.flush()
+    session.add_all(
+        [
+            RouteAlternative(
+                id=f"alt-{suffix}",
+                route_request_id="rr-identical",
+                user_id_hash=user_hash,
+                provider_route_id=f"prov-{suffix}",
+                route_label=f"Route {suffix.upper()}",
+                rank=rank,
+                mode_mix="transit",
+                summary_geometry="47.600,-122.340;47.630,-122.340",
+            )
+            for rank, suffix in ((1, "a"), (2, "b"))
+        ]
+    )
+    session.add_all(
+        [
+            CrimeIncident(
+                id=f"inc-{index}",
+                offense_start_utc=datetime(2024, 1 + (index % 2), 5 + index // 2, tzinfo=UTC),
+                offense_category="PROPERTY",
+                latitude=47.610,
+                longitude=-122.340,
+            )
+            for index in range(12)
+        ]
+    )
+    session.commit()
+
+    result = compare_route_request(
+        session=session,
+        user_id_hash=user_hash,
+        request=RouteComparisonRequest(
+            route_request_id="rr-identical",
+            radius_m=250,
+            offense_category="PROPERTY",
+        ),
+    )
+    session.close()
+
+    assert result is not None
+    pairwise = result["analytical"]["pairwise_results"][0]
+    assert pairwise["minimum_data_status"] == "corridors_effectively_identical"
+    assert result["overview"]["recommendation_option_id"] is None
+    assert result["overview"]["summary_text"] == (
+        "These route options follow essentially the same corridor at this radius, "
+        "so there is no divergent segment to compare."
+    )

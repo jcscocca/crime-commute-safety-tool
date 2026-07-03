@@ -24,7 +24,7 @@ const twoAlt: RouteComparison = {
     { route_alternative_id: "a2", radius_m: 500, incident_count: 9, nearest_incident_m: 12, offense_category: "PROPERTY", offense_subcategory: "BURGLARY" },
   ],
   statistical_comparison: {
-    overview: { decision_class: "statistically_lower", recommendation_option_id: "a1", recommendation_label: "Link light rail via Westlake", summary_text: "Link light rail via Westlake has a statistically lower reported-incident rate for the selected corridor.", caveat_text: "This describes reported incidents, not causation or personal outcomes." },
+    overview: { decision_class: "statistically_lower", recommendation_option_id: "a1", recommendation_label: "Link light rail via Westlake", summary_text: "Where these routes differ, Link light rail via Westlake has a statistically lower reported-incident rate for the selected date range and offense filter.", caveat_text: "This describes reported incidents, not causation or personal outcomes." },
   },
 };
 
