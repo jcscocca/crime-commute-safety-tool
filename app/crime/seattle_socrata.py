@@ -25,10 +25,12 @@ CALLS_WINDOW_MONTHS = 24
 def calls_data_floor(today: date | None = None) -> date:
     """Rolling lower bound for 911-call ingest: the first of the month, CALLS_WINDOW_MONTHS
     back from ``today`` (defaults to date.today()). Computed per ingest run so the trailing
-    window never drifts. Anchoring to the 1st is leap-safe; 24 months == exactly 2 years, so
-    the year arithmetic is exact. ``today`` is injectable for deterministic tests."""
+    window never drifts. Anchoring to the 1st is leap-safe and the month arithmetic is exact
+    for any window size. ``today`` is injectable for deterministic tests."""
     ref = today or date.today()
-    return date(ref.year - CALLS_WINDOW_MONTHS // 12, ref.month, 1)
+    months = ref.year * 12 + (ref.month - 1) - CALLS_WINDOW_MONTHS
+    year, month_index = divmod(months, 12)
+    return date(year, month_index + 1, 1)
 
 
 def crime_data_floor(today: date | None = None) -> date:

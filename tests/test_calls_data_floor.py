@@ -23,3 +23,11 @@ def test_calls_floor_anchors_to_first_of_month():
 def test_crime_floor_is_fixed_and_ignores_today():
     assert crime_data_floor(date(2030, 1, 1)) == CRIME_DATA_FLOOR
     assert crime_data_floor() == CRIME_DATA_FLOOR
+
+
+def test_calls_floor_is_exact_for_non_multiple_of_12_windows(monkeypatch):
+    import app.crime.seattle_socrata as s
+
+    monkeypatch.setattr(s, "CALLS_WINDOW_MONTHS", 18)
+    # 18 months before 2026-07 is 2025-01 (not 2025-07, which the old //12 math would give).
+    assert s.calls_data_floor(date(2026, 7, 2)) == date(2025, 1, 1)
