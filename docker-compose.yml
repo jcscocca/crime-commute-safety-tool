@@ -3,6 +3,15 @@ services:
     # Plain postgres: the schema uses no PostGIS/spatial types (all geometry is stored as
     # text and distance math runs in Python), so the postgis image was unused weight.
     image: postgres:16
+    # pg_stat_statements powers the soak-test observer (docs/soak-testing.md): per-query
+    # timing + plan-drift detection. Needs a preload lib, so a restart/recreate is required
+    # to pick this up — harmless (~few MB shared memory) for normal dev.
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.track=all"
     environment:
       POSTGRES_DB: mca
       POSTGRES_USER: mca
