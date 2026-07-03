@@ -24,12 +24,12 @@ def _option(option_id: str, label: str, incident_count: int, exposure: float = 6
     )
 
 
-def _build(options, pair_inputs):
+def _build(options, pair_inputs, *, start=date(2024, 1, 1), end=date(2024, 2, 29)):
     return build_route_divergent_comparison(
         user_id_hash="user",
         radius_m=250,
-        analysis_start_date=date(2024, 1, 1),
-        analysis_end_date=date(2024, 2, 29),
+        analysis_start_date=start,
+        analysis_end_date=end,
         offense_category="PROPERTY",
         offense_subcategory=None,
         nibrs_group=None,
@@ -324,3 +324,240 @@ def test_mixed_identical_pair_blocks_recommendation_conservatively():
         if pairwise.minimum_data_status == "corridors_effectively_identical"
     )
     assert "only the divergent segments were compared" not in identical_row.caveat_text
+
+
+def test_short_window_identical_corridors_do_not_raise():
+    # <30-day window AND zero divergent exposure: the geometry gate must short-circuit
+    # before the date check, so no exposure=0 rate test is attempted.
+    result = _build(
+        options=[_option("a", "Route A", 40), _option("b", "Route B", 41)],
+        pair_inputs=[
+            PairDivergenceInput(
+                option_a_id="a",
+                option_b_id="b",
+                count_a=0,
+                count_b=0,
+                exposure_a=0.0,
+                exposure_b=0.0,
+                period_counts_a=[0, 0],
+                period_counts_b=[0, 0],
+                divergent_share_a=0.0,
+                divergent_share_b=0.01,
+            )
+        ],
+        start=date(2024, 1, 1),
+        end=date(2024, 1, 20),
+    )
+
+    assert result.pairwise_results[0].minimum_data_status == "corridors_effectively_identical"
+
+
+def test_short_window_contained_pair_reports_non_positive_exposure():
+    # <30-day window; one side has divergent geometry but zero exposure (contained).
+    # The non_positive_exposure gate must fire before the date check — no rate test.
+    result = _build(
+        options=[_option("a", "Route A", 40), _option("b", "Route B", 60)],
+        pair_inputs=[
+            PairDivergenceInput(
+                option_a_id="a",
+                option_b_id="b",
+                count_a=0,
+                count_b=10,
+                exposure_a=0.0,
+                exposure_b=12.0,
+                period_counts_a=[0, 0],
+                period_counts_b=[5, 5],
+                divergent_share_a=0.0,
+                divergent_share_b=0.5,
+            )
+        ],
+        start=date(2024, 1, 1),
+        end=date(2024, 1, 20),
+    )
+
+    assert result.pairwise_results[0].minimum_data_status == "non_positive_exposure"
+
+
+def test_short_window_with_positive_exposures_still_reports_date_range_too_short():
+    # Parity with the old behavior: when both exposures are positive, a short window
+    # is still reported as date_range_too_short.
+    result = _build(
+        options=[_option("a", "Route A", 40), _option("b", "Route B", 60)],
+        pair_inputs=[
+            PairDivergenceInput(
+                option_a_id="a",
+                option_b_id="b",
+                count_a=8,
+                count_b=20,
+                exposure_a=15.0,
+                exposure_b=15.0,
+                period_counts_a=[4, 4],
+                period_counts_b=[10, 10],
+                divergent_share_a=0.3,
+                divergent_share_b=0.3,
+            )
+        ],
+        start=date(2024, 1, 1),
+        end=date(2024, 1, 20),
+    )
+
+    assert result.pairwise_results[0].minimum_data_status == "date_range_too_short"
+
+
+def test_candidate_selection_skips_not_tested_pairs():
+    # A and C are near-duplicates (their pair is effectively identical) but the A-C row
+    # carries polluting outer-flank counts on ~zero divergent exposure. Pre-fix, summing
+    # those into A's aggregate exploded A's rate and flipped the candidate away from A.
+    # A is genuinely the lowest divergent rate on its real (A-B) pair.
+    result = _build(
+        options=[
+            _option("a", "Route A", 90),
+            _option("b", "Route B", 110),
+            _option("c", "Route C", 91),
+        ],
+        pair_inputs=[
+            PairDivergenceInput(
+                option_a_id="a",
+                option_b_id="b",
+                count_a=8,
+                count_b=28,
+                exposure_a=15.0,
+                exposure_b=15.0,
+                period_counts_a=[4, 4],
+                period_counts_b=[14, 14],
+                divergent_share_a=0.3,
+                divergent_share_b=0.3,
+            ),
+            PairDivergenceInput(
+                option_a_id="a",
+                option_b_id="c",
+                count_a=61,
+                count_b=110,
+                exposure_a=0.01,
+                exposure_b=0.01,
+                period_counts_a=[30, 31],
+                period_counts_b=[55, 55],
+                divergent_share_a=0.0,
+                divergent_share_b=0.01,
+            ),
+            PairDivergenceInput(
+                option_a_id="b",
+                option_b_id="c",
+                count_a=28,
+                count_b=8,
+                exposure_a=15.0,
+                exposure_b=15.0,
+                period_counts_a=[14, 14],
+                period_counts_b=[4, 4],
+                divergent_share_a=0.3,
+                divergent_share_b=0.3,
+            ),
+        ],
+    )
+
+    # Candidate is A (pre-fix the outer-flank pollution flips it to B or C).
+    assert all(pairwise.option_a_id == "a" for pairwise in result.pairwise_results)
+    ab_row = next(
+        pairwise for pairwise in result.pairwise_results if pairwise.option_b_id == "b"
+    )
+    assert ab_row.minimum_data_status == "met"
+    assert ab_row.incident_count_a == 8
+    assert ab_row.incident_count_b == 28
+    ac_row = next(
+        pairwise for pairwise in result.pairwise_results if pairwise.option_b_id == "c"
+    )
+    assert ac_row.minimum_data_status == "corridors_effectively_identical"
+
+
+def test_pairwise_caveat_reports_both_route_percentages():
+    # Asymmetric shares 0.10 / 0.60: route A shares ~90% of ITS corridor, route B ~40%.
+    # A single "~40%" number would mislead for A, so both figures must appear.
+    result = _build(
+        options=[_option("a", "Route A", 90), _option("b", "Route B", 110)],
+        pair_inputs=[
+            PairDivergenceInput(
+                option_a_id="a",
+                option_b_id="b",
+                count_a=8,
+                count_b=28,
+                exposure_a=15.0,
+                exposure_b=15.0,
+                period_counts_a=[4, 4],
+                period_counts_b=[14, 14],
+                divergent_share_a=0.10,
+                divergent_share_b=0.60,
+            )
+        ],
+    )
+
+    caveat = result.pairwise_results[0].caveat_text
+    assert "90%" in caveat
+    assert "40%" in caveat
+    assert "only the divergent segments were compared" in caveat
+    lowered = caveat.lower()
+    for banned in ("safe", "unsafe", "safety", "danger", "dangerous", "risk", "risky"):
+        assert banned not in lowered, banned
+
+
+def test_not_tested_rows_excluded_from_bh_family():
+    # One identical (not-tested) pair + one decisively-tested pair. The not-tested row's
+    # structural p=1.0 must NOT enter the BH family — otherwise the tested pair's
+    # adjusted p roughly doubles (family of 2 instead of 1).
+    result = _build(
+        options=[
+            _option("a", "Route A", 40),
+            _option("b", "Route B", 110),
+            _option("c", "Route C", 41),
+        ],
+        pair_inputs=[
+            PairDivergenceInput(
+                option_a_id="a",
+                option_b_id="b",
+                count_a=8,
+                count_b=28,
+                exposure_a=15.0,
+                exposure_b=15.0,
+                period_counts_a=[4, 4],
+                period_counts_b=[14, 14],
+                divergent_share_a=0.3,
+                divergent_share_b=0.3,
+            ),
+            PairDivergenceInput(
+                option_a_id="a",
+                option_b_id="c",
+                count_a=0,
+                count_b=0,
+                exposure_a=0.01,
+                exposure_b=0.01,
+                period_counts_a=[0, 0],
+                period_counts_b=[0, 0],
+                divergent_share_a=0.0,
+                divergent_share_b=0.01,
+            ),
+            PairDivergenceInput(
+                option_a_id="b",
+                option_b_id="c",
+                count_a=28,
+                count_b=8,
+                exposure_a=15.0,
+                exposure_b=15.0,
+                period_counts_a=[14, 14],
+                period_counts_b=[4, 4],
+                divergent_share_a=0.3,
+                divergent_share_b=0.3,
+            ),
+        ],
+    )
+
+    tested = next(
+        pairwise
+        for pairwise in result.pairwise_results
+        if pairwise.minimum_data_status == "met"
+    )
+    not_tested = next(
+        pairwise
+        for pairwise in result.pairwise_results
+        if pairwise.minimum_data_status == "corridors_effectively_identical"
+    )
+    assert tested.adjusted_p_value == pytest.approx(tested.p_value)
+    assert not_tested.adjusted_p_value == 1.0
