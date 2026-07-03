@@ -201,7 +201,7 @@ def build_route_divergent_comparison(
     sides = _candidate_pair_sides(candidate.option_id, pair_inputs)
 
     raw_pairwise: list[PairwiseComparisonResult] = []
-    p_values: list[float] = []
+    tested: list[bool] = []
     for other in options:
         if other.option_id == candidate.option_id:
             continue
@@ -231,7 +231,7 @@ def build_route_divergent_comparison(
                 ),
             )
             raw_pairwise.append(pairwise)
-            p_values.append(pairwise.p_value)
+            tested.append(False)
             continue
 
         rate_test = compare_incident_rates(
@@ -271,9 +271,21 @@ def build_route_divergent_comparison(
                 ),
             )
         )
-        p_values.append(rate_test.p_value)
+        tested.append(True)
 
-    adjusted = benjamini_hochberg(p_values)
+    # Only rate-tested rows enter the Benjamini-Hochberg family; a not-tested row's
+    # structural p=1.0 would inflate the family size m and roughly double the tested
+    # pairs' adjusted p-values.
+    tested_adjusted = iter(
+        benjamini_hochberg(
+            [pairwise.p_value for pairwise, is_tested in zip(raw_pairwise, tested, strict=True)
+             if is_tested]
+        )
+    )
+    adjusted = [
+        next(tested_adjusted) if is_tested else 1.0
+        for is_tested in tested
+    ]
     pairwise_results: list[PairwiseComparisonResult] = []
     for pairwise, adjusted_p_value in zip(raw_pairwise, adjusted, strict=True):
         decision_class = classify_pairwise_result(
@@ -337,6 +349,15 @@ def _divergent_candidate(
 ) -> AnalysisOptionResult:
     totals: dict[str, tuple[int, float]] = {option.option_id: (0, 0.0) for option in options}
     for pair in pair_inputs:
+        # Only pairs that will actually be rate-tested contribute to the aggregate rate.
+        # A near-duplicate pair can carry outer-flank counts on ~zero divergent exposure,
+        # which would explode an option's aggregate and mis-select the candidate.
+        identical = (
+            pair.divergent_share_a < IDENTICAL_DIVERGENT_SHARE
+            and pair.divergent_share_b < IDENTICAL_DIVERGENT_SHARE
+        )
+        if identical or pair.exposure_a <= 0 or pair.exposure_b <= 0:
+            continue
         count_a, exposure_a = totals[pair.option_a_id]
         totals[pair.option_a_id] = (count_a + pair.count_a, exposure_a + pair.exposure_a)
         count_b, exposure_b = totals[pair.option_b_id]
@@ -387,8 +408,9 @@ def _route_minimum_data_status(
     analysis_end_date: date,
     side: PairDivergenceInput,
 ) -> str:
-    if analysis_days(analysis_start_date, analysis_end_date) < MIN_ANALYSIS_DAYS:
-        return "date_range_too_short"
+    # The geometry gates describe why no test region exists at all and both short-circuit
+    # the rate test, so they must precede the date check — otherwise a short window plus a
+    # zero-divergent-exposure pair falls through to compare_incident_rates with exposure 0.
     if (
         side.divergent_share_a < IDENTICAL_DIVERGENT_SHARE
         and side.divergent_share_b < IDENTICAL_DIVERGENT_SHARE
@@ -396,6 +418,8 @@ def _route_minimum_data_status(
         return "corridors_effectively_identical"
     if side.exposure_a <= 0 or side.exposure_b <= 0:
         return "non_positive_exposure"
+    if analysis_days(analysis_start_date, analysis_end_date) < MIN_ANALYSIS_DAYS:
+        return "date_range_too_short"
     if side.count_a < MIN_PLACE_COUNT:
         return "option_count_too_low"
     if side.count_a + side.count_b < MIN_COMBINED_COUNT:
@@ -412,11 +436,20 @@ def _route_pairwise_caveat(
     base = _pairwise_caveat(minimum_data_status, overdispersion_status, rate_test_caveat)
     if minimum_data_status in _ROUTE_NOT_TESTED_STATUSES:
         return base
-    shared_pct = round((1 - max(side.divergent_share_a, side.divergent_share_b)) * 100)
-    note = (
-        f"These routes share ~{shared_pct}% of their corridors; "
-        "only the divergent segments were compared."
-    )
+    # Per-route: each route shares (1 - its own divergent share) of ITS corridor. A single
+    # number would misdescribe one route when the divergent shares are asymmetric.
+    shared_a = round((1 - side.divergent_share_a) * 100)
+    shared_b = round((1 - side.divergent_share_b) * 100)
+    if shared_a == shared_b:
+        note = (
+            f"These routes each share ~{shared_a}% of their corridors; "
+            "only the divergent segments were compared."
+        )
+    else:
+        note = (
+            f"These routes share ~{shared_a}% and ~{shared_b}% of their respective "
+            "corridors; only the divergent segments were compared."
+        )
     return " ".join(part for part in (base, note) if part)
 
 
