@@ -77,15 +77,10 @@ which are unauthenticated or session-creating.
 | `/dashboard/neighborhood` | POST | `app/api/routes_public_dashboard.py` | `DashboardAnalyzeRequest` | `dict` |
 | `/dashboard/freshness` | GET | `app/api/routes_public_dashboard.py` | — | `dict` |
 | `/dashboard/geocode` | GET | `app/api/routes_public_dashboard.py` | `?q=` query param | `list[GeocodeResultSchema]` |
-| `/routes/alternatives` | POST | `app/api/routes_public_routes.py` | `RouteRequestCreate` (`app/routing/schemas.py`) | `dict` |
-| `/routes/requests/{request_id}/comparison` | GET | `app/api/routes_public_routes.py` | — | `dict` |
 | `/assistant/chat` | POST | `app/api/routes_assistant.py` | `AssistantChatRequest` (`app/assistant/schemas.py`) | SSE stream (see §4) |
 | `/uploads` | POST | `app/api/routes_uploads.py` | multipart file upload | `dict` (gated — see §4) |
 | `/uploads` | DELETE | `app/api/routes_uploads.py` | — | `dict` (gated — see §4) |
 | `/exports/tableau/place-summary.csv` | GET | `app/api/routes_exports.py` | — | CSV attachment |
-| `/exports/tableau/route-alternatives.csv` | GET | `app/api/routes_exports.py` | — | CSV attachment |
-| `/exports/tableau/route-segments.csv` | GET | `app/api/routes_exports.py` | — | CSV attachment |
-| `/exports/tableau/route-context.csv` | GET | `app/api/routes_exports.py` | — | CSV attachment |
 
 The `/dashboard/analyze`, `/dashboard/incidents`, `/dashboard/compare`, and
 `/dashboard/neighborhood` request bodies accept an optional `layer` field (`"reported"`
@@ -96,10 +91,7 @@ value is a 422. The layers are mutually exclusive (a 911 call is never counted w
 report it produced). `/dashboard/analyze` records the layer on the `AnalysisRun` and the
 `PlaceCrimeSummary` rows it persists, so `/dashboard/summary` echoes a `layer` field.
 `/dashboard/freshness` returns coverage keyed by layer (`{"reported": {...}, "calls": {...}}`)
-so the UI pill reflects the active layer. `/routes/alternatives` also accepts `layer`
-(validated, default `reported`); it is stored on the `RouteRequest` and echoed in the
-comparison payload's `request.layer`, and selects the sources used for corridor context and
-the route statistical comparison.
+so the UI pill reflects the active layer.
 
 ### Internal tier
 
@@ -118,10 +110,7 @@ were retired and must not be re-exposed.
 | `/internal/crime/ingest/sample` | POST | `app/api/routes_crime.py` | — | Load sample crime data |
 | `/internal/crime/summarize` | POST | `app/api/routes_crime.py` | `CrimeSummarizeRequest` (inline in router) | Summarize crime for user |
 | `/internal/analysis/sites/compare` | POST | `app/api/routes_analysis.py` | `SiteComparisonRequest` (`app/analysis/schemas.py`) | Statistical site comparison |
-| `/internal/analysis/routes/compare` | POST | `app/api/routes_analysis.py` | `RouteComparisonRequest` (`app/analysis/schemas.py`) | Statistical route comparison |
 | `/internal/analysis/comparisons/{comparison_id}` | GET | `app/api/routes_analysis.py` | — | Retrieve stored comparison |
-| `/internal/routes/alternatives` | POST | `app/api/routes_routes.py` | `RouteRequestCreate` (`app/routing/schemas.py`) | Allows `provider` override |
-| `/internal/routes/requests/{request_id}/comparison` | GET | `app/api/routes_routes.py` | — | Route request comparison |
 | `/internal/exports/tableau/place-summary.csv` | GET | `app/api/routes_exports.py` | — | Mirror of public export with demo-identity fallback |
 
 ### Admin tier
@@ -186,12 +175,8 @@ unreachable, only the chat panel is affected; the rest of the API is unaffected.
 `app/api/routes_exports.py` defines **both** public and internal export endpoints in the
 same router file:
 
-- **Public** (`required_public_user_hash`, in schema): `GET /exports/tableau/place-summary.csv`,
-  `GET /exports/tableau/route-alternatives.csv`, `GET /exports/tableau/route-segments.csv`,
-  `GET /exports/tableau/route-context.csv`.
-- **Internal** (`current_user_hash`, `include_in_schema=False`): `GET /internal/exports/tableau/place-summary.csv`
-  only. The three route export endpoints (`route-alternatives`, `route-segments`,
-  `route-context`) have no internal mirror.
+- **Public** (`required_public_user_hash`, in schema): `GET /exports/tableau/place-summary.csv`.
+- **Internal** (`current_user_hash`, `include_in_schema=False`): `GET /internal/exports/tableau/place-summary.csv`.
 
 ---
 

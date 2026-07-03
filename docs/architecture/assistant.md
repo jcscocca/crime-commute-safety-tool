@@ -122,7 +122,7 @@ The active **layer** flows through the assistant the same way the other dashboar
 
 The SSE endpoint in `app/api/routes_assistant.py` builds the client via `build_assistant_llm_client` on each request.
 
-> ⚠ Invariant: when the LLM endpoint is offline or returns no content, `LlmUnavailable` is raised, the agent emits an `error` SSE event with a user-readable message, and returns. The rest of the Waypoint app (dashboard, places, exports, routes) is unaffected.
+> ⚠ Invariant: when the LLM endpoint is offline or returns no content, `LlmUnavailable` is raised, the agent emits an `error` SSE event with a user-readable message, and returns. The rest of the Waypoint app (dashboard, places, exports) is unaffected.
 
 ---
 

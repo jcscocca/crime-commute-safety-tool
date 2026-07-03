@@ -50,11 +50,6 @@ services:
       MCA_RAW_UPLOAD_RETENTION: "${MCA_RAW_UPLOAD_RETENTION:-false}"
       # Crime ingest (Socrata) — optional app token.
       SOCRATA_APP_TOKEN: ${SOCRATA_APP_TOKEN:-}
-      # Live routing via the optional `otp` service (profile: otp); in-network at
-      # http://otp:8080/otp/gtfs/v1. Defaults to the mock provider for local dev.
-      MCA_ROUTING_PROVIDER: ${MCA_ROUTING_PROVIDER:-mock}
-      MCA_OPENTRIPPLANNER_BASE_URL: ${MCA_OPENTRIPPLANNER_BASE_URL:-}
-      MCA_OPENTRIPPLANNER_TIMEOUT_S: "${MCA_OPENTRIPPLANNER_TIMEOUT_S:-10.0}"
       # Geocoding — contact email is REQUIRED when MCA_ENVIRONMENT=production (the app
       # refuses to boot otherwise), so these must reach the container.
       MCA_GEOCODER_PROVIDER: ${MCA_GEOCODER_PROVIDER:-nominatim}
@@ -80,24 +75,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-
-  # Optional live-routing engine. Off by default (profile "otp"). It only --loads a
-  # prebuilt graph, so build the graph once first (RAM-heavy, downloads OSM+GTFS):
-  #   scripts/otp_setup.sh --rebuild        # downloads data + builds + serves, OR
-  #   docker compose run --rm otp --build --save   # if OSM+GTFS are already in OTP_DATA_DIR
-  # then:  docker compose --profile otp up -d otp
-  # With this service the api can reach OTP in-network at http://otp:8080/otp/gtfs/v1.
-  otp:
-    image: docker.io/opentripplanner/opentripplanner:latest
-    profiles: ["otp"]
-    command: ["--load", "--serve"]
-    environment:
-      JAVA_TOOL_OPTIONS: ${OTP_HEAP:--Xmx8g}
-    volumes:
-      - ${OTP_DATA_DIR:-./otp-data}:/var/opentripplanner
-    ports:
-      - "8090:8080"
-    restart: "no"
 
 volumes:
   mca-postgres:

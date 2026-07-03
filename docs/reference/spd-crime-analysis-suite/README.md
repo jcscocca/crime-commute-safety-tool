@@ -45,7 +45,7 @@ Use now:
 
 Use soon:
 
-- Add time-series context cards for places and routes:
+- Add time-series context cards for places:
   - current period count
   - prior comparable period count
   - same-season historical baseline
@@ -63,7 +63,7 @@ Avoid for v1:
 
 - Do not require TabPy for the public app.
 - Do not ship formal p-values or forecasting in the first self-service release.
-- Do not label neighborhoods, places, or routes as safe/unsafe.
+- Do not label neighborhoods or places as safe/unsafe.
 - Do not import the Tableau extension wholesale into the React app.
 
 ## Runtime Artifacts Intentionally Not Extracted

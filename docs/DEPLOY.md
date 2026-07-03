@@ -11,17 +11,14 @@ This trial runs **entirely on the ThinkPad** — no second machine:
 
 - **Waypoint** (API + UI + Postgres) — this `docker compose` stack, on `:8000`.
 - **Analyst LLM** (llama-swap, OpenAI-compatible) — already serving on the ThinkPad at `:8080`.
-- **Routing** (OpenTripPlanner) — `scripts/otp_thinkpad_setup.ps1`, on `:8090`.
 
-Because Waypoint runs in a container, it reaches the two host-port services via
+Because Waypoint runs in a container, it reaches the host-port LLM service via
 `host.docker.internal`. Put this wiring in `.env.deploy` (alongside the secrets from the next
 section):
 
 ```
 MCA_LLM_BASE_URL=http://host.docker.internal:8080/v1
 MCA_LLM_MODEL=gemma-4-26b-a4b-it-ud-q4-k-m-ctx32k
-MCA_ROUTING_PROVIDER=opentripplanner
-MCA_OPENTRIPPLANNER_BASE_URL=http://host.docker.internal:8090/otp/gtfs/v1
 ```
 
 Bring-up order on the ThinkPad (PowerShell). The analyst (llama-swap) is already running, so
@@ -29,14 +26,13 @@ there is nothing to start there:
 
 ```powershell
 cp .env.deploy.example .env.deploy        # fill in secrets (next section) + the wiring above
-.\scripts\otp_thinkpad_setup.ps1          # routing: download data, build graph, serve :8090
 docker compose --env-file .env.deploy up -d --build   # Waypoint on :8000
 # then load crime data (step 3 below) and open http://localhost:8000
 ```
 
 If `host.docker.internal` ever fails to resolve, substitute the ThinkPad's LAN IP
 (e.g. `http://10.0.0.76:8080/...`). Detailed steps for each piece (secrets, crime data,
-analyst, routing) follow.
+analyst) follow.
 
 ## 1. Generate secrets
 
@@ -113,11 +109,11 @@ is created automatically on first load.
   drop the `db` `ports:` mapping (the API reaches Postgres over the compose network)
   and set a real DB password.
 - **Internal API surface:** the `/internal/*` endpoints (analysis, imports, crime
-  ingest/summary, route engine) are hidden from OpenAPI and accept the **demo-identity
+  ingest/summary) are hidden from OpenAPI and accept the **demo-identity
   fallback** instead of requiring a real session; the UI never calls them, and
   `tests/test_internal_surface.py` keeps them off the bare public paths. Not a
   tester-to-tester leak, but lock them down before any internet exposure. The public
-  endpoints the UI uses (`/places`, `/dashboard/*`, `/routes*`, `/uploads`, `/exports/*`)
+  endpoints the UI uses (`/places`, `/dashboard/*`, `/uploads`, `/exports/*`)
   all require a real session.
 - **Schema is Alembic-owned in production.** The container runs `alembic upgrade head`
   on start (the Docker `CMD`); the app no longer also runs `create_all` against Postgres
@@ -181,139 +177,6 @@ MCA_LLM_FALLBACK_DISABLE_THINKING=true    # fallback Qwen: emit content, not rea
 If the endpoint or model is unreachable the assistant returns an error message, but
 every other part of the app — maps, analysis, neighborhood, compare, exports — is
 completely unaffected.
-
-### Routing (OpenTripPlanner)
-
-Route alternatives default to a built-in deterministic **mock** provider
-(`MCA_ROUTING_PROVIDER=mock`) — fine for the trial. To serve **live** routes for any
-origin/destination, point Waypoint at an OpenTripPlanner (OTP) instance.
-
-On a single-box (ThinkPad) setup the analyst LLM and OTP co-locate cleanly: the model uses
-the **GPU/VRAM**, while OTP is a JVM that uses **system RAM + CPU and no GPU**, so they do
-not contend. Run OTP on a port *other than* `8080` (llama-swap already owns `8080` on that
-host) — e.g. `8090` — then set in `.env.deploy`:
-
-```
-MCA_ROUTING_PROVIDER=opentripplanner
-MCA_OPENTRIPPLANNER_BASE_URL=http://10.0.0.76:8090/otp/gtfs/v1
-```
-
-Same LAN-IP rule as the assistant: `127.0.0.1` will not resolve from inside the container —
-use the host's LAN IP or `host.docker.internal:8090`.
-
-**Standing up OTP — scripted (recommended).** A helper downloads the OSM + GTFS inputs,
-builds the graph, and starts a Dockerized `otp` container on `:8090` (uses the upstream OTP
-image, so no host Java needed):
-
-```bash
-scripts/otp_setup.sh                 # Linux/macOS  (--rebuild to force a fresh graph)
-# or on Windows:  .\scripts\otp_thinkpad_setup.ps1
-```
-
-It prints the exact `MCA_ROUTING_PROVIDER` / `MCA_OPENTRIPPLANNER_BASE_URL` to set. Re-runs
-skip the download/build when the data and graph already exist.
-
-Alternatively, a **docker-compose `otp` profile** serves a *prebuilt* graph (it only
-`--load`s, so build the graph once first via `scripts/otp_setup.sh` or
-`docker compose run --rm otp --build --save`, with the OSM+GTFS in `OTP_DATA_DIR`):
-
-```bash
-docker compose --profile otp up -d otp
-# then the api can reach it in-network: MCA_OPENTRIPPLANNER_BASE_URL=http://otp:8080/otp/gtfs/v1
-```
-
-**Standing up OTP — by hand** (two phases, build a graph once then serve it):
-
-1. Gather the inputs: a Washington/Puget Sound **OSM** extract
-   ([Geofabrik](https://download.geofabrik.de/north-america/us/washington.html)) and the
-   **Puget Sound Consolidated GTFS**
-   (`https://gtfs.sound.obaweb.org/prod/gtfs_puget_sound_consolidated.zip`).
-2. Put both in a folder and build + serve with OTP **2.x**, e.g.:
-
-   ```bash
-   java -Xmx8G -jar otp-2.7.0-shaded.jar --build --serve /graphs
-   ```
-
-   OTP serves on `:8080` by default; since llama-swap already owns `:8080` on the ThinkPad,
-   put OTP behind a port map / reverse proxy on `:8090` (e.g. Docker `-p 8090:8080`).
-
-   The graph *build* is the only real RAM spike (it loads all the OSM + GTFS at once); the
-   ThinkPad's spare system RAM handles it, or build once on another machine and copy the
-   graph file over — *serving* only needs ~4–8 GB.
-
-> **OTP version:** the provider speaks the **OTP 2.x GTFS GraphQL API** — it POSTs a `plan`
-> query to `MCA_OPENTRIPPLANNER_BASE_URL` (the full GraphQL endpoint, e.g. `…/otp/gtfs/v1`).
-> OTP 1.x's REST `/plan` API is not supported. See the
-> [GTFS GraphQL API docs](https://docs.opentripplanner.org/en/latest/apis/GTFS-GraphQL-API/).
-
-If OTP is unreachable, `/routes` requests return an error; every other part of the app is
-unaffected (same graceful-degradation posture as the assistant).
-
-> **Local macOS validation (Apple Silicon):** the same Docker recipe runs natively (arm64,
-> no `--platform` flag). Use `~/otp` as the data dir, raise Docker Desktop memory to ≥14 GB for
-> the one-time `--build --save`, and point the app at `http://localhost:8090/otp/gtfs/v1`
-> (**not** `host.docker.internal`, which is only for the containerized ThinkPad deploy). The
-> setup script is Windows-only; on macOS run the `docker run … --build --save` and
-> `--load --serve` commands by hand with the pinned `…/opentripplanner:2.7.0` image.
-
-#### Running the OTP container day-to-day
-
-**Fastest path:** on the ThinkPad, run [`scripts/otp_thinkpad_setup.ps1`](../scripts/otp_thinkpad_setup.ps1)
-in PowerShell — it downloads the OSM + GTFS data, builds the graph, starts the container with the
-restart policy, and opens the firewall, then prints the exact `MCA_OPENTRIPPLANNER_BASE_URL` (with
-the host's LAN IP) to set on the Mac. The manual steps below do the same by hand.
-
-Building the graph is a one-time step that writes `graph.obj` into the data folder; after that
-you only run the lightweight **serve** container, which loads that graph. Run it with a restart
-policy so it comes back on its own after reboots / Docker restarts:
-
-```powershell
-cd C:\otp   # the folder that holds graph.obj
-docker run -d --name otp --restart unless-stopped -p 8090:8080 `
-  -e JAVA_TOOL_OPTIONS='-Xmx8g' -v ${PWD}:/var/opentripplanner `
-  docker.io/opentripplanner/opentripplanner:2.7.0 --load --serve
-```
-
-`--restart unless-stopped` is the important part: Docker Desktop restarts OTP automatically on
-boot, so normally you never start it by hand. Once that container exists:
-
-| Action | Command |
-| --- | --- |
-| Start it again | `docker start otp` |
-| Stop it | `docker stop otp` |
-| Restart | `docker restart otp` |
-| Follow logs (wait for `Grizzly server running`) | `docker logs -f otp` |
-| Status | `docker ps -a --filter name=otp` |
-| Recreate from scratch | `docker rm -f otp`, then re-run the `docker run …` above |
-
-If `docker run` says the name is already in use, the container already exists — use
-`docker start otp` (or `docker rm -f otp` first to recreate it with the restart policy).
-`--load` needs the saved `graph.obj`; if you ever built with `--serve` instead of `--save`,
-run `--build --save` once to produce it.
-
-**Confirm it is serving** — open `http://localhost:8090/graphiql`, or:
-
-```powershell
-curl http://localhost:8090/otp/gtfs/v1 -X POST -H "Content-Type: application/json" `
-  -d '{"query":"{ plan(from:{lat:47.62,lon:-122.32}, to:{lat:47.61,lon:-122.33}, transportModes:[{mode:TRANSIT},{mode:WALK}]) { itineraries { duration } } }"}'
-```
-
-**Point Waypoint at it.** When Waypoint runs on a *different* machine (e.g. a Mac), it reaches
-OTP over the LAN — use the ThinkPad's IP, and make sure the firewall allows the port. The setup
-script adds the rule; by hand, in an elevated PowerShell:
-`New-NetFirewallRule -DisplayName "OTP 8090" -Direction Inbound -Protocol TCP -LocalPort 8090 -Action Allow`.
-Set these where Waypoint runs (its `.env` / `.env.deploy`) and restart it:
-
-```
-MCA_ROUTING_PROVIDER=opentripplanner
-MCA_OPENTRIPPLANNER_BASE_URL=http://10.0.0.76:8090/otp/gtfs/v1
-```
-
-Use `http://localhost:8090/...` only if Waypoint runs on the ThinkPad itself (or
-`http://host.docker.internal:8090/...` if it is containerized on the ThinkPad).
-
-**Refresh transit data** when the GTFS feed changes: re-download it into the data folder,
-rebuild with `--build --save`, then `docker restart otp`.
 
 ## Stop / reset
 
