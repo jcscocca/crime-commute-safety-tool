@@ -27,20 +27,31 @@ def test_activity_metrics():
     assert m["longest_idle_in_txn_s"] == 45.0
 
 
-def test_database_metrics_cache_hit_ratio():
-    row = {"numbackends": "5", "xact_commit": "100", "xact_rollback": "2",
-           "blks_read": "10", "blks_hit": "990", "deadlocks": "0",
-           "temp_files": "0", "temp_bytes": "0"}
-    m = ob.database_metrics(row)
-    assert m["cache_hit_ratio"] == 0.99
-    assert m["deadlocks"] == 0
+def test_database_window_interval_ratio_and_run_deltas():
+    # pg_stat_database counters are cumulative; the window must (a) compute cache hit
+    # ratio over the interval since prev, and (b) report deadlocks/temp_bytes as deltas
+    # since run start so pre-soak history doesn't count.
+    start = {"numbackends": "5", "xact_commit": "1000", "xact_rollback": "0",
+             "blks_read": "100", "blks_hit": "9900", "deadlocks": "3",
+             "temp_files": "0", "temp_bytes": "2048"}
+    prev = {"numbackends": "6", "xact_commit": "1500", "xact_rollback": "0",
+            "blks_read": "110", "blks_hit": "9990", "deadlocks": "3",
+            "temp_files": "0", "temp_bytes": "2048"}
+    cur = {"numbackends": "7", "xact_commit": "2000", "xact_rollback": "0",
+           "blks_read": "120", "blks_hit": "10080", "deadlocks": "4",
+           "temp_files": "0", "temp_bytes": "6144"}
+    m = ob.database_window(prev, cur, start)
+    assert m["cache_hit_ratio"] == 0.9        # interval: d_hit=90, d_read=10 → 90/100
+    assert m["deadlocks_run"] == 1            # 4 now vs 3 at start → one during the soak
+    assert m["temp_bytes_run"] == 4096        # 6144 - 2048
+    assert m["numbackends"] == 7              # gauge, current value
 
 
-def test_database_metrics_zero_blocks_is_safe():
+def test_database_window_zero_interval_is_safe():
     row = {"numbackends": "1", "xact_commit": "0", "xact_rollback": "0",
            "blks_read": "0", "blks_hit": "0", "deadlocks": "0",
            "temp_files": "0", "temp_bytes": "0"}
-    assert ob.database_metrics(row)["cache_hit_ratio"] is None
+    assert ob.database_window(row, row, row)["cache_hit_ratio"] is None
 
 
 def test_lock_metrics():

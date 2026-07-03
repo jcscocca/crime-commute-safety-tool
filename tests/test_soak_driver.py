@@ -70,3 +70,13 @@ def test_summarize_rollup_and_drift():
     assert ep["errors"] == 1
     assert summary["drift"]["analyze"] == pytest.approx(3.0, rel=0.1)
     assert "analyze" in summary["budget_breaches"]  # p95 ~300 > 150
+
+
+def test_summarize_drift_short_run_uses_disjoint_halves():
+    # A 30-min run (< 2h) whose latency triples must still report the drift, not a
+    # false ~1.0 from overlapping fixed 1h windows.
+    base = 1_000_000.0
+    rows = [_rec(base + i, 100.0, True) for i in range(900)]         # first half ~100ms
+    rows += [_rec(base + 900 + i, 300.0, True) for i in range(900)]  # last half ~300ms
+    summary = sd.summarize(rows, budgets={})
+    assert summary["drift"]["analyze"] == pytest.approx(3.0, rel=0.1)

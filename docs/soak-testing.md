@@ -69,10 +69,13 @@ All under `--out` (default `soak-out/`):
 |---|---|---|
 | `requests.csv` | driver | one row per request: `ts, vu, endpoint, status, latency_ms, ok` |
 | `summary.json` | driver | per-endpoint + overall p50/p95/p99, latency drift, budget breaches |
-| `pg_stats.csv` | observer | one row per interval: connections, cache hit ratio, locks, temp_bytes, … |
+| `pg_stats.csv` | observer | one row per interval: connections, per-interval cache hit ratio, locks, run-delta deadlocks/temp_bytes |
 | `pg_summary.json` | observer | top statements by mean time + hot-table size deltas |
 
-Correlate the two CSVs by the `ts` (unix-seconds) column.
+Correlate the two CSVs by the `ts` (unix-seconds) column. The `pg_stats.csv` counter columns
+are scoped to the run: `deadlocks_run` and `temp_bytes_run` are deltas since the observer
+started (not lifetime totals), and `cache_hit_ratio` is computed over each interval — so all
+three reflect the soak itself, not pre-soak history.
 
 ## What to watch
 
@@ -80,14 +83,14 @@ Correlate the two CSVs by the `ts` (unix-seconds) column.
 |---|---|---|
 | active/idle connections (`pg_stats.csv`) | plateaus below the SQLAlchemy pool size | steadily climbing → **connection-pool leak** |
 | `idle_in_txn` (`pg_stats.csv`) | ~0 | sustained > 0 → a session opened a transaction and never committed (**bug**) |
-| latency drift (`summary.json` `drift`) | < ~1.3× | higher last-hour vs first-hour p95 → plan flip, table bloat, or cache pressure |
+| latency drift (`summary.json` `drift`) | < ~1.3× | last-window vs first-window p95 rising → plan flip, table bloat, or cache pressure (windows = first/last hour on a ≥2h run, else each half) |
 | `locks_not_granted` (`pg_stats.csv`) | 0 | > 0 sustained → **lock contention** (unexpected for a read-mostly workload) |
 | `cache_hit_ratio` (`pg_stats.csv`) | ≈ ≥ 0.99, steady | falling over the run → working set outgrowing `shared_buffers` |
-| `temp_bytes` (`pg_stats.csv`) | flat | climbing → queries spilling to disk (missing index / bad plan on the beat load) |
-| `deadlocks` (`pg_stats.csv`) | 0 | > 0 → **bug** |
+| `temp_bytes_run` (`pg_stats.csv`) | 0 / flat | climbing → queries spilling to disk during the run (missing index / bad plan on the beat load) |
+| `deadlocks_run` (`pg_stats.csv`) | 0 | > 0 → a deadlock occurred **during the soak** (**bug**) |
 | top statements (`pg_summary.json`) | stable | a query whose mean time is unexpectedly high / a new expensive query |
 | hot-table size delta (`pg_summary.json`) | ~0 on read-only tables | unexpected growth |
-| error rate (`summary.json`) | ≈ 0 (bar intentional 4xx) | rising 5xx → the app or DB is shedding load |
+| error rate (`summary.json`) | ≈ 0 (bar intentional 4xx) | rising 5xx → the app or DB is shedding load (per-request status is in `requests.csv`) |
 
 ## Pass criteria (H2)
 
@@ -95,8 +98,9 @@ A run **passes** when, for the full target duration at the target concurrency:
 
 - the stack survives without crashing and error-rate stays ≈ 0 (excluding intentional 4xx);
 - connections plateau below the pool size — no creep — and `idle_in_txn` stays ~0;
-- per-endpoint p95 stays within budget and latency **drift** stays under ~1.3×;
-- no deadlocks and no sustained not-granted locks.
+- per-endpoint p95 stays within budget and latency **drift** stays under ~1.3× (drift is most
+  reliable on a ≥2h run, where the compared windows are the first vs last hour);
+- `deadlocks_run` stays 0 and there are no sustained not-granted locks.
 
 Record which `USERS` level the run passed at; that's the validated sustained concurrency for
 the current ThinkPad deploy.
