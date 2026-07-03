@@ -57,8 +57,11 @@ working code with full git-history recoverability — nothing in flight is orpha
   place-buffer functions and shared helpers.
 - `app/analysis/schemas.py` — remove `GeometryType.ROUTE_CORRIDOR` and
   `RouteComparisonRequest`.
-- `app/analysis/comparison.py` — **untouched**; `build_statistical_comparison` is the
-  shared engine and places still funnel through it.
+- `app/analysis/comparison.py` — remove the route-only divergent-corridor symbols added
+  by #87–#90 (`build_route_divergent_comparison` and its `_route_*`/`_divergent_*`
+  helpers); `build_statistical_comparison` and all shared helpers stay — places still
+  funnel through them. The route-only `app/analysis/divergence.py` module (also from
+  #87) is deleted outright.
 
 **Models & migration (ordering constraint):**
 - Delete models `RouteRequest`, `RouteAlternative`, `RouteSegment`,
