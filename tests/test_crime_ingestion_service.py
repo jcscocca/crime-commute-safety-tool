@@ -40,6 +40,59 @@ def test_ingest_crime_incidents_upserts_by_external_id(tmp_path):
     session.close()
 
 
+def test_purge_incidents_below_floor_scopes_to_source_and_floor(tmp_path):
+    from app.crime.sources import SOURCE_SPD_911
+    from app.services.crime_ingestion_service import purge_incidents_below_floor
+
+    create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    session = get_sessionmaker()()
+    floor = date(2024, 7, 1)
+    session.add_all(
+        [
+            # call below the floor -> purged
+            CrimeIncident(
+                id="call-below", source_dataset=SOURCE_SPD_911, external_incident_id="c-below",
+                offense_start_utc=datetime(2024, 6, 15, tzinfo=UTC),
+            ),
+            # offense date null but report date below the floor -> purged (coalesce)
+            CrimeIncident(
+                id="call-report-below", source_dataset=SOURCE_SPD_911,
+                external_incident_id="c-report-below",
+                offense_start_utc=None, report_utc=datetime(2024, 5, 1, tzinfo=UTC),
+            ),
+            # exactly at the floor midnight -> kept (floor is the inclusive lower bound)
+            CrimeIncident(
+                id="call-at-floor", source_dataset=SOURCE_SPD_911, external_incident_id="c-at",
+                offense_start_utc=datetime(2024, 7, 1, 0, 0, tzinfo=UTC),
+            ),
+            # above the floor -> kept
+            CrimeIncident(
+                id="call-above", source_dataset=SOURCE_SPD_911, external_incident_id="c-above",
+                offense_start_utc=datetime(2024, 8, 1, tzinfo=UTC),
+            ),
+            # no observed date at all -> kept (can't be dated)
+            CrimeIncident(
+                id="call-null", source_dataset=SOURCE_SPD_911, external_incident_id="c-null",
+                offense_start_utc=None, report_utc=None,
+            ),
+            # reported-crime row below the floor -> kept (different source, fixed-history layer)
+            CrimeIncident(
+                id="crime-below", source_dataset="seattle_spd_crime",
+                external_incident_id="r-below",
+                offense_start_utc=datetime(2024, 1, 1, tzinfo=UTC),
+            ),
+        ]
+    )
+    session.commit()
+
+    purged = purge_incidents_below_floor(session, SOURCE_SPD_911, floor)
+
+    assert purged == 2
+    remaining = {row.id for row in session.scalars(select(CrimeIncident)).all()}
+    assert remaining == {"call-at-floor", "call-above", "call-null", "crime-below"}
+    session.close()
+
+
 def test_current_seattle_socrata_row_maps_to_analysis_fields():
     incident = crime_incident_from_mapping(
         {
