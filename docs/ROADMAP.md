@@ -153,8 +153,11 @@ strong before it becomes the front door.
   on the statistical richness the `/dashboard/compare` payload already returns (hybrid
   callout + ranked lowest-first list + per-pair analytics), frontend-only. Spec/plan:
   `docs/superpowers/{specs,plans}/2026-07-03-compare-first-flagship*`.
-- [ ] **Slice B — multi-address compare UX** — a Compare-owned add/remove-address control
-  and N-way selection independent of the Places tab. Not yet specced.
+- [x] **Slice B — multi-address compare UX** — shipped: a Compare-owned editable address set
+  (add via the reused address search, remove, seeded-from-selection, decoupled, 2–10) driving
+  the verdict, plus an honest rate-ratio interval plot in the verdict (the payload-ready
+  visualization; overlapping bell curves were rejected as statistically dishonest here).
+  Frontend-only. Spec/plan: `docs/superpowers/{specs,plans}/2026-07-03-compare-multi-address*`.
 - [ ] **Slice C — comparison-first landing** — lead the app with the compare flow. Not yet
   specced.
 

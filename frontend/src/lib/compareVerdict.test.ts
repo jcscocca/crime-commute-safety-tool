@@ -104,3 +104,31 @@ describe("toCompareVerdict", () => {
     expect(m.rows[1].multipleOfLowest).toBeNull();
   });
 });
+
+describe("toCompareVerdict — plot interval (Part 2)", () => {
+  it("inverts the ratio CI onto the multiple-of-lowest axis for each non-lowest row", () => {
+    // candidate 'a' is lowest; pair a-vs-b has rate_ratio 0.4 (=lowest/other), ci 0.24–0.56
+    const c = comparison("statistically_lower",
+      [opt("a", "Pike", 12, 3.9), opt("b", "Bell", 31, 10.1)],
+      [pair("a", "b", "statistically_lower", "a", 0.4)], "a");
+    const m = toCompareVerdict(c);
+    const lowest = m.rows.find((r) => r.label === "Pike")!;
+    const other = m.rows.find((r) => r.label === "Bell")!;
+    expect(lowest.plotCiLow).toBeNull();
+    expect(lowest.plotCiHigh).toBeNull();
+    // multiple axis: interval = [1/ci_upper, 1/ci_lower] = [1/0.56, 1/0.24]
+    expect(other.plotCiLow).toBeCloseTo(1 / 0.56, 4);
+    expect(other.plotCiHigh).toBeCloseTo(1 / 0.24, 4);
+  });
+
+  it("computes the inverted bounds from any present pairwise (the component decides whether to draw)", () => {
+    const c = comparison("not_statistically_clear",
+      [opt("a", "Pike", 12, 3.9), opt("z", "Zed", 3, 9.0)],
+      [pair("a", "z", "insufficient_data", null, 0.43)], null);
+    const m = toCompareVerdict(c);
+    const zed = m.rows.find((r) => r.label === "Zed")!;
+    // relationship is 'limited' (insufficient) — still expose the inverted interval bounds if a pair exists
+    expect(zed.plotCiLow).toBeCloseTo(1 / (0.43 * 1.4), 4);
+    expect(zed.plotCiHigh).toBeCloseTo(1 / (0.43 * 0.6), 4);
+  });
+});
