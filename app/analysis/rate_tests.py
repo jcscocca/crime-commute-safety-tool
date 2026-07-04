@@ -53,7 +53,7 @@ def compare_incident_rates(
         caveats.append("A continuity correction was used because one option had zero incidents.")
 
     rate_ratio = (safe_count_a / exposure_a) / (safe_count_b / exposure_b)
-    phi = overdispersion_phi or 1.0
+    phi = _effective_phi(overdispersion_phi)
     se_log_rr = math.sqrt(phi * ((1 / safe_count_a) + (1 / safe_count_b)))
 
     # The displayed CI and the decision p-value are derived from ONE phi-aware Wald
@@ -122,7 +122,7 @@ def rate_confidence_interval(
 
     used_correction = count == 0
     safe_count = count + 0.5 if used_correction else count
-    phi = overdispersion_phi or 1.0
+    phi = _effective_phi(overdispersion_phi)
     se_log_rate = math.sqrt(phi / safe_count)
     log_center = math.log(safe_count / exposure)
     method = (
@@ -130,16 +130,36 @@ def rate_confidence_interval(
         if overdispersion_phi is not None and overdispersion_phi > DISPERSION_THRESHOLD
         else "poisson_rate_interval"
     )
+    # A zero-count rate is exactly 0, and the exact-Poisson lower bound at k=0 is 0. The
+    # continuity correction only exists to give a finite, honest *upper* bound; clamp the lower
+    # bound to 0 so the point estimate stays inside its own interval (otherwise the number line
+    # renders the dot at 0, detached to the left of a bar that starts above 0).
+    ci_lower = 0.0 if count == 0 else math.exp(log_center - Z_975 * se_log_rate)
     return RateInterval(
         count=count,
         exposure=exposure,
         rate=count / exposure,
-        ci_lower=math.exp(log_center - Z_975 * se_log_rate),
+        ci_lower=ci_lower,
         ci_upper=math.exp(log_center + Z_975 * se_log_rate),
         overdispersion_phi=overdispersion_phi,
         used_continuity_correction=used_correction,
         method=method,
     )
+
+
+def _effective_phi(overdispersion_phi: float | None) -> float:
+    """Overdispersion multiplier for the Wald SE, floored at 1.0 (plain Poisson).
+
+    A φ < 1 (apparent under-dispersion) would shrink the SE below Poisson and could manufacture a
+    spurious "statistically lower" verdict; in the small monthly-bin samples here an estimate
+    below 1 is almost always noise, so flooring keeps inference conservative. The method *label*
+    still reflects the raw estimate (φ > DISPERSION_THRESHOLD), so flooring only ever widens an
+    interval, never mislabels one. Applied identically in the pairwise and single-rate paths so
+    the two stay consistent.
+    """
+    if overdispersion_phi is None:
+        return 1.0
+    return max(overdispersion_phi, 1.0)
 
 
 def _is_nonnegative_integer(value: object) -> bool:

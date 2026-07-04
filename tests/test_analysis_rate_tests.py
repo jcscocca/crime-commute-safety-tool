@@ -166,6 +166,21 @@ def test_quasi_poisson_adjustment_weakens_high_dispersion_significance():
     assert adjusted.ci_upper > poisson.ci_upper
 
 
+def test_compare_incident_rates_floors_under_dispersion_at_poisson():
+    # phi < 1 (apparent under-dispersion, usually noise in sparse bins) must not shrink the SE
+    # below plain Poisson — otherwise it can manufacture a spurious "statistically lower" verdict.
+    floored = compare_incident_rates(
+        count_a=15, exposure_a=30.0, count_b=22, exposure_b=30.0, overdispersion_phi=0.3
+    )
+    poisson = compare_incident_rates(
+        count_a=15, exposure_a=30.0, count_b=22, exposure_b=30.0, overdispersion_phi=1.0
+    )
+
+    assert floored.ci_lower == poisson.ci_lower
+    assert floored.ci_upper == poisson.ci_upper
+    assert floored.p_value == poisson.p_value
+
+
 def test_benjamini_hochberg_adjusts_p_values_monotonically():
     adjusted = benjamini_hochberg([0.01, 0.04, 0.03])
 
@@ -254,14 +269,28 @@ def test_rate_confidence_interval_widens_with_overdispersion():
     assert overdispersed.ci_upper > poisson.ci_upper
 
 
-def test_rate_confidence_interval_zero_count_uses_continuity_correction():
+def test_rate_confidence_interval_zero_count_clamps_lower_bound_to_zero():
     result = rate_confidence_interval(count=0, exposure=50.0)
 
     assert result.rate == 0.0
     assert result.used_continuity_correction is True
-    # A zero-count address still gets an honest positive upper bound, not a false zero interval.
-    assert result.ci_lower > 0.0
-    assert result.ci_upper > result.ci_lower
+    # The exact-Poisson lower bound at k=0 is 0, so the interval starts at the point estimate
+    # (the continuity correction only powers an honest positive upper bound). The rate stays
+    # inside its own interval — the number-line dot sits at the left edge of the bar, not
+    # detached to its left.
+    assert result.ci_lower == 0.0
+    assert result.rate == result.ci_lower
+    assert result.ci_upper > 0.0
+
+
+def test_rate_confidence_interval_floors_under_dispersion_at_poisson():
+    # An estimated phi < 1 is treated as noise: the interval must not shrink below the plain
+    # Poisson (phi=1) interval.
+    floored = rate_confidence_interval(count=15, exposure=100.0, overdispersion_phi=0.3)
+    poisson = rate_confidence_interval(count=15, exposure=100.0, overdispersion_phi=1.0)
+
+    assert floored.ci_lower == poisson.ci_lower
+    assert floored.ci_upper == poisson.ci_upper
 
 
 def test_rate_confidence_interval_tightens_relative_interval_as_count_grows():

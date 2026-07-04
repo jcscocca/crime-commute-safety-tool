@@ -162,11 +162,13 @@ disagreement that the comparison UI was deliberately designed to avoid. Worth re
 low-count calibration becomes a priority; the existing minimum-data floors already gate the
 lowest-count decisions.
 
-**Related, out of scope:** the engine currently propagates an *apparent under*-dispersion
-(φ < 1 shrinks the SE below Poisson; `rate_tests.py` `phi = overdispersion_phi or 1.0`). In
-sparse counts that is usually noise, and flooring φ at 1.0 would be more conservative. Left as a
-separate change so the per-address interval stays byte-for-byte consistent with the pairwise
-test.
+**φ is floored at 1.0.** An estimated φ < 1 (apparent under-dispersion) would shrink the SE
+below Poisson; in the small monthly-bin samples here that is almost always noise, so
+`rate_tests._effective_phi` floors the multiplier at 1.0 (plain Poisson) before it enters the
+Wald SE. The method *label* still reflects the raw estimate (φ > 1.2 ⇒ quasi-Poisson), so
+flooring only ever widens an interval, never mislabels one. The floor is applied identically in
+the pairwise (`compare_incident_rates`) and single-rate (`rate_confidence_interval`) paths, so
+the per-address interval stays consistent with the pairwise verdict.
 
 ## 6. Product invariant
 
