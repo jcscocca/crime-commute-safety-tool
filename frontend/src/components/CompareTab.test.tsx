@@ -37,7 +37,7 @@ describe("CompareTab", () => {
   it("before running: invites a compare and fires onRun", () => {
     const onRun = vi.fn();
     render(<CompareTab selected={[home, office]} analysis={analysis} comparison={null} running={false} onRun={onRun} />);
-    expect(screen.getByText(/rank their reported incidents rates/i)).toBeInTheDocument();
+    expect(screen.getByText(/rank their reported incident rates/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /compare places/i }));
     expect(onRun).toHaveBeenCalled();
   });

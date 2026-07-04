@@ -56,7 +56,7 @@ export function CompareTab({ selected, analysis, comparison, running, onRun, onC
           <CompareRankedList rows={verdict.rows} noun={noun} />
         </>
       ) : (
-        <p className="mc-empty-list">Compare these {selected.length} places to rank their {noun.plural} rates.</p>
+        <p className="mc-empty-list">Compare these {selected.length} places to rank their {noun.singular} rates.</p>
       )}
 
       <div className="mc-caveat">
