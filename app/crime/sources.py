@@ -26,6 +26,10 @@ class CrimeSource:
     mapper: Callable[[dict[str, Any]], CrimeIncidentData]
     date_field: str  # Socrata column used for $order / $where windowing
     data_floor: Callable[[date | None], date]  # resolves the earliest ingest date for a run
+    # When True the data_floor is a *rolling* window (not fixed history): ingest must also purge
+    # stored rows that have fallen below the current floor, or the layer silently outgrows its
+    # advertised window (fetch-side floors only bound new fetches). See purge_incidents_below_floor.
+    rolling_window: bool = False
 
 
 CRIME_SOURCES: dict[str, CrimeSource] = {
@@ -49,6 +53,7 @@ CRIME_SOURCES: dict[str, CrimeSource] = {
         mapper=call_from_mapping,
         date_field="cad_event_original_time_queued",
         data_floor=calls_data_floor,
+        rolling_window=True,
     ),
 }
 

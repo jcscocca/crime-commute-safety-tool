@@ -154,6 +154,53 @@ def test_admin_backfill_mode_pages_through_the_dataset(tmp_path, monkeypatch):
     assert response.json() == {"inserted_count": 3, "skipped_count": 0, "pages": 2}
 
 
+def test_admin_calls_ingest_purges_rows_below_the_rolling_floor(tmp_path, monkeypatch):
+    # The 911-calls layer advertises a rolling 24-month window; an ingest run must drop stored
+    # calls that have fallen below the current floor, not just bound new fetches. A non-rolling
+    # source (crime/arrests) is already guarded by test_admin_backfill_mode_* returning no
+    # purged_count.
+    from sqlalchemy import select
+
+    monkeypatch.setenv("MCA_ADMIN_INGEST_TOKEN", "secret-token")
+    monkeypatch.delenv("SOCRATA_APP_TOKEN", raising=False)
+
+    def fake_fetch_page(self, limit, offset, start_date=None, end_date=None):
+        return []  # nothing new to ingest; we're exercising the purge step
+
+    monkeypatch.setattr(
+        "app.api.routes_admin_crime.SeattleSocrataClient.fetch_page", fake_fetch_page
+    )
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    session = get_sessionmaker()()
+    session.add_all(
+        [
+            CrimeIncident(
+                id="old-call", source_dataset="seattle_spd_911", external_incident_id="old",
+                offense_start_utc=datetime(2019, 1, 1, tzinfo=UTC),
+            ),
+            CrimeIncident(
+                id="recent-call", source_dataset="seattle_spd_911", external_incident_id="recent",
+                offense_start_utc=datetime(2099, 1, 1, tzinfo=UTC),
+            ),
+        ]
+    )
+    session.commit()
+    session.close()
+
+    client = TestClient(app)
+    response = client.post(
+        "/admin/crime/ingest/socrata?mode=page&source=seattle_spd_911",
+        headers={"X-Admin-Token": "secret-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["purged_count"] == 1
+    session = get_sessionmaker()()
+    remaining = {row.id for row in session.scalars(select(CrimeIncident)).all()}
+    assert remaining == {"recent-call"}
+    session.close()
+
+
 def test_latest_observed_date_is_source_scoped(tmp_path):
     from datetime import UTC, date, datetime
 

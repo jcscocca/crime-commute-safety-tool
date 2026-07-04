@@ -5,10 +5,18 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+# Abuse ceilings on the assistant request. The endpoint is session-gated, but sessions are
+# free and anonymous, so the payload itself is bounded to keep one caller from stuffing the
+# shared LLM node with an oversized prompt. The model only ever reads the last 8 turns
+# (prompts.build_planning_messages), so the message-count cap is a generous ceiling on a
+# growing conversation, not a functional history limit.
+MAX_MESSAGE_CHARS = 4000
+MAX_MESSAGES_PER_REQUEST = 200
+
 
 class AssistantChatMessage(BaseModel):
     role: Literal["user", "assistant"]
-    content: str = Field(min_length=1)
+    content: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
 
 
 class AssistantDashboardState(BaseModel):
@@ -35,7 +43,9 @@ class SemanticContextPacket(BaseModel):
 
 
 class AssistantChatRequest(BaseModel):
-    messages: list[AssistantChatMessage] = Field(min_length=1)
+    messages: list[AssistantChatMessage] = Field(
+        min_length=1, max_length=MAX_MESSAGES_PER_REQUEST
+    )
     dashboard_state: AssistantDashboardState = Field(default_factory=AssistantDashboardState)
 
 

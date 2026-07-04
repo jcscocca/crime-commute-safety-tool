@@ -4,7 +4,7 @@ from dataclasses import asdict
 from functools import lru_cache
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.analysis.beat_baselines import (
@@ -162,7 +162,9 @@ def get_geocode_provider() -> GeocodeProvider:
 
 @router.get("/dashboard/geocode")
 def dashboard_geocode(
-    q: str,
+    # Bound the free-text query forwarded upstream to Nominatim (an address is short); a
+    # multi-KB q would otherwise bypass the query cache and pump unique long requests upstream.
+    q: Annotated[str, Query(max_length=200)],
     user_id_hash: Annotated[str, Depends(required_public_user_hash)],
     session: Annotated[Session, Depends(get_session)],
     provider: Annotated[GeocodeProvider, Depends(get_geocode_provider)],

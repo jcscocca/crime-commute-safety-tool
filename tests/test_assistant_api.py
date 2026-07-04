@@ -48,6 +48,36 @@ def test_assistant_chat_requires_public_session(tmp_path):
     assert response.status_code == 401
 
 
+def test_assistant_chat_rejects_oversized_payload(tmp_path):
+    # Session-gated but free/anonymous sessions mean the payload itself must be bounded so one
+    # caller can't stuff the shared LLM node. Over-long content and too many messages both 422.
+    from app.assistant.schemas import MAX_MESSAGE_CHARS, MAX_MESSAGES_PER_REQUEST
+
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    client = TestClient(app)
+    client.post("/sessions")
+
+    oversized_content = client.post(
+        "/assistant/chat",
+        json={
+            "messages": [{"role": "user", "content": "x" * (MAX_MESSAGE_CHARS + 1)}],
+            "dashboard_state": {},
+        },
+    )
+    assert oversized_content.status_code == 422
+
+    too_many_messages = client.post(
+        "/assistant/chat",
+        json={
+            "messages": [
+                {"role": "user", "content": "hi"} for _ in range(MAX_MESSAGES_PER_REQUEST + 1)
+            ],
+            "dashboard_state": {},
+        },
+    )
+    assert too_many_messages.status_code == 422
+
+
 def test_assistant_chat_streams_agent_events(monkeypatch, tmp_path):
     from app.api import routes_assistant
 
