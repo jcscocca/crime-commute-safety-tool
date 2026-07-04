@@ -18,7 +18,7 @@ function row(
 ): CompareVerdictRow {
   return {
     rank, optionId: label, label, incidentCount: 10, rate, barFraction: 0.5,
-    multipleOfLowest: null, plotCiLow: null, plotCiHigh: null,
+    multipleOfLowest: null,
     rateCiLow: lo, rateCiHigh: hi, relationship: rel, pairwise: null,
   };
 }
@@ -50,6 +50,13 @@ describe("CompareRateNumberLine", () => {
     ];
     render(<CompareRateNumberLine rows={withMissing} noun={noun} radiusM={250} />);
     expect(screen.getByTestId("compare-numberline").querySelectorAll(".mc-plot-row .bar")).toHaveLength(1);
+  });
+
+  it("draws lowest-rate reference guides (same-as-lowest + effect floor)", () => {
+    render(<CompareRateNumberLine rows={rows} noun={noun} radiusM={250} />);
+    const plot = screen.getByTestId("compare-numberline");
+    expect(plot.querySelectorAll(".mc-plot-line")).toHaveLength(2);
+    expect(within(plot).getByText(/marks the lowest address’s rate/i)).toBeInTheDocument();
   });
 
   it("defers to the ranked verdict in an honesty footnote", () => {
