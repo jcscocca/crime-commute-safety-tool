@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./MapCanvas", () => ({
@@ -480,5 +480,26 @@ describe("MapWorkspace", () => {
     });
     expect(createPlace).not.toHaveBeenCalled();
     expect(await screen.findByText("100 BLOCK MAIN ST")).toBeInTheDocument();
+  });
+
+  it("bridges a looked-up address into the Compare tab as the anchor", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary());
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 1 });
+    vi.mocked(getIncidentDetails).mockResolvedValue(makeIncidentDetails());
+    vi.mocked(getNeighborhoodAnalysis).mockResolvedValue(makeNeighborhoodAnalysis());
+    geocodeSearch.mockResolvedValue([{ label: "123 Main St", latitude: 47.61, longitude: -122.34, source: "test" }]);
+
+    render(<MapWorkspace />);
+    await screen.findByRole("heading", { name: /look up an address/i });
+    fireEvent.change(screen.getByLabelText(/search an address/i), { target: { value: "123 Main" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    fireEvent.click(await screen.findByText("123 Main St"));
+
+    fireEvent.click(await screen.findByRole("button", { name: /compare with another address/i }));
+
+    expect(await screen.findByRole("heading", { name: "Compare addresses" })).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: /addresses to compare/i });
+    expect(within(list).getByText("123 Main St")).toBeInTheDocument();
   });
 });

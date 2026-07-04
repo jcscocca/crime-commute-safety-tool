@@ -375,6 +375,7 @@ export function MapWorkspace() {
               onChange={handleAnalysisChange}
               onRun={analyze.runAnalyze}
               onCopyLink={() => buildShareUrl("analyze")}
+              onCompareWith={() => setActiveTab("compare")}
             />
           ) : null}
           {activeTab === "compare" ? (
