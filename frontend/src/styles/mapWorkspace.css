@@ -506,3 +506,4 @@ input.mc-inp:focus{outline:2px solid var(--clay-soft);outline-offset:1px;}
 .mc-lookup-head h4{margin:0 0 5px;font-size:15px;color:var(--text);}
 .mc-lookup-head p{margin:0;font-size:13px;color:var(--dim);line-height:1.5;}
 .mc-lookup-manual{margin-top:14px;}
+.mc-analyze-actions{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:6px;}

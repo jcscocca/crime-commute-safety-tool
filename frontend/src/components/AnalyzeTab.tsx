@@ -516,29 +516,31 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
         </div>
       ) : (
         <>
-          {onCopyLink && neighborhood && (
-            <button
-              type="button"
-              className="mc-link-copy"
-              onClick={async () => {
-                const url = onCopyLink();
-                if (url) await navigator.clipboard.writeText(url);
-              }}
-            >
-              Copy link to this view
-            </button>
-          )}
-
-          {onCompareWith && neighborhood && (
-            <button type="button" className="mc-link-copy mc-compare-bridge" onClick={onCompareWith}>
-              + Compare with another address
-            </button>
-          )}
-
-          {onSave && neighborhood && (
-            <button type="button" className="mc-link-copy mc-compare-bridge" onClick={onSave}>
-              Save to my places
-            </button>
+          {neighborhood && (
+            <div className="mc-analyze-actions">
+              {onCopyLink && (
+                <button
+                  type="button"
+                  className="mc-link-copy"
+                  onClick={async () => {
+                    const url = onCopyLink();
+                    if (url) await navigator.clipboard.writeText(url);
+                  }}
+                >
+                  Copy link to this view
+                </button>
+              )}
+              {onCompareWith && (
+                <button type="button" className="mc-link-copy mc-compare-bridge" onClick={onCompareWith}>
+                  + Compare with another address
+                </button>
+              )}
+              {onSave && (
+                <button type="button" className="mc-link-copy mc-compare-bridge" onClick={onSave}>
+                  Save to my places
+                </button>
+              )}
+            </div>
           )}
 
           {neighborhood?.places?.map((place) => (
