@@ -64,6 +64,19 @@ def test_geocode_empty_query_returns_empty_list(app_and_client):
     assert response.json() == []
 
 
+def test_geocode_rejects_overlong_query(app_and_client):
+    # A multi-KB q must be rejected before it reaches the upstream geocoder (cache-bypass abuse).
+    app, client = app_and_client
+    client.post("/sessions")
+    app.dependency_overrides[get_geocode_provider] = lambda: FakeProvider([])
+    try:
+        response = client.get("/dashboard/geocode", params={"q": "a" * 201})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+
+
 def test_geocode_upstream_error_returns_502(app_and_client):
     app, client = app_and_client
     client.post("/sessions")
