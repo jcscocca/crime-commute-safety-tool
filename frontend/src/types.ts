@@ -134,7 +134,7 @@ export type AnalysisSettings = {
 export type AssistantToolEffect = {
   selection?: { mode: "replace" | "add" | "clear"; ids: string[] };
   settings?: Partial<AnalysisSettings>;
-  comparison?: Record<string, unknown> | null;
+  comparison?: SiteComparison | null;
   neighborhood?: NeighborhoodAnalysis | null;
   incidents?: IncidentDetailsResponse | null;
   refetchSummary?: boolean;
