@@ -519,6 +519,8 @@ describe("MapWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     fireEvent.click(await screen.findByText("123 Main St"));
 
+    // The lookup's analysis has rendered before we save.
+    expect(await screen.findByText("100 BLOCK MAIN ST")).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: /save to my places/i }));
 
     await waitFor(() => {
@@ -530,5 +532,9 @@ describe("MapWorkspace", () => {
         sensitivity_class: "normal",
       });
     });
+    // Saving selects the new place directly (not via the invalidating path), so the verdict
+    // computed for the same coordinates stays on screen — a revert to selectPlaceIds would
+    // clear this and fail the assertion.
+    expect(screen.getByText("100 BLOCK MAIN ST")).toBeInTheDocument();
   });
 });
