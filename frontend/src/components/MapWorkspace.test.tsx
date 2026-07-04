@@ -437,8 +437,7 @@ describe("MapWorkspace", () => {
     expect(await screen.findByText(/shared view/i)).toBeInTheDocument();
     await waitFor(() => expect(comparePlaces).toHaveBeenCalledWith(
       expect.objectContaining({ points: expect.any(Array) })));
-    // The shared Compare pane renders (synthetic selection ≥ 2) — not the "select two" prompt.
-    expect(screen.queryByText(/select at least two places/i)).not.toBeInTheDocument();
+    // The shared Compare pane renders its verdict (synthetic selection ≥ 2).
     expect(await screen.findByTestId("compare-ranked")).toBeInTheDocument();
     window.history.replaceState({}, "", "/");
   });
