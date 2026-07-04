@@ -10,9 +10,6 @@ export type CompareVerdictRow = {
   rate: number;
   barFraction: number;
   multipleOfLowest: number | null;
-  /** 95% interval on the "×the lowest" axis: inverted+swapped from the pairwise ratio CI. Null/absent for the lowest row or when there is no pairwise. */
-  plotCiLow?: number | null;
-  plotCiHigh?: number | null;
   /** Absolute 95% interval on this address's own rate (quasi-Poisson), for the number line. Null/absent when the payload omits it. */
   rateCiLow?: number | null;
   rateCiHigh?: number | null;
@@ -70,8 +67,6 @@ export function toCompareVerdict(comparison: SiteComparison): CompareVerdictMode
       rate: o.incident_rate,
       barFraction: maxRate > 0 ? o.incident_rate / maxRate : 0,
       multipleOfLowest: isLowest || lowestRate <= 0 ? null : o.incident_rate / lowestRate,
-      plotCiLow: pair && pair.ci_upper > 0 ? 1 / pair.ci_upper : null,
-      plotCiHigh: pair && pair.ci_lower > 0 ? 1 / pair.ci_lower : null,
       rateCiLow: o.rate_ci_lower ?? null,
       rateCiHigh: o.rate_ci_upper ?? null,
       relationship: isLowest ? "lowest" : relationshipFor(pair),

@@ -498,12 +498,13 @@ input.mc-inp:focus{outline:2px solid var(--clay-soft);outline-offset:1px;}
 .mc-plot-row .track{position:relative;height:100%;}
 .mc-plot-row .bar{position:absolute;top:50%;transform:translateY(-50%);height:5px;border-radius:3px;background:rgba(116,133,142,.5);}
 .mc-plot-row .dot{position:absolute;top:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:var(--slate);}
-.mc-plot-row .dot.ref{background:var(--clay);}
 .mc-plot-row.similar .bar{background:rgba(150,150,150,.35);}
 .mc-plot-row .val{font-family:var(--f-mono,ui-monospace);font-size:11px;color:var(--dim);text-align:right;white-space:nowrap;}
 .mc-plot-foot{font-size:10.5px;line-height:1.5;color:var(--faint);margin:0;}
 .mc-numberline .mc-plot-axis{height:14px;border-top:1px solid rgba(255,255,255,.1);}
 .mc-numberline .mc-plot-axis .tick{position:absolute;top:1px;transform:translateX(-50%);font-family:var(--f-mono,ui-monospace);font-size:10px;color:var(--faint);white-space:nowrap;}
+.mc-numberline .mc-plot-guides{position:absolute;inset:4px 0;display:grid;grid-template-columns:96px 1fr 74px;grid-template-rows:1fr;gap:10px;pointer-events:none;}
+.mc-numberline .mc-plot-guides .track{position:relative;}
 .mc-lookup-head{padding:2px 2px 12px;}
 .mc-lookup-head h4{margin:0 0 5px;font-size:15px;color:var(--text);}
 .mc-lookup-head p{margin:0;font-size:13px;color:var(--dim);line-height:1.5;}
