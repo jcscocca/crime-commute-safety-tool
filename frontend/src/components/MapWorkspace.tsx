@@ -215,6 +215,13 @@ export function MapWorkspace() {
   function applyAssistantToolResult(payload: { tool_name?: string; result?: unknown }) {
     const effect = interpretToolResult(payload);
     if (!effect) return;
+    // Once the assistant drives a pane, it is the source of truth — drop any ephemeral
+    // single-address lookup (and its draft pin) so it doesn't shadow the assistant's selection
+    // in the `selected` memo, the analyze points, or the share link.
+    if (effect.selection || effect.neighborhood !== undefined || effect.incidents !== undefined || effect.comparison !== undefined) {
+      setLookupPoint(null);
+      pinDraft.setDraft(null);
+    }
     if (effect.settings) {
       setAnalysis((current) => ({ ...current, ...effect.settings }));
     }

@@ -4,9 +4,10 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./MapCanvas", () => ({
-  MapCanvas: ({ places, onMapClick, onMarkerClick }: any) => (
+  MapCanvas: ({ places, draft, onMapClick, onMarkerClick }: any) => (
     <div data-testid="mapcanvas">
       <button data-testid="fire-map-click" onClick={() => onMapClick({ lat: 47.6, lng: -122.3 })} />
+      {draft ? <div data-testid="draft-pin" /> : null}
       {places.map((place: any) => (
         <button key={place.id} data-testid={`marker-${place.id}`} onClick={() => onMarkerClick(place.id)} />
       ))}
@@ -471,6 +472,8 @@ describe("MapWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     fireEvent.click(await screen.findByText("123 Main St"));
 
+    // The lookup drops a draft pin on the map (via previewSearch) and flies to it.
+    expect(await screen.findByTestId("draft-pin")).toBeInTheDocument();
     await waitFor(() => {
       expect(analyzePlaces).toHaveBeenCalledWith(expect.objectContaining({
         points: [{ latitude: 47.61, longitude: -122.34, label: "123 Main St" }],
@@ -536,5 +539,43 @@ describe("MapWorkspace", () => {
     // computed for the same coordinates stays on screen — a revert to selectPlaceIds would
     // clear this and fail the assertion.
     expect(screen.getByText("100 BLOCK MAIN ST")).toBeInTheDocument();
+  });
+
+  it("clears an active lookup when the assistant drives a new pane", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary());
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 1 });
+    vi.mocked(getIncidentDetails).mockResolvedValue(makeIncidentDetails());
+    vi.mocked(getNeighborhoodAnalysis).mockResolvedValue(makeNeighborhoodAnalysis());
+    geocodeSearch.mockResolvedValue([{ label: "123 Main St", latitude: 47.61, longitude: -122.34, source: "test" }]);
+    vi.mocked(streamAssistantChat).mockImplementation(async (_payload, handlers) => {
+      handlers.onEvent({
+        event: "tool",
+        data: {
+          tool_name: "analyze_places",
+          result: {
+            place_ids: ["a"],
+            settings_used: { radius_m: 250, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-30", offense_category: null },
+            neighborhood: makeNeighborhoodAnalysis(),
+            incidents: makeIncidentDetails(),
+          },
+        },
+      });
+      handlers.onEvent({ event: "done", data: {} });
+    });
+
+    render(<MapWorkspace />);
+    await screen.findByRole("heading", { name: /look up an address/i });
+    fireEvent.change(screen.getByLabelText(/search an address/i), { target: { value: "123 Main" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    fireEvent.click(await screen.findByText("123 Main St"));
+    expect(await screen.findByTestId("draft-pin")).toBeInTheDocument();
+
+    // The assistant now takes over the pane with a different selection; the ephemeral lookup
+    // (and its draft pin) must be dropped so it no longer shadows the assistant's subject.
+    fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "analyze Alpha" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => expect(screen.queryByTestId("draft-pin")).not.toBeInTheDocument());
   });
 });
