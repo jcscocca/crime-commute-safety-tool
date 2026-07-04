@@ -25,7 +25,7 @@ afterEach(cleanup);
 
 describe("CompareRankedList", () => {
   it("renders rows in order with rank, label, count, rate and chips", () => {
-    render(<CompareRankedList rows={rows} noun={incidentNoun("reported")} />);
+    render(<CompareRankedList rows={rows} noun={incidentNoun("reported")} radiusM={250} />);
     const region = screen.getByTestId("compare-ranked");
     expect(within(region).getByText("Pike")).toBeInTheDocument();
     expect(within(region).getByText("lowest rate")).toBeInTheDocument();
@@ -35,7 +35,7 @@ describe("CompareRankedList", () => {
   });
 
   it("shows a How-we-know disclosure only for non-lowest rows", () => {
-    render(<CompareRankedList rows={rows} noun={incidentNoun("reported")} />);
+    render(<CompareRankedList rows={rows} noun={incidentNoun("reported")} radiusM={250} />);
     const region = screen.getByTestId("compare-ranked");
     const details = within(region).getAllByText("How we know");
     expect(details).toHaveLength(1);
@@ -43,7 +43,7 @@ describe("CompareRankedList", () => {
   });
 
   it("never emits safety-ranking vocabulary", () => {
-    render(<CompareRankedList rows={rows} noun={incidentNoun("reported")} />);
+    render(<CompareRankedList rows={rows} noun={incidentNoun("reported")} radiusM={250} />);
     const text = (screen.getByTestId("compare-ranked").textContent ?? "").toLowerCase();
     for (const banned of ["safe", "unsafe", "safety", "danger", "dangerous", "risk", "risky"]) {
       expect(text).not.toContain(banned);

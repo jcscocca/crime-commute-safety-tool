@@ -1,35 +1,40 @@
+import { annualIncidentsWithin, formatPerYear } from "../lib/rateFormat";
 import type { IncidentNoun } from "../lib/layerCopy";
 import type { CompareVerdictRow } from "../lib/compareVerdict";
 
-// One shared absolute-rate axis (0 → padded max). Each address is a dot at its rate with a
-// horizontal 95% interval bar; overlapping bars = no clear difference. The corrected ranked
-// verdict stays authoritative — see the footnote.
-function makeScale(rows: CompareVerdictRow[]) {
-  const highs = rows.map((r) => r.rateCiHigh).filter((v): v is number => v != null);
-  const domainMax = Math.max(0.001, ...highs, ...rows.map((r) => r.rate)) * 1.05;
-  const pos = (v: number) => Math.max(0, Math.min(100, (v / domainMax) * 100));
-  return { pos, ticks: [0, domainMax / 2, domainMax] };
-}
+// One shared axis of expected reported incidents per year within the buffer. Each address is a
+// dot at its rate with a horizontal 95% interval bar; overlapping bars = no clear difference.
+// The corrected ranked verdict stays authoritative — see the footnote.
+type PlotRow = { row: CompareVerdictRow; perYear: number; ciLow: number | null; ciHigh: number | null };
 
-export function CompareRateNumberLine({ rows, noun }: { rows: CompareVerdictRow[]; noun: IncidentNoun }) {
-  const { pos, ticks } = makeScale(rows);
+export function CompareRateNumberLine({ rows, noun, radiusM }: { rows: CompareVerdictRow[]; noun: IncidentNoun; radiusM: number }) {
+  const plot: PlotRow[] = rows.map((row) => ({
+    row,
+    perYear: annualIncidentsWithin(row.rate, radiusM),
+    ciLow: row.rateCiLow != null ? annualIncidentsWithin(row.rateCiLow, radiusM) : null,
+    ciHigh: row.rateCiHigh != null ? annualIncidentsWithin(row.rateCiHigh, radiusM) : null,
+  }));
+  const highs = plot.map((p) => p.ciHigh).filter((v): v is number => v != null);
+  const domainMax = Math.max(0.001, ...highs, ...plot.map((p) => p.perYear)) * 1.05;
+  const pos = (v: number) => Math.max(0, Math.min(100, (v / domainMax) * 100));
+  const ticks = [0, domainMax / 2, domainMax];
 
   return (
     <div className="mc-plot mc-numberline" data-testid="compare-numberline">
-      <p className="mc-label">Each address’s {noun.singular} rate — 95% interval</p>
+      <p className="mc-label">{noun.pluralCap} per year within {radiusM} m — 95% interval</p>
       <div className="mc-plot-chart">
-        {rows.map((r) => {
-          const hasBar = r.rateCiLow != null && r.rateCiHigh != null;
-          const left = hasBar ? pos(r.rateCiLow as number) : 0;
-          const width = hasBar ? Math.max(1, pos(r.rateCiHigh as number) - left) : 0;
+        {plot.map(({ row, perYear, ciLow, ciHigh }) => {
+          const hasBar = ciLow != null && ciHigh != null;
+          const left = hasBar ? pos(ciLow) : 0;
+          const width = hasBar ? Math.max(1, pos(ciHigh) - left) : 0;
           return (
-            <div className={`mc-plot-row ${r.relationship}`} key={r.optionId}>
-              <span className="name">{r.label}</span>
+            <div className={`mc-plot-row ${row.relationship}`} key={row.optionId}>
+              <span className="name">{row.label}</span>
               <div className="track">
                 {hasBar ? <span className="bar" style={{ left: `${left}%`, width: `${width}%` }} /> : null}
-                <span className="dot" style={{ left: `${pos(r.rate)}%` }} />
+                <span className="dot" style={{ left: `${pos(perYear)}%` }} />
               </div>
-              <span className="val">{r.rate.toFixed(1)}</span>
+              <span className="val">{formatPerYear(perYear)}</span>
             </div>
           );
         })}
@@ -37,7 +42,7 @@ export function CompareRateNumberLine({ rows, noun }: { rows: CompareVerdictRow[
           <span className="name" />
           <div className="track">
             {ticks.map((t, i) => (
-              <span className="tick" key={i} style={{ left: `${pos(t)}%` }}>{t.toFixed(1)}</span>
+              <span className="tick" key={i} style={{ left: `${pos(t)}%` }}>{formatPerYear(t)}</span>
             ))}
           </div>
           <span className="val" />

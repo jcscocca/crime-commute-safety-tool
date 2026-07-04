@@ -33,12 +33,13 @@ afterEach(cleanup);
 
 describe("CompareRateNumberLine", () => {
   it("renders a labeled row and rate for every address, lowest included", () => {
-    render(<CompareRateNumberLine rows={rows} noun={noun} />);
+    render(<CompareRateNumberLine rows={rows} noun={noun} radiusM={250} />);
     const plot = screen.getByTestId("compare-numberline");
     expect(within(plot).getByText("Pike")).toBeInTheDocument();
     expect(within(plot).getByText("Bell")).toBeInTheDocument();
     expect(within(plot).getByText("Yesler")).toBeInTheDocument();
-    expect(within(plot).getByText("14.3")).toBeInTheDocument();
+    // rate is shown as expected incidents/year within the buffer, not the raw per-km²-day figure
+    expect(within(plot).getByText(/reported incidents per year within 250 m/i)).toBeInTheDocument();
     expect(plot.querySelectorAll(".mc-plot-row .dot")).toHaveLength(3);
   });
 
@@ -47,17 +48,17 @@ describe("CompareRateNumberLine", () => {
       row("Pike", "lowest", 3.9, 2.7, 5.6, 1),
       row("Gap", "limited", 9.0, null, null, 2),
     ];
-    render(<CompareRateNumberLine rows={withMissing} noun={noun} />);
+    render(<CompareRateNumberLine rows={withMissing} noun={noun} radiusM={250} />);
     expect(screen.getByTestId("compare-numberline").querySelectorAll(".mc-plot-row .bar")).toHaveLength(1);
   });
 
   it("defers to the ranked verdict in an honesty footnote", () => {
-    render(<CompareRateNumberLine rows={rows} noun={noun} />);
+    render(<CompareRateNumberLine rows={rows} noun={noun} radiusM={250} />);
     expect(within(screen.getByTestId("compare-numberline")).getByText(/ranked verdict above is authoritative/i)).toBeInTheDocument();
   });
 
   it("never emits safety-ranking vocabulary", () => {
-    render(<CompareRateNumberLine rows={rows} noun={noun} />);
+    render(<CompareRateNumberLine rows={rows} noun={noun} radiusM={250} />);
     const text = (screen.getByTestId("compare-numberline").textContent ?? "").toLowerCase();
     for (const banned of ["safe", "unsafe", "safety", "danger", "dangerous", "risk", "risky"]) {
       expect(text).not.toContain(banned);

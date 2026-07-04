@@ -1,3 +1,4 @@
+import { annualIncidentsWithin, formatPerYear } from "../lib/rateFormat";
 import type { IncidentNoun } from "../lib/layerCopy";
 import type { CompareRelationship, CompareVerdictRow } from "../lib/compareVerdict";
 
@@ -8,7 +9,7 @@ const CHIP: Record<CompareRelationship, { label: string; clear: boolean }> = {
   limited: { label: "limited data", clear: false },
 };
 
-export function CompareRankedList({ rows, noun }: { rows: CompareVerdictRow[]; noun: IncidentNoun }) {
+export function CompareRankedList({ rows, noun, radiusM }: { rows: CompareVerdictRow[]; noun: IncidentNoun; radiusM: number }) {
   return (
     <div className="mc-ranked" data-testid="compare-ranked">
       {rows.map((row) => {
@@ -22,7 +23,7 @@ export function CompareRankedList({ rows, noun }: { rows: CompareVerdictRow[]; n
             </div>
             <div className="mc-ranked-bar"><span style={{ width: `${Math.round(row.barFraction * 100)}%` }} /></div>
             <span className="mc-ranked-rate">
-              {row.rate.toFixed(1)}{row.multipleOfLowest !== null ? ` · ${row.multipleOfLowest.toFixed(1)}× lowest` : ""}
+              {formatPerYear(annualIncidentsWithin(row.rate, radiusM))}/yr{row.multipleOfLowest !== null ? ` · ${row.multipleOfLowest.toFixed(1)}× lowest` : ""}
             </span>
             <span className={`mc-vchip${chip.clear ? " clear" : ""}`}>{chip.label}</span>
             {row.pairwise ? (

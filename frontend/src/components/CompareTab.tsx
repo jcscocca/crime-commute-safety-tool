@@ -64,8 +64,8 @@ export function CompareTab({ set, provider, onAddPoint, onRemovePoint, analysis,
         <>
           <CompareVerdict callout={verdict.callout} noun={noun} />
           <p className="mc-ranked-title">Ranked by {noun.singular} rate — lowest first</p>
-          <CompareRankedList rows={verdict.rows} noun={noun} />
-          <CompareRateNumberLine rows={verdict.rows} noun={noun} />
+          <CompareRankedList rows={verdict.rows} noun={noun} radiusM={analysis.radiusM} />
+          <CompareRateNumberLine rows={verdict.rows} noun={noun} radiusM={analysis.radiusM} />
           <CompareRatioPlot rows={verdict.rows} />
         </>
       ) : set.length >= 2 ? (
