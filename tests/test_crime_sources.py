@@ -77,3 +77,11 @@ def test_layers_are_pairwise_disjoint():
 def test_unknown_layer_rejected():
     with pytest.raises(ValueError, match="Unknown layer"):
         sources_for_layer("nope")
+
+
+def test_only_the_calls_source_uses_a_rolling_window():
+    # Only 911 calls have a rolling floor (and so must purge on ingest); crime and arrests are
+    # fixed-history layers that must never purge.
+    assert get_crime_source(SOURCE_SPD_911).rolling_window is True
+    assert get_crime_source(SOURCE_SPD_CRIME).rolling_window is False
+    assert get_crime_source(SOURCE_SPD_ARRESTS).rolling_window is False
