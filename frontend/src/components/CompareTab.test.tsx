@@ -63,7 +63,7 @@ describe("CompareTab (editable set)", () => {
 
   it("the dynamic verdict region never emits safety-ranking vocabulary", () => {
     render(<CompareTab {...base} set={setOf("Pike", "Bell")} comparison={clearSweep} />);
-    const dynamic = `${screen.getByTestId("compare-callout").textContent ?? ""} ${screen.getByTestId("compare-ranked").textContent ?? ""} ${screen.getByTestId("compare-plot").textContent ?? ""}`.toLowerCase();
+    const dynamic = `${screen.getByTestId("compare-callout").textContent ?? ""} ${screen.getByTestId("compare-ranked").textContent ?? ""} ${screen.getByTestId("compare-numberline").textContent ?? ""}`.toLowerCase();
     for (const banned of ["safe", "unsafe", "safety", "danger", "dangerous", "risk", "risky"]) {
       expect(dynamic).not.toContain(banned);
     }
