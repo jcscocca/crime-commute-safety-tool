@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -1577,5 +1578,89 @@ def test_agent_does_not_redirect_neutral_centro_question(tmp_path):
             )
             assert len(client.calls) == 1, phrasing
             assert events[1].data["delta"] == "Here is the reported context.", phrasing
+    finally:
+        session.close()
+
+
+def test_agent_redirects_presence_claim_in_model_final_message(tmp_path):
+    # Invariant (presence prong): a model answer asserting the user was present at / witnessed /
+    # was victimized by an incident must be replaced with the presence redirect, not streamed.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    claims = [
+        "You were present at this incident on January 10th.",
+        "Based on your visits, you were robbed near here.",
+        "You were a victim of the assault at that corner.",
+        "You witnessed a robbery here last week.",
+    ]
+    try:
+        for claim in claims:
+            client = FakeClient([f'{{"type":"final","message":{json.dumps(claim)}}}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content="What happened near place-1?")],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            delta = events[1].data["delta"]
+            assert "personal presence" in delta, claim  # the standard presence redirect
+            assert "robbed" not in delta and "victim" not in delta, claim  # claim did not leak
+            assert len(client.calls) == 1, claim  # model WAS called (input guard didn't fire)
+    finally:
+        session.close()
+
+
+def test_agent_redirects_presence_question_before_model_call(tmp_path):
+    # A user asking to be placed at an incident is short-circuited before the LLM is called.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    questions = [
+        "Was I present at any of these incidents?",
+        "Have I been a victim of a crime here?",
+        "Did I witness the robbery near place-1?",
+    ]
+    try:
+        for question in questions:
+            client = FakeClient(['{"type":"final","message":"unused"}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=question)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert [event.event for event in events] == ["meta", "token", "done"], question
+            assert "personal presence" in events[1].data["delta"], question
+            assert len(client.calls) == 0, question  # redirected without reaching the model
+    finally:
+        session.close()
+
+
+def test_agent_does_not_redirect_presence_adjacent_neutral_phrasings(tmp_path):
+    # The presence guard must not over-match ordinary "near you" / "a place you visit" phrasing:
+    # neutral inputs reach the model, and a neutral model answer streams unchanged.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    neutral_answer = "There are 3 reported incidents near a place you visit."
+    inputs = [
+        "How many incidents are reported near a place I visit?",
+        "Show the incidents near place-1.",
+    ]
+    try:
+        for text in inputs:
+            client = FakeClient([f'{{"type":"final","message":{json.dumps(neutral_answer)}}}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=text)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert len(client.calls) == 1, text  # reached the model, not the redirect
+            assert events[1].data["delta"] == neutral_answer, text  # streamed unchanged
     finally:
         session.close()

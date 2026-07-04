@@ -88,6 +88,34 @@ _SAFETY_REDIRECT = (
     "places by reported incident count or compare exposure-adjusted incident rates — just ask "
     "it that way."
 )
+
+# Presence-claim guard — the third prong of the product invariant: the assistant MUST NOT
+# assert that the user was personally present at, witnessed, or was victimized by a reported
+# incident (Waypoint knows only self-reported visit counts near a place, never presence at an
+# event). This catches both a model answer asserting it ("you were present at this incident",
+# "you were robbed here") and a user asking for it ("was I present at any of these?"). It is
+# deliberately narrow — a first/second-person subject tied to a victimization word, or to a
+# presence/witness word *followed by* an incident noun — so ordinary "a place you visit" /
+# "incidents reported near you" phrasing does NOT trip it. Runs on both the incoming user text
+# and the model's final answer (see run_assistant_turn).
+_PRESENCE_CLAIM_PATTERN = re.compile(
+    r"\b(?:you|i|we)\b[^.?!]{0,40}?\b(?:"
+    r"robbed|mugged|assaulted|attacked|burglar(?:ized|ised)|carjacked|stabbed"
+    r"|victim|victimi[sz]ed"
+    r")\b"
+    r"|\b(?:you|i|we)\b[^.?!]{0,40}?"
+    r"\b(?:present|witness(?:ed|ing)?|experienced|involved|at\s+the\s+scene)\b"
+    r"[^.?!]{0,40}?"
+    r"\b(?:incident|crime|offen[sc]e|robbery|assault|burglary|shooting|homicide"
+    r"|attack|mugging|event)s?\b"
+    r"|\bhappened\s+to\s+(?:you|me|us)\b",
+    re.IGNORECASE,
+)
+_PRESENCE_REDIRECT = (
+    "Waypoint reports incidents near a place, but it can't determine anyone's personal presence "
+    "at or involvement in a specific incident — it only knows the places you've saved, not where "
+    "you have been. I can show the reported incidents near a place instead."
+)
 SELECTION_TOOLS = (
     "run_place_analysis",
     "compare_places",
@@ -114,8 +142,13 @@ async def run_assistant_turn(
         data={"role": settings.assistant_role, "missing_context": context.missing_context},
     )
 
-    if _asks_for_safety_score(_recent_user_texts(messages)):
+    recent_user_texts = _recent_user_texts(messages)
+    if _asks_for_safety_score(recent_user_texts):
         yield AssistantStreamEvent(event="token", data={"delta": _SAFETY_REDIRECT})
+        yield AssistantStreamEvent(event="done", data={})
+        return
+    if _requests_presence_claim(recent_user_texts):
+        yield AssistantStreamEvent(event="token", data={"delta": _PRESENCE_REDIRECT})
         yield AssistantStreamEvent(event="done", data={})
         return
 
@@ -161,9 +194,12 @@ async def run_assistant_turn(
         yield AssistantStreamEvent(event="error", data={"message": str(exc)})
         return
     # Output-side invariant guard: a model answer that slipped past the input guard must not
-    # stream safety-ranking language; replace it with the standard redirect.
+    # stream safety-ranking language or claim the user was present at an incident; replace it
+    # with the matching redirect.
     if _contains_safety_ranking(message):
         message = _SAFETY_REDIRECT
+    elif _claims_user_presence(message):
+        message = _PRESENCE_REDIRECT
     yield AssistantStreamEvent(event="token", data={"delta": message})
     yield AssistantStreamEvent(event="done", data={})
 
@@ -188,6 +224,14 @@ def _contains_safety_ranking(text: str) -> bool:
         _AMBIGUOUS_TERM_PATTERN.search(text)
         and _PLACE_CONTEXT_PATTERN.search(text)
     )
+
+
+def _requests_presence_claim(texts: Iterable[str]) -> bool:
+    return any(_claims_user_presence(text) for text in texts)
+
+
+def _claims_user_presence(text: str) -> bool:
+    return bool(_PRESENCE_CLAIM_PATTERN.search(text))
 
 
 def _tool_arguments(
