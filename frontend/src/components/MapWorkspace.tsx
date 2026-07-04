@@ -294,7 +294,7 @@ export function MapWorkspace() {
           onToggleCollapsed={onToggleCollapsed}
           onResize={onDrawerResize}
           onPreset={onPreset}
-          tabBadges={{ places: data.places.length, compare: selectedIds.size }}
+          tabBadges={{ places: data.places.length, compare: compareSet.points.length }}
         >
           {activeTab === "places" ? (
             <PlacesTab
