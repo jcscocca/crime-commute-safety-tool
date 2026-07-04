@@ -9,6 +9,7 @@ import { defaultTileConfig } from "../lib/mapTiles";
 import { decodeView, encodeView } from "../lib/savedView";
 import { useAnalyze } from "../lib/useAnalyze";
 import { useCompare } from "../lib/useCompare";
+import { useCompareSet } from "../lib/useCompareSet";
 import { useDashboardData } from "../lib/useDashboardData";
 import { useDrawer } from "../lib/useDrawer";
 import { usePinDraft } from "../lib/usePinDraft";
@@ -53,8 +54,30 @@ export function MapWorkspace() {
 
   const data = useDashboardData();
   const { drawer, setCollapsed: setDrawerCollapsed, onResize: onDrawerResize, onToggleCollapsed, onPreset } = useDrawer();
+
+  // A shared view has no persisted places to select from, so synthesize a place-shaped
+  // selection from its points. This makes selected.length correct (CompareTab renders, and
+  // canRun enables Run — which recomputes via the points path the hooks already receive).
+  const selected = useMemo(
+    () =>
+      sharedPoints
+        ? sharedPoints.map((point, index) => ({
+            id: `shared-${index}`,
+            display_label: point.label,
+            latitude: point.latitude,
+            longitude: point.longitude,
+            visit_count: 0,
+            total_dwell_minutes: null,
+            inferred_place_type: "shared_place",
+            sensitivity_class: "normal",
+          }))
+        : data.places.filter((place) => selectedIds.has(place.id)),
+    [sharedPoints, data.places, selectedIds],
+  );
+  const compareSet = useCompareSet(selected);
+
   const analyze = useAnalyze({ selectedIds, analysis, refreshWithFallback: data.refreshWithFallback, setError: data.setError, points: sharedPoints ?? undefined });
-  const compare = useCompare({ selectedIds, analysis, setError: data.setError, points: sharedPoints ?? undefined });
+  const compare = useCompare({ selectedIds, analysis, setError: data.setError, points: compareSet.points });
 
   // A ?view= link seeds tab/analysis/points above; run it once so the shared context
   // (not just an empty tab) is what the recipient sees on load.
@@ -163,32 +186,10 @@ export function MapWorkspace() {
     if (effect.tab) setActiveTab(effect.tab);
   }
 
-  // A shared view has no persisted places to select from, so synthesize a place-shaped
-  // selection from its points. This makes selected.length correct (CompareTab renders, and
-  // canRun enables Run — which recomputes via the points path the hooks already receive).
-  const selected = useMemo(
-    () =>
-      sharedPoints
-        ? sharedPoints.map((point, index) => ({
-            id: `shared-${index}`,
-            display_label: point.label,
-            latitude: point.latitude,
-            longitude: point.longitude,
-            visit_count: 0,
-            total_dwell_minutes: null,
-            inferred_place_type: "shared_place",
-            sensitivity_class: "normal",
-          }))
-        : data.places.filter((place) => selectedIds.has(place.id)),
-    [sharedPoints, data.places, selectedIds],
-  );
-
   const buildShareUrl = useCallback((tab: "analyze" | "compare"): string | null => {
-    const points = sharedPoints ?? selected.map((p) => ({
-      latitude: Number((p.latitude ?? 0).toFixed(3)),
-      longitude: Number((p.longitude ?? 0).toFixed(3)),
-      label: p.display_label,
-    }));
+    const points = tab === "compare"
+      ? compareSet.points.map((p) => ({ latitude: Number(p.latitude.toFixed(3)), longitude: Number(p.longitude.toFixed(3)), label: p.label }))
+      : (sharedPoints ?? selected.map((p) => ({ latitude: Number((p.latitude ?? 0).toFixed(3)), longitude: Number((p.longitude ?? 0).toFixed(3)), label: p.display_label })));
     if (points.length === 0) return null;
     const encoded = encodeView({
       tab, points, radiusM: analysis.radiusM,
@@ -196,7 +197,7 @@ export function MapWorkspace() {
       layer: analysis.layer, offenseCategory: analysis.offenseCategory,
     });
     return `${window.location.origin}/?view=${encoded}`;
-  }, [sharedPoints, selected, analysis]);
+  }, [sharedPoints, selected, compareSet, analysis]);
 
   const assistantState: AssistantDashboardState = useMemo(() => ({
     selected_place_ids: Array.from(selectedIds),
@@ -293,7 +294,7 @@ export function MapWorkspace() {
           onToggleCollapsed={onToggleCollapsed}
           onResize={onDrawerResize}
           onPreset={onPreset}
-          tabBadges={{ places: data.places.length, compare: selectedIds.size }}
+          tabBadges={{ places: data.places.length, compare: compareSet.points.length }}
         >
           {activeTab === "places" ? (
             <PlacesTab
@@ -337,7 +338,17 @@ export function MapWorkspace() {
             />
           ) : null}
           {activeTab === "compare" ? (
-            <CompareTab selected={selected} analysis={analysis} comparison={compare.comparison} running={compare.running} onRun={compare.runCompare} onCopyLink={() => buildShareUrl("compare")} />
+            <CompareTab
+              set={compareSet.points}
+              provider={geocodingProvider}
+              onAddPoint={compareSet.add}
+              onRemovePoint={compareSet.removeAt}
+              analysis={analysis}
+              comparison={compare.comparison}
+              running={compare.running}
+              onRun={compare.runCompare}
+              onCopyLink={() => buildShareUrl("compare")}
+            />
           ) : null}
           {activeTab === "export" ? <ExportTab href={data.exportHref} /> : null}
         </BottomSheet>
