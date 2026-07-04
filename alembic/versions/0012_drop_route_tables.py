@@ -29,6 +29,23 @@ ROUTE_TABLES = (
 
 
 def upgrade() -> None:
+    # Delete route-sourced comparisons' children BEFORE the parents. The
+    # statistical_comparison_options / statistical_pairwise_results FKs to
+    # statistical_comparisons have no ON DELETE CASCADE, so deleting a parent that still has
+    # children raises a ForeignKeyViolation on any DB that actually holds route-era comparison
+    # data (the deploy host). On a DB without such rows these are harmless 0-row deletes.
+    op.execute(
+        sa.text(
+            "DELETE FROM statistical_comparison_options WHERE comparison_id IN "
+            "(SELECT id FROM statistical_comparisons WHERE source_route_request_id IS NOT NULL)"
+        )
+    )
+    op.execute(
+        sa.text(
+            "DELETE FROM statistical_pairwise_results WHERE comparison_id IN "
+            "(SELECT id FROM statistical_comparisons WHERE source_route_request_id IS NOT NULL)"
+        )
+    )
     op.execute(
         sa.text(
             "DELETE FROM statistical_comparisons "

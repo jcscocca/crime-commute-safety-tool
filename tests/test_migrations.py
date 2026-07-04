@@ -1,11 +1,14 @@
 """Migration-chain and schema guards (revision-id length, table/index creation),
 plus a persistence smoke test of the statistical-comparison models."""
 import json
+import os
 from datetime import date
 
+import pytest
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine, inspect, select
+from sqlalchemy import create_engine, inspect, select, text
+from sqlalchemy.engine import make_url
 
 from alembic import command
 from app.db import get_sessionmaker
@@ -15,6 +18,8 @@ from app.models import (
     StatisticalComparisonOption,
     StatisticalPairwiseResult,
 )
+
+_PG_URL = os.environ.get("MCA_DATABASE_URL", "")
 
 
 def test_alembic_revision_ids_fit_default_version_table() -> None:
@@ -174,3 +179,116 @@ def test_crime_filter_indexes_exist_after_migration(tmp_path, monkeypatch):
         "ix_crime_incidents_latitude",
         "ix_crime_incidents_longitude",
     }.issubset(crime_indexes)
+
+
+@pytest.mark.skipif(
+    not _PG_URL.startswith("postgresql"),
+    reason="Route-comparison cleanup FK guard runs only on Postgres (SQLite doesn't enforce FKs).",
+)
+def test_0012_deletes_route_comparison_children_before_parent(monkeypatch):
+    """0012 must delete route-sourced comparisons' children (options + pairwise) before the
+    parents — the child FKs have no ON DELETE CASCADE, so on a DB that actually holds route-era
+    comparison data (the deploy host), the parent DELETE would otherwise raise a
+    ForeignKeyViolation and the migration (and the container boot) would fail. Runs on a fresh
+    throwaway database so it never touches real data. Non-route (place) comparisons must survive.
+    """
+    base = make_url(_PG_URL)
+    scratch = f"mca_route_cleanup_{os.getpid()}"
+    admin = base.set(database="postgres")
+
+    def _admin_exec(sql: str) -> None:
+        eng = create_engine(admin, isolation_level="AUTOCOMMIT")
+        try:
+            with eng.connect() as conn:
+                conn.execute(text(sql))
+        finally:
+            eng.dispose()
+
+    _admin_exec(
+        f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+        f"WHERE datname = '{scratch}' AND pid <> pg_backend_pid()"
+    )
+    _admin_exec(f'DROP DATABASE IF EXISTS "{scratch}"')
+    _admin_exec(f'CREATE DATABASE "{scratch}"')
+    scratch_url = base.set(database=scratch)
+
+    try:
+        monkeypatch.setenv("MCA_DATABASE_URL", scratch_url.render_as_string(hide_password=False))
+        cfg = Config("alembic.ini")
+        command.upgrade(cfg, "0011_arrest_category_backfill")
+
+        engine = create_engine(scratch_url)
+        with engine.begin() as conn:
+            conn.execute(text(
+                "INSERT INTO route_requests (id, user_id_hash, origin_label, origin_latitude, "
+                "origin_longitude, origin_location_type, destination_label, destination_latitude, "
+                "destination_longitude, destination_location_type, mode, privacy_level, provider, "
+                "status, created_at) VALUES ('rr1','u','Origin',47.6,-122.3,'address','Dest',47.7,"
+                "-122.4,'address','transit','normal','otp','complete', now())"
+            ))
+            # Route-sourced comparison + BOTH children (options and pairwise) — must be deleted.
+            conn.execute(text(
+                "INSERT INTO statistical_comparisons (id, user_id_hash, comparison_type, "
+                "source_route_request_id, geometry_type, radius_m, analysis_start_date, "
+                "analysis_end_date, source_dataset, exposure_unit, decision_class, "
+                "overview_summary_text, overview_caveat_text, full_caveat_text, created_at) VALUES "
+                "('cmp-route','u','route','rr1','corridor',250,'2024-01-01','2024-01-31',"
+                "'seattle_spd_crime','square_km_days','not_clear','s','c','fc', now())"
+            ))
+            conn.execute(text(
+                "INSERT INTO statistical_comparison_options (id, comparison_id, user_id_hash, "
+                "option_id, option_label, geometry_type, radius_m, incident_count, exposure, "
+                "exposure_unit, incident_rate, geometry_metadata_json, created_at) VALUES "
+                "('opt-route','cmp-route','u','o1','O1','corridor',250,5,10.0,'square_km_days',0.5,"
+                "'{}', now())"
+            ))
+            conn.execute(text(
+                "INSERT INTO statistical_pairwise_results (id, comparison_id, user_id_hash, "
+                "option_a_id, option_a_label, option_b_id, option_b_label, decision_class, method, "
+                "incident_count_a, incident_count_b, exposure_a, exposure_b, exposure_unit, "
+                "rate_a, rate_b, rate_ratio, ci_lower, ci_upper, p_value, adjusted_p_value, "
+                "overdispersion_status, minimum_data_status, caveat_text, created_at) VALUES "
+                "('pw-route','cmp-route','u','o1','O1','o2','O2','not_clear','m',5,7,10.0,10.0,"
+                "'square_km_days',0.5,0.7,0.71,0.2,2.5,0.3,0.3,'poisson_ok','met','', now())"
+            ))
+            # Place comparison + child (source_route_request_id NULL) — must survive.
+            conn.execute(text(
+                "INSERT INTO statistical_comparisons (id, user_id_hash, comparison_type, "
+                "geometry_type, radius_m, analysis_start_date, analysis_end_date, source_dataset, "
+                "exposure_unit, decision_class, overview_summary_text, overview_caveat_text, "
+                "full_caveat_text, created_at) VALUES ('cmp-place','u','site','place_buffer',250,"
+                "'2024-01-01','2024-01-31','seattle_spd_crime','square_km_days',"
+                "'statistically_lower','s','c','fc', now())"
+            ))
+            conn.execute(text(
+                "INSERT INTO statistical_comparison_options (id, comparison_id, user_id_hash, "
+                "option_id, option_label, geometry_type, radius_m, incident_count, exposure, "
+                "exposure_unit, incident_rate, geometry_metadata_json, created_at) VALUES "
+                "('opt-place','cmp-place','u','o1','O1','place_buffer',250,5,10.0,'square_km_days',"
+                "0.5,'{}', now())"
+            ))
+        engine.dispose()
+
+        # 0012 — with the bug this raises psycopg ForeignKeyViolation on the parent DELETE.
+        command.upgrade(cfg, "head")
+
+        engine = create_engine(scratch_url)
+        with engine.connect() as conn:
+            gone = conn.execute(text(
+                "SELECT (SELECT count(*) FROM statistical_comparisons WHERE id='cmp-route') "
+                "+ (SELECT count(*) FROM statistical_comparison_options WHERE id='opt-route') "
+                "+ (SELECT count(*) FROM statistical_pairwise_results WHERE id='pw-route')"
+            )).scalar()
+            assert gone == 0
+            survived = conn.execute(text(
+                "SELECT (SELECT count(*) FROM statistical_comparisons WHERE id='cmp-place') "
+                "+ (SELECT count(*) FROM statistical_comparison_options WHERE id='opt-place')"
+            )).scalar()
+            assert survived == 2
+        engine.dispose()
+    finally:
+        _admin_exec(
+            f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+            f"WHERE datname = '{scratch}' AND pid <> pg_backend_pid()"
+        )
+        _admin_exec(f'DROP DATABASE IF EXISTS "{scratch}"')
