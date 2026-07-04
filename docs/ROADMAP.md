@@ -149,7 +149,7 @@ Each of these needs its own `docs/superpowers/` brainstorm → spec → plan bef
 
 **Decomposition (2026-07-03):** worked as three slices, A→B→C, so the compare experience is
 strong before it becomes the front door.
-- [ ] **Slice A — richer side-by-side verdicts** — specced & built: rebuild the Compare tab
+- [x] **Slice A — richer side-by-side verdicts** — specced & built: rebuild the Compare tab
   on the statistical richness the `/dashboard/compare` payload already returns (hybrid
   callout + ranked lowest-first list + per-pair analytics), frontend-only. Spec/plan:
   `docs/superpowers/{specs,plans}/2026-07-03-compare-first-flagship*`.
@@ -158,8 +158,12 @@ strong before it becomes the front door.
   the verdict, plus an honest rate-ratio interval plot in the verdict (the payload-ready
   visualization; overlapping bell curves were rejected as statistically dishonest here).
   Frontend-only. Spec/plan: `docs/superpowers/{specs,plans}/2026-07-03-compare-multi-address*`.
-- [ ] **Slice C — comparison-first landing** — lead the app with the compare flow. Not yet
-  specced.
+- [x] **Slice C — single-address entry → context → optional compare** — shipped: a fresh
+  session leads with a single-address lookup (ephemeral inline-`points` path, no DB write)
+  that flies the map and shows the address's reported-incident context on the reused Analyze
+  tab, plus a one-click compare bridge that carries the looked-up address in as the anchor and
+  an optional "Save to my places". Frontend-only; invariant untouched. Spec/plan:
+  `docs/superpowers/{specs,plans}/2026-07-03-compare-single-address-entry*`.
 
 ## Conventions
 - Each unchecked box above is a candidate unit of work; large ones get their own `docs/superpowers/` spec → plan → PR (the established cadence).
