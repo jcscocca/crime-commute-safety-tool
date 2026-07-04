@@ -196,3 +196,46 @@ def test_neighborhood_analysis_attaches_category_breakdown_degraded(tmp_path):
     assert isinstance(bd, list)
     # No beat baseline → every row has beat_share = None.
     assert all(r["beat_share"] is None for r in bd)
+
+
+def test_pairwise_decides_on_combined_overdispersion_phi():
+    # The neighborhood place-to-place pairwise must use the same overdispersion-aware SE as the
+    # Compare tab (build_statistical_comparison), or the two surfaces contradict on the same pair.
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    from app.analysis.rate_tests import compare_incident_rates, dispersion_status
+    from app.services.neighborhood_service import _pairwise, _place_exposure_km2_days
+
+    start, end = date(2024, 1, 1), date(2024, 4, 30)
+    lat, lon = 47.60945, -122.33595
+    clusters = [
+        SimpleNamespace(id="a", display_latitude=lat, display_longitude=lon, display_label="A"),
+        SimpleNamespace(id="b", display_latitude=lat, display_longitude=lon, display_label="B"),
+    ]
+    # Both places sit at the same point (every incident in-radius for both), and all incidents
+    # land in one month -> the combined monthly series is overdispersed (phi >> 1.2).
+    buffered = [
+        SimpleNamespace(
+            latitude=lat, longitude=lon,
+            offense_start_utc=datetime(2024, 1, 10, tzinfo=UTC), report_utc=None,
+        )
+        for _ in range(12)
+    ]
+    days = (end - start).days + 1
+
+    pairs = _pairwise(clusters, buffered, 250, days, start, end)
+
+    assert len(pairs) == 1
+    pair = pairs[0]
+    exposure = _place_exposure_km2_days(250, days)
+    phi = dispersion_status([24, 0, 0, 0]).phi  # each place [12,0,0,0]; combined = 24 in Jan
+    expected = compare_incident_rates(
+        count_a=12, exposure_a=exposure, count_b=12, exposure_b=exposure, overdispersion_phi=phi
+    )
+    poisson = compare_incident_rates(
+        count_a=12, exposure_a=exposure, count_b=12, exposure_b=exposure
+    )
+    assert pair["ci_lower"] == expected.ci_lower  # decided on the combined-dispersion phi
+    assert pair["ci_upper"] == expected.ci_upper
+    assert pair["ci_upper"] > poisson.ci_upper  # phi > 1 widened it vs plain Poisson

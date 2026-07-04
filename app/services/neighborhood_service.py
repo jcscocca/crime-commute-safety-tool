@@ -388,11 +388,13 @@ def neighborhood_analysis_for_places(
         "analysis_end_date": analysis_end_date.isoformat(),
         "offense_category": offense_category,
         "places": places,
-        "pairwise": _pairwise(clusters, buffered, radius_m, days),
+        "pairwise": _pairwise(
+            clusters, buffered, radius_m, days, analysis_start_date, analysis_end_date
+        ),
     }
 
 
-def _pairwise(clusters, buffered, radius_m, days):
+def _pairwise(clusters, buffered, radius_m, days, start, end):
     sized = [
         c
         for c in clusters
@@ -401,16 +403,28 @@ def _pairwise(clusters, buffered, radius_m, days):
     if len(sized) < 2:
         return []
     exposure = _place_exposure_km2_days(radius_m, days)
-    counts = {c.id: len(_incidents_in_radius(c, buffered, radius_m)) for c in sized}
+    incidents_by_id = {c.id: _incidents_in_radius(c, buffered, radius_m) for c in sized}
+    counts = {cid: len(incidents) for cid, incidents in incidents_by_id.items()}
+    monthly_by_id = {
+        cid: _monthly_counts(incs, start, end) for cid, incs in incidents_by_id.items()
+    }
     pairs, p_values = [], []
     for i in range(len(sized)):
         for j in range(i + 1, len(sized)):
             a, b = sized[i], sized[j]
+            # Decide each pair on the overdispersion-aware p-value from the two places' combined
+            # monthly counts, exactly as the Compare tab (build_statistical_comparison) does — so
+            # the two surfaces can't contradict each other on the same pair.
+            combined_monthly = [
+                x + y for x, y in zip(monthly_by_id[a.id], monthly_by_id[b.id], strict=True)
+            ]
+            dispersion = dispersion_status(combined_monthly)
             test = compare_incident_rates(
                 count_a=counts[a.id],
                 exposure_a=max(exposure, 1e-9),
                 count_b=counts[b.id],
                 exposure_b=max(exposure, 1e-9),
+                overdispersion_phi=dispersion.phi,
             )
             p_values.append(test.p_value)
             pairs.append(
