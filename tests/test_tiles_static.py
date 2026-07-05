@@ -28,3 +28,21 @@ def test_missing_tiles_file_is_404_not_boot_failure(tmp_path, monkeypatch) -> No
     assert client.get("/tiles/seattle.pmtiles").status_code == 404
     # The rest of the app still works without the artifact.
     assert client.get("/health").status_code == 200
+
+
+def test_built_dashboard_serves_basemap_glyphs_and_sprites(tmp_path, monkeypatch) -> None:
+    # Vite copies frontend/public/basemaps-assets/ into the built dashboard dir; the
+    # map style requests them at /basemaps-assets/. The vite dev server masks a missing
+    # backend mount, so this pins production serving.
+    static_dir = tmp_path / "dashboard"
+    (static_dir / "assets").mkdir(parents=True)
+    (static_dir / "index.html").write_text("<html></html>")
+    fonts_dir = static_dir / "basemaps-assets" / "fonts" / "Noto Sans Regular"
+    fonts_dir.mkdir(parents=True)
+    (fonts_dir / "0-255.pbf").write_bytes(b"glyphs")
+    monkeypatch.setenv("MCA_STATIC_DASHBOARD_DIR", str(static_dir))
+
+    client = TestClient(create_app("sqlite+pysqlite:///:memory:"))
+    response = client.get("/basemaps-assets/fonts/Noto%20Sans%20Regular/0-255.pbf")
+    assert response.status_code == 200
+    assert response.content == b"glyphs"

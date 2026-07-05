@@ -34,6 +34,16 @@ def mount_dashboard(app: FastAPI) -> None:
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="dashboard-assets")
 
+    # Map glyphs/sprites: vite copies frontend/public/basemaps-assets/ into the build,
+    # but only /assets is mounted above — the map style requests these at /basemaps-assets/.
+    basemap_assets_dir = static_dir / "basemaps-assets"
+    if basemap_assets_dir.exists():
+        app.mount(
+            "/basemaps-assets",
+            StaticFiles(directory=basemap_assets_dir),
+            name="basemap-assets",
+        )
+
     @app.get("/", include_in_schema=False)
     def dashboard_index() -> FileResponse:
         return FileResponse(index_file)
