@@ -62,7 +62,7 @@
 .mc-import{display:inline-flex;align-items:center;gap:7px;height:44px;padding:0 14px;cursor:pointer;
   border-radius:12px;font-family:var(--f-ui);font-weight:500;font-size:13.5px;color:var(--text-strong);
   background:var(--surface);border:1px solid var(--border);}
-.mc-searchpill{position:absolute;top:74px;left:22px;z-index:1100;width:min(360px,calc(100vw - var(--panel-width) - 44px));display:grid;gap:8px;}
+.mc-searchpill{position:absolute;top:74px;left:22px;z-index:1101;width:min(360px,calc(100vw - var(--panel-width) - 44px));display:grid;gap:8px;}
 .mc-searchpill-row{display:flex;align-items:center;gap:9px;height:44px;padding:0 6px 0 14px;border-radius:999px;
   background:var(--surface);border:1px solid var(--border);box-shadow:0 10px 26px -14px rgba(16,24,32,.3);color:var(--text-dim);}
 .mc-searchpill-row input{border:0;background:transparent;outline:none;width:100%;font-family:var(--f-ui);font-size:14px;color:var(--text-strong);}
@@ -396,7 +396,9 @@ input.mc-inp:focus{outline:2px solid var(--accent);outline-offset:1px;}
 .mc-method-read{font-style:italic;color:var(--text-dim) !important;}
 .mc-method code{display:block;margin-top:6px;font-family:var(--f-mono);font-size:11px;color:var(--accent);background:var(--accent-soft);border:1px solid var(--accent-soft);border-radius:7px;padding:5px 9px;overflow-wrap:anywhere;}
 
-.mc-topbar,.mc-searchpill,.mc-legend,.mc-assistant,.mc-empty,.mc-error{z-index:1100;}
+.mc-topbar,.mc-legend,.mc-assistant,.mc-empty,.mc-error{z-index:1100;}
+/* open results list paints above the legend until the legend relocates (Task 10) */
+.mc-searchpill{z-index:1101;}
 .mc-workspace-panel{z-index:1200;}
 .mc-frame .maplibregl-ctrl-bottom-right{right:calc(var(--panel-width) + 14px);bottom:18px;z-index:1100;}
 .mc-empty{top:34%;}
