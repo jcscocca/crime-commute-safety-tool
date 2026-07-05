@@ -1,0 +1,27 @@
+from __future__ import annotations
+
+import gzip
+import json
+
+from app.services.beat_geometry_service import beats_geojson_payloads, reset_beats_cache
+
+
+def test_beats_payload_is_slimmed_and_complete() -> None:
+    raw, gzipped = beats_geojson_payloads()
+    body = json.loads(raw)
+    assert body["type"] == "FeatureCollection"
+    # 55 features in the bundled 2018 file; every property dict is exactly {"beat": code}.
+    assert len(body["features"]) == 55
+    for feature in body["features"]:
+        assert set(feature["properties"].keys()) == {"beat"}
+        assert isinstance(feature["properties"]["beat"], str)
+        assert feature["geometry"]["type"] in {"Polygon", "MultiPolygon"}
+    # gzip bytes decompress to the same payload
+    assert gzip.decompress(gzipped) == raw
+
+
+def test_beats_payload_is_cached_in_process() -> None:
+    reset_beats_cache()
+    first_raw, _ = beats_geojson_payloads()
+    second_raw, _ = beats_geojson_payloads()
+    assert first_raw is second_raw  # same object — cached, not re-serialized
