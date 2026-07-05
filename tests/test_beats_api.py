@@ -50,3 +50,19 @@ def test_beats_endpoint_serves_geojson(tmp_path) -> None:
     assert body["type"] == "FeatureCollection"
     assert len(body["features"]) == 55
     assert set(body["features"][0]["properties"].keys()) == {"beat"}
+
+
+def test_beats_endpoint_negotiates_gzip(tmp_path) -> None:
+    client = _client(tmp_path)
+    client.post("/sessions")
+    # httpx auto-decodes the gzip body, so assert on headers; json() still works.
+    response = client.get("/dashboard/beats", headers={"accept-encoding": "gzip"})
+    assert response.status_code == 200
+    assert response.headers["content-encoding"] == "gzip"
+    assert response.headers["vary"] == "Accept-Encoding"
+    assert response.json()["type"] == "FeatureCollection"
+
+    plain = client.get("/dashboard/beats", headers={"accept-encoding": "identity"})
+    assert plain.status_code == 200
+    assert "content-encoding" not in plain.headers
+    assert plain.headers["vary"] == "Accept-Encoding"
