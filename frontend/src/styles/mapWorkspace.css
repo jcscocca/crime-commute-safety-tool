@@ -38,7 +38,7 @@
 .maplibregl-popup-content{border-radius:10px;box-shadow:0 10px 26px -12px rgba(0,0,0,.4);padding:10px 12px;}
 .mc-basemap{position:absolute;inset:0;width:100%;height:100%;}
 
-.mc-topbar{position:absolute;top:0;left:0;right:0;height:60px;z-index:40;
+.mc-topbar{position:absolute;top:0;left:0;right:var(--panel-width);height:60px;z-index:40;
   display:flex;align-items:center;justify-content:space-between;padding:0 22px;
   background:linear-gradient(180deg,var(--scrim),transparent);}
 .mc-brand{display:flex;align-items:center;gap:11px;}

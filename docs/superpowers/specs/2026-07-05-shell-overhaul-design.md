@@ -1,6 +1,6 @@
 # Shell Overhaul (Slice 3 of Map & UI Overhaul) — design
 
-**Date:** 2026-07-05 · **Status:** approved design, pre-plan.
+**Date:** 2026-07-05 · **Status:** SHIPPED (2026-07-05)
 **Parent:** `docs/superpowers/specs/2026-07-04-map-ui-overhaul-design.md` (Slice 3 section — this doc
 supersedes and details it; decisions re-confirmed with the user 2026-07-05).
 
@@ -169,3 +169,25 @@ Analyst dock.
   LLM latency improves materially.
 - Additional geographic layers, per-category dot filtering, heatmaps (rejected — invariant).
 - Any backend change.
+
+## Shipped deviations (verified during build)
+
+- Backend touched after all: a `/fonts` StaticFiles mount in `app/main.py` (vite dev masks
+  missing prod mounts — same seam as the slice-2 glyphs bug) + a pinning test in
+  `tests/test_tiles_static.py`. The "zero backend changes" line was wrong by one mount.
+- Archivo ships as ONE variable font (`archivo-var.woff2`, `font-weight:100 900`) instead of
+  four fixed weights — css2 serves a variable file; also fixes 650/750 weights the fixed faces
+  couldn't interpolate.
+- New `--on-accent` token (light `#fff`, dark `#10181F`) — the plan's `#fff`-on-accent failed
+  AA on the dark accent `#4FB3D9`; `--text-dim` light darkened to `#64747F` for AA.
+- Analyzed-ring paint is theme-aware in `mapLayers.ts` (`#4FB3D9` dark / `#0B6E99` light,
+  literal hexes — canvas paint can't read CSS vars). Accent-colored selection marks are UI
+  state, allowed by the invariant (data marks stay graphite/slate).
+- SearchPill results list `z-index:1101`; legend `bottom:100px` (the plan's 64px collided with
+  the zoom/attribution cluster); topbar right edge inset by `--panel-width` (was occluded by
+  the panel).
+- Known eyeball items accepted: sub-second basemap blink on theme toggle (setStyle diff
+  repaint; revisit with `transformStyle` if it reads janky on deploy); colorful POI icons
+  visible in the dark basemap style but not light (slice-1 style artifact — follow-up);
+  disclosure chip can overlap attribution when the panel is WIDE on narrow desktops; mobile
+  dock max-heights (44vh/200px) unscaled; log auto-scroll absent (pre-existing).
