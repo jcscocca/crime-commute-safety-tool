@@ -65,6 +65,14 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app.include_router(assistant_router)
     app.include_router(exports_router)
     app.include_router(analysis_router)
+    # Self-hosted basemap tiles (see docs/superpowers/specs/2026-07-04-map-ui-overhaul-design.md).
+    # check_dir=False: the artifact is fetched out-of-band (make fetch-tiles); missing file
+    # is a plain 404 and the frontend falls back to a flat basemap.
+    app.mount(
+        "/tiles",
+        StaticFiles(directory=get_settings().tiles_dir, check_dir=False),
+        name="tiles",
+    )
     mount_dashboard(app)
     return app
 
