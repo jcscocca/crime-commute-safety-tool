@@ -182,10 +182,14 @@ thoughtful shell redesign (Civic Clear + night mode, Evolved Workspace layout).*
   builders, 206-range `/tiles` + `/basemaps-assets` serving, hardened `fetch_tiles.py`
   (`make fetch-tiles`), Leaflet removed, deploy wired (compose ro volume + ps1 fetch).
   Plan: `docs/superpowers/plans/2026-07-04-map-foundation.md`.
-- [ ] **Slice 2 — Transparency layers:** `/dashboard/beats` GeoJSON + `/dashboard/incident-points`
-  (bbox-gated, 5,000-row cap, arrests −1/−1 sentinel excluded, `unmappable_count`); beat
-  outlines with assigned-beat highlight; clustered→individual incident dots (no heatmap —
-  invariant); redacted-locations disclosure chip.
+- [x] **Slice 2 — Transparency layers:** `/dashboard/beats` (slimmed `{beat}`-only GeoJSON,
+  gzip-negotiated + `Vary`, cached) + `/dashboard/incident-points` (bbox-gated + Seattle-clamped,
+  5,000-row cap, arrests −1/−1 sentinel excluded structurally, `unmappable_citywide_count`); beat
+  outlines with static labels (≥z12) + assigned-beat highlight from the neighborhood payload;
+  clustered→individual incident dots at z14 (no heatmap, one neutral palette — invariant); XSS-safe
+  click card with canonical incident formatting; debounced+abortable viewport hook; redacted-locations
+  disclosure chip. Live-verified end-to-end. Plan:
+  `docs/superpowers/plans/2026-07-04-transparency-layers.md`.
 - [ ] **Slice 3 — Shell overhaul:** Evolved Workspace layout (search pill absorbs pin-drop,
   Analyst dock, theme toggle), Civic Clear tokens + night mode, self-hosted webfonts
   (drop the Google Fonts requests — the app's last external call).
