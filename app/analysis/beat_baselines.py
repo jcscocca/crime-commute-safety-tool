@@ -167,6 +167,47 @@ def buffer_beat_overlap_km2(
     return circle_km2 * (in_beat / in_circle)
 
 
+def beats_intersecting_buffer(
+    *,
+    lon: float,
+    lat: float,
+    radius_m: float,
+    beat_polygons: BeatPolygons,
+) -> dict[str, float]:
+    """Per-beat overlap area (km²) for every beat the buffer circle intersects.
+
+    Returns ``{beat: overlap_km2}`` for beats with a positive overlap — the inputs for a
+    multi-beat "surrounding area" baseline when a buffer spills past its own beat's boundary
+    (pooled baseline = Σ beat areas − Σ overlaps). A cheap bounding-box prefilter skips the
+    grid sampling for the (vast majority of) beats nowhere near the buffer.
+    """
+    meters_per_deg_lat = 111_320.0
+    meters_per_deg_lon = 111_320.0 * cos(radians(lat))
+    if meters_per_deg_lon <= 0:
+        return {}
+    dlat = radius_m / meters_per_deg_lat
+    dlon = radius_m / meters_per_deg_lon
+    buf_min_lon, buf_max_lon = lon - dlon, lon + dlon
+    buf_min_lat, buf_max_lat = lat - dlat, lat + dlat
+    overlaps: dict[str, float] = {}
+    for beat, polygons in beat_polygons.items():
+        exterior_points = [pt for rings in polygons for pt in rings[0]] if polygons else []
+        if not exterior_points:
+            continue
+        lons = [pt[0] for pt in exterior_points]
+        lats = [pt[1] for pt in exterior_points]
+        if min(lons) > buf_max_lon or max(lons) < buf_min_lon:
+            continue
+        if min(lats) > buf_max_lat or max(lats) < buf_min_lat:
+            continue
+        overlap = buffer_beat_overlap_km2(
+            lon=lon, lat=lat, radius_m=radius_m, beat_polygons_for_beat=polygons
+        )
+        if overlap > 0:
+            overlaps[beat] = overlap
+    return overlaps
+
+
 def missing_beat_areas(
     incident_beats: Iterable[str | None], area_lookup: dict[str, float]
 ) -> set[str]:

@@ -6,6 +6,7 @@ import pytest
 
 from app.analysis.beat_baselines import (
     NON_GEOGRAPHIC_BEATS,
+    beats_intersecting_buffer,
     buffer_beat_overlap_km2,
     load_beat_areas,
     missing_beat_areas,
@@ -161,3 +162,37 @@ def test_shipped_csv_covers_every_real_beat_in_dev_db():
     finally:
         con.close()
     assert missing_beat_areas(db_beats, load_beat_areas()) == set()
+
+
+def test_beats_intersecting_buffer_inside_one_beat():
+    # Buffer fully inside beat A: only A intersects (FAR is bbox-prefiltered out), and A's
+    # overlap is the exact full circle — the single-beat baseline degenerate case.
+    polys = {
+        "A": _metric_square(_SEATTLE_LON, _SEATTLE_LAT, half_m=1000),
+        "FAR": _metric_square(_SEATTLE_LON + 1.0, _SEATTLE_LAT, half_m=1000),
+    }
+    overlaps = beats_intersecting_buffer(
+        lon=_SEATTLE_LON, lat=_SEATTLE_LAT, radius_m=250, beat_polygons=polys
+    )
+    assert set(overlaps) == {"A"}
+    assert overlaps["A"] == pytest.approx(_circle_km2(250))
+
+
+def test_beats_intersecting_buffer_straddling_two_beats():
+    # Buffer centred on the shared edge of two adjacent squares: both intersect, roughly half
+    # the circle in each, and the two overlaps together account for (almost) the whole circle.
+    from math import cos, radians
+
+    half = 1000.0
+    dlon = half / (111_320.0 * cos(radians(_SEATTLE_LAT)))
+    polys = {
+        "W": _metric_square(_SEATTLE_LON - dlon, _SEATTLE_LAT, half_m=half),
+        "E": _metric_square(_SEATTLE_LON + dlon, _SEATTLE_LAT, half_m=half),
+    }
+    overlaps = beats_intersecting_buffer(
+        lon=_SEATTLE_LON, lat=_SEATTLE_LAT, radius_m=250, beat_polygons=polys
+    )
+    assert set(overlaps) == {"W", "E"}
+    circle = _circle_km2(250)
+    assert overlaps["W"] == pytest.approx(0.5 * circle, abs=0.05 * circle)
+    assert overlaps["W"] + overlaps["E"] == pytest.approx(circle, rel=0.05)

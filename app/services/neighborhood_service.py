@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.analysis.beat_baselines import (
     BeatPolygons,
     assign_beat,
-    buffer_beat_overlap_km2,
+    beats_intersecting_buffer,
     place_vs_beat,
 )
 from app.analysis.exposure import trim_partial_edge_months
@@ -89,7 +89,7 @@ def _assign_beat(cluster: PlaceClusterData, beat_polygons: BeatPolygons) -> str 
 
 def _beat_incidents(
     session: Session,
-    beat: str,
+    beats: Sequence[str],
     start: date,
     end: date,
     offense_category,
@@ -104,7 +104,7 @@ def _beat_incidents(
     stmt = (
         select(CrimeIncident)
         .where(CrimeIncident.source_dataset.in_(effective_sources))
-        .where(CrimeIncident.beat == beat)
+        .where(CrimeIncident.beat.in_(tuple(beats)))
         .where(observed >= start_at)
         .where(observed <= end_at)
         .where(CrimeIncident.latitude.is_not(None))
@@ -234,9 +234,22 @@ def neighborhood_analysis_for_places(
         if beat is None or area is None:
             raw.append({"cluster": cluster, "beat": beat, "place_incidents": place_incidents})
             continue
+        # The baseline region is the union of every beat the buffer intersects (with a known
+        # area), not just the assigned beat — so a buffer larger than its own tiny beat still
+        # has a real surrounding area to compare against. When the buffer sits fully inside one
+        # beat this degenerates to exactly the single-beat rest-of-beat baseline.
+        overlaps = beats_intersecting_buffer(
+            lon=cluster.display_longitude,
+            lat=cluster.display_latitude,
+            radius_m=radius_m,
+            beat_polygons=beat_polygons,
+        )
+        baseline_beats = sorted(b for b in overlaps if b in area_lookup)
+        if beat not in baseline_beats:  # the assigned beat always participates
+            baseline_beats = sorted([*baseline_beats, beat])
         beat_incidents = _beat_incidents(
             session,
-            beat,
+            baseline_beats,
             analysis_start_date,
             analysis_end_date,
             offense_category,
@@ -244,7 +257,7 @@ def neighborhood_analysis_for_places(
             nibrs_group,
             sources=sources,
         )
-        # Rest of beat: the surrounding baseline EXCLUDING the place's own buffer, so the
+        # Rest of the surrounding area: the baseline EXCLUDING the place's own buffer, so the
         # place is not compared against itself. Carve the buffer out by distance (incidents
         # with missing coordinates stay in the baseline, the conservative choice).
         rest_incidents = [
@@ -261,23 +274,20 @@ def neighborhood_analysis_for_places(
             > radius_m
         ]
         place_exposure = _place_exposure_km2_days(radius_m, days)
-        # Carve only the part of the buffer that actually lies inside the beat out of the
-        # rest-of-beat area. Subtracting the whole circle (as before) understates the rest area
-        # for any place whose buffer spills past a beat boundary, inflating the rest-of-beat rate
-        # and biasing the place's rate ratio low. The place's own rate stays a full-buffer density.
-        overlap_km2 = buffer_beat_overlap_km2(
-            lon=cluster.display_longitude,
-            lat=cluster.display_latitude,
-            radius_m=radius_m,
-            beat_polygons_for_beat=beat_polygons[beat],
+        # Pooled baseline area = Σ beat areas − Σ (buffer ∩ beat) overlaps: carve out only the
+        # part of the buffer that actually lies inside each beat (subtracting the whole circle
+        # would understate the rest area and bias the rate ratio low). The place's own rate
+        # stays a full-buffer density.
+        rest_area = sum(area_lookup[b] for b in baseline_beats) - sum(
+            overlaps.get(b, 0.0) for b in baseline_beats
         )
-        rest_area = area - overlap_km2
         if rest_area <= 0 or not rest_incidents:
             raw.append(
                 {
                     "cluster": cluster,
                     "beat": beat,
                     "area": area,
+                    "baseline_beats": baseline_beats,
                     "place_incidents": place_incidents,
                     "baseline_too_small": True,
                 }
@@ -309,6 +319,7 @@ def neighborhood_analysis_for_places(
                 "cluster": cluster,
                 "beat": beat,
                 "area": area,
+                "baseline_beats": baseline_beats,
                 "place_incidents": place_incidents,
                 "beat_incidents": rest_incidents,
                 "place_exposure": place_exposure,
@@ -328,6 +339,9 @@ def neighborhood_analysis_for_places(
             "place_id": cluster.id,
             "place_label": cluster.display_label or "Selected place",
             "beat": entry.get("beat"),
+            # Every beat pooled into the surrounding-area baseline (== [beat] when the buffer
+            # sits inside one beat); absent when no baseline could be formed at all.
+            "baseline_beats": entry.get("baseline_beats"),
             "radius_m": radius_m,
         }
         if entry.get("beat") is None or entry.get("area") is None:

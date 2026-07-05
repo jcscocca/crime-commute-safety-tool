@@ -93,9 +93,9 @@ def test_beat_incidents_defaults_to_reports(tmp_path):
     create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
     session = get_sessionmaker()()
     _seed_two_sources(session)
-    default = _beat_incidents(session, "K1", _START, _END, None, None, None)
+    default = _beat_incidents(session, ["K1"], _START, _END, None, None, None)
     arrests = _beat_incidents(
-        session, "K1", _START, _END, None, None, None, source_dataset=SOURCE_SPD_ARRESTS
+        session, ["K1"], _START, _END, None, None, None, source_dataset=SOURCE_SPD_ARRESTS
     )
     assert [i.external_incident_id for i in default] == ["rep-1"]
     assert [i.external_incident_id for i in arrests] == ["arr-1"]

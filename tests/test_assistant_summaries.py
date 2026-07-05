@@ -51,7 +51,7 @@ def test_analyze_summary_reads_beat_verdict():
     text = build_tool_summary(_envelope("analyze_places", result))
     assert "Capitol Hill" in text
     assert "1.4×" in text
-    assert "above its beat baseline, statistically clear" in text
+    assert "above its surrounding-area baseline, statistically clear" in text
     assert "95% CI 1.1–1.8" in text
     assert "84 reported incidents within 250 m" in text
 
@@ -124,4 +124,4 @@ def test_analyze_summary_without_baseline():
     }
     text = build_tool_summary(_envelope("analyze_places", result))
     assert "Home: 5 reported incidents within 250 m" in text
-    assert "no beat baseline available" in text
+    assert "no neighborhood baseline available" in text
