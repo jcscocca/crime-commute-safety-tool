@@ -287,7 +287,7 @@
 .mc-frame{position:relative;width:100vw;height:100vh;overflow:hidden;background:var(--surface-sunken);border-radius:0;box-shadow:none;}
 
 .mc-modal-scrim{position:fixed;inset:0;z-index:80;background:rgba(20,24,28,.45);display:grid;place-items:center;padding:20px;}
-.mc-modal{width:min(560px,100%);max-height:90vh;overflow:auto;background:var(--surface);border-radius:14px;padding:18px;}
+.mc-modal{width:min(560px,100%);max-height:90vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;}
 .mc-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .mc-modal-head h3{margin:0;font-size:16px;}
 .mc-modal-tabs{display:flex;gap:8px;margin-bottom:14px;}
@@ -511,3 +511,29 @@ input.mc-inp:focus{outline:2px solid var(--accent);outline-offset:1px;}
 .mc-lookup-head p{margin:0;font-size:13px;color:var(--text);line-height:1.5;}
 .mc-lookup-manual{margin-top:14px;}
 .mc-analyze-actions{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:6px;}
+
+/* Dark theme — token overrides only. Data-mark constants (--graphite/--slate/
+   --slate-soft) are deliberately NOT overridden: the calm neutral marks stay
+   identical in both themes (product invariant). */
+[data-theme="dark"] .mc-scope{
+  --surface:#1B232B; --surface-raised:#151C23; --surface-sunken:#232C35;
+  --border:#2C3742; --border-strong:#3A4754;
+  --text-strong:#E8EDF2; --text:#B9C6D0; --text-dim:#7C8B99;
+  --accent:#4FB3D9; --accent-deep:#7BC8E4;
+  --accent-soft:rgba(79,179,217,.14); --accent-halo:rgba(79,179,217,.35);
+  --on-accent:#10181F;
+  --danger:#F0937B; --danger-soft:rgba(240,147,123,.16);
+  --ok:#5BBF87;
+  --scrim:rgba(0,0,0,0.25);
+  color-scheme:dark;
+}
+/* MapLibre popup surface + tip follow the theme (white by default). */
+[data-theme="dark"] .mc-scope .maplibregl-popup-content{background:var(--surface);color:var(--text-strong);}
+[data-theme="dark"] .mc-scope .maplibregl-popup-anchor-top .maplibregl-popup-tip,
+[data-theme="dark"] .mc-scope .maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+[data-theme="dark"] .mc-scope .maplibregl-popup-anchor-top-right .maplibregl-popup-tip{border-bottom-color:var(--surface);}
+[data-theme="dark"] .mc-scope .maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+[data-theme="dark"] .mc-scope .maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+[data-theme="dark"] .mc-scope .maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip{border-top-color:var(--surface);}
+[data-theme="dark"] .mc-scope .maplibregl-popup-anchor-left .maplibregl-popup-tip{border-right-color:var(--surface);}
+[data-theme="dark"] .mc-scope .maplibregl-popup-anchor-right .maplibregl-popup-tip{border-left-color:var(--surface);}

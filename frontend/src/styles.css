@@ -150,8 +150,8 @@ button:focus-visible {
   min-height: 42px;
   padding: 0 14px;
   color: var(--on-accent);
-  background: var(--accent);
-  border: 1px solid var(--accent);
+  background: var(--accent-deep);
+  border: 1px solid var(--accent-deep);
   border-radius: 8px;
   cursor: pointer;
   font-weight: 700;
