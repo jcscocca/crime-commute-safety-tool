@@ -170,7 +170,7 @@ describe("MapWorkspace", () => {
     render(<MapWorkspace />);
     await screen.findByRole("heading", { name: /look up an address/i });
 
-    fireEvent.click(screen.getByRole("button", { name: /add pin/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Drop a pin on the map" }));
     fireEvent.click(screen.getByTestId("fire-map-click"));
     fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
 
@@ -197,7 +197,7 @@ describe("MapWorkspace", () => {
     render(<MapWorkspace />);
     await screen.findByRole("heading", { name: /look up an address/i });
 
-    fireEvent.click(screen.getByRole("button", { name: /add pin/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Drop a pin on the map" }));
     fireEvent.click(screen.getByTestId("fire-map-click"));
     fireEvent.change(screen.getByLabelText(/label/i), { target: { value: "Home" } });
     fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
@@ -263,7 +263,7 @@ describe("MapWorkspace", () => {
     const { container } = render(<MapWorkspace />);
     await screen.findByRole("heading", { name: /look up an address/i });
 
-    fireEvent.click(screen.getByRole("button", { name: /add pin/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Drop a pin on the map" }));
 
     expect(container.querySelector(".mc-frame")).toHaveClass("is-placing-pin");
     expect(container.querySelector(".mc-workspace-panel")).toHaveClass("is-collapsed");

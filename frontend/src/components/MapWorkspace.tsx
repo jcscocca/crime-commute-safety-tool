@@ -28,6 +28,7 @@ import { PinDraftPopover } from "./PinDraftPopover";
 import { IncidentDisclosure } from "./IncidentDisclosure";
 import { PlaceSearch } from "./PlaceSearch";
 import { PlacesTab } from "./PlacesTab";
+import { SearchPill } from "./SearchPill";
 import { ThemeToggle } from "./ThemeToggle";
 import type { ComparePoint } from "../lib/useCompareSet";
 import type { AnalysisSettings, AssistantDashboardState, BeatFeatureCollection, GeocodeResult, MapBounds, PlaceCreate, TabKey } from "../types";
@@ -349,22 +350,15 @@ export function MapWorkspace() {
           </div>
         </header>
 
-        <div className="mc-controls">
-          <div className="mc-actionrow">
-            <button
-              type="button"
-              className={`mc-addpin${pinDraft.addPinMode ? " is-armed" : ""}`}
-              aria-pressed={pinDraft.addPinMode}
-              onClick={() => (pinDraft.addPinMode ? pinDraft.setAddPinMode(false) : pinDraft.startAddPin())}
-            >
-              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-              Add pin
-            </button>
-          </div>
-          {pinDraft.addPinMode ? (
-            <div className="mc-helper" role="status"><span className="cross" />Click the map to drop a pin - Esc to cancel</div>
-          ) : null}
-        </div>
+        <SearchPill
+          search={(query, signal) => geocodingProvider.search(query, signal)}
+          onSelect={handleLookup}
+          addPinMode={pinDraft.addPinMode}
+          onToggleAddPin={() => (pinDraft.addPinMode ? pinDraft.setAddPinMode(false) : pinDraft.startAddPin())}
+        />
+        {pinDraft.addPinMode ? (
+          <div className="mc-helper" role="status"><span className="cross" />Click the map to drop a pin - Esc to cancel</div>
+        ) : null}
 
         <MapLegend />
         <IncidentDisclosure
