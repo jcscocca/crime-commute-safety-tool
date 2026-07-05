@@ -88,7 +88,7 @@ def test_points_filtered_by_bbox_dates_and_layer(tmp_path) -> None:
     result = incident_points(session, bounds=MapBounds(**BOUNDS), layer="reported", **DATES)
     assert result["returned_count"] == 1
     assert result["total_count"] == 1
-    assert result["unmappable_count"] == 1
+    assert result["unmappable_citywide_count"] == 1
     point = result["points"][0]
     assert point["id"] == "inc-1"
     assert point["latitude"] == 47.610

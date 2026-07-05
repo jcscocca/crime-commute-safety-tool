@@ -1,9 +1,10 @@
 """Viewport incident points for the map's dot layer.
 
 Coordinates are clamped to the Seattle bounds before querying, which structurally
-excludes the arrests unknown-location sentinel (-1.0/-1.0). ``unmappable_count``
-counts rows matching the same non-spatial filters whose location was redacted at
-the source (NULL coordinates) — they exist only in beat-level statistics.
+excludes the arrests unknown-location sentinel (-1.0/-1.0). ``unmappable_citywide_count``
+counts rows citywide — not bbox-scoped, since a NULL coordinate can't be bboxed —
+matching the same non-spatial filters whose location was redacted at the source;
+they exist only in beat-level statistics.
 """
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, time
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, and_, func, select
 from sqlalchemy.orm import Session
 
 from app.api.dashboard_schemas import (
@@ -23,7 +24,7 @@ from app.api.dashboard_schemas import (
 )
 from app.crime.sources import sources_for_layer
 from app.models import CrimeIncident
-from app.services import dashboard_analysis_service
+from app.services.dashboard_analysis_service import validate_date_range
 
 INCIDENT_POINTS_LIMIT = 5000
 
@@ -48,15 +49,18 @@ def incident_points(
     nibrs_group: str | None = None,
     limit: int = INCIDENT_POINTS_LIMIT,
 ) -> dict[str, Any]:
-    # AMENDMENT 1 — mirror the sibling endpoints: reversed dates raise ValueError
-    # (routes convert to 400) rather than silently returning an empty result.
-    dashboard_analysis_service._validate_date_range(analysis_start_date, analysis_end_date)
+    # Mirror the sibling endpoints: reversed dates raise ValueError (routes convert
+    # to 400) rather than silently returning an empty result.
+    validate_date_range(analysis_start_date, analysis_end_date)
     sources = sources_for_layer(layer)
+    # Date filter + sort run on this unindexed expression; the known mitigation is a
+    # Postgres expression index on coalesce(offense_start_utc, report_utc), deliberately
+    # deferred — this slice ships no migrations.
     observed_at = func.coalesce(CrimeIncident.offense_start_utc, CrimeIncident.report_utc)
     start_at = datetime.combine(analysis_start_date, time.min, tzinfo=UTC)
     end_at = datetime.combine(analysis_end_date, time.max, tzinfo=UTC)
 
-    def non_spatial(statement):
+    def non_spatial(statement: Select) -> Select:
         statement = (
             statement.where(CrimeIncident.source_dataset.in_(sources))
             .where(observed_at >= start_at)
@@ -75,27 +79,28 @@ def incident_points(
     south = max(bounds.south, SEATTLE_SOUTH)
     north = min(bounds.north, SEATTLE_NORTH)
 
-    def spatial(statement):
-        return (
-            statement.where(CrimeIncident.latitude.is_not(None))
-            .where(CrimeIncident.longitude.is_not(None))
-            .where(CrimeIncident.latitude >= south)
-            .where(CrimeIncident.latitude <= north)
-            .where(CrimeIncident.longitude >= west)
-            .where(CrimeIncident.longitude <= east)
-        )
+    spatial_predicate = and_(
+        CrimeIncident.latitude.is_not(None),
+        CrimeIncident.longitude.is_not(None),
+        CrimeIncident.latitude >= south,
+        CrimeIncident.latitude <= north,
+        CrimeIncident.longitude >= west,
+        CrimeIncident.longitude <= east,
+    )
 
-    total_count = (
-        session.scalar(spatial(non_spatial(select(func.count()).select_from(CrimeIncident)))) or 0
-    )
-    unmappable_count = (
-        session.scalar(
-            non_spatial(select(func.count()).select_from(CrimeIncident)).where(
-                CrimeIncident.latitude.is_(None)
-            )
+    def spatial(statement: Select) -> Select:
+        return statement.where(spatial_predicate)
+
+    total_count, unmappable_citywide_count = session.execute(
+        non_spatial(
+            select(
+                func.count().filter(spatial_predicate),
+                func.count().filter(CrimeIncident.latitude.is_(None)),
+            ).select_from(CrimeIncident)
         )
-        or 0
-    )
+    ).one()
+    total_count = total_count or 0
+    unmappable_citywide_count = unmappable_citywide_count or 0
     rows = session.execute(
         spatial(
             non_spatial(
@@ -133,6 +138,6 @@ def incident_points(
         "points": points,
         "returned_count": len(points),
         "total_count": total_count,
-        "unmappable_count": unmappable_count,
+        "unmappable_citywide_count": unmappable_citywide_count,
         "limit": limit,
     }
