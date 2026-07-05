@@ -1,7 +1,7 @@
 The fonts bundled in this directory are licensed under the SIL Open Font
 License, Version 1.1:
 
-  - Archivo (archivo-*.woff2) — Copyright (c) The Archivo Project Authors
+  - Archivo (archivo-var.woff2, variable font) — Copyright (c) The Archivo Project Authors
     (https://github.com/Omnibus-Type/Archivo), with Reserved Font Name "Archivo".
   - IBM Plex Mono (plexmono-*.woff2) — Copyright (c) 2017 IBM Corp.
     (https://github.com/IBM/plex), with Reserved Font Name "IBM Plex".
