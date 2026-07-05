@@ -44,6 +44,11 @@ def mount_dashboard(app: FastAPI) -> None:
             name="basemap-assets",
         )
 
+    # Self-hosted UI fonts (frontend/public/fonts/): fonts.css requests them at /fonts/.
+    fonts_dir = static_dir / "fonts"
+    if fonts_dir.exists():
+        app.mount("/fonts", StaticFiles(directory=fonts_dir), name="dashboard-fonts")
+
     @app.get("/", include_in_schema=False)
     def dashboard_index() -> FileResponse:
         return FileResponse(index_file)

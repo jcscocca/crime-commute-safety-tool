@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./MapCanvas", () => ({
   MapCanvas: ({ places, draft, onMapClick, onMarkerClick }: any) => (
@@ -114,9 +114,41 @@ function makeSiteComparison(aLabel: string, bLabel: string): SiteComparison {
   };
 }
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+beforeEach(() => {
+  // useTheme() reads matchMedia when no theme is stored; jsdom lacks it. Clear the stored
+  // theme and the document attribute so the toggle test doesn't inherit prior-test state.
+  vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+    matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+  }));
+  localStorage.removeItem("wp-theme");
+  document.documentElement.removeAttribute("data-theme");
+});
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+  vi.unstubAllGlobals();
+  localStorage.removeItem("wp-theme");
+  document.documentElement.removeAttribute("data-theme");
+});
 
 describe("MapWorkspace", () => {
+  it("theme toggle flips the document theme attribute", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home]));
+
+    render(<MapWorkspace />);
+    await screen.findByText("Home");
+
+    const toggle = await screen.findByRole("button", { name: /switch to (dark|light) theme/i });
+    const before = document.documentElement.getAttribute("data-theme");
+    fireEvent.click(toggle);
+    await waitFor(() => {
+      const after = document.documentElement.getAttribute("data-theme");
+      expect(after).toMatch(/dark|light/);
+      expect(after).not.toBe(before);
+    });
+  });
+
   it("starts a session and lists returned places", async () => {
     vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
     vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home]));
@@ -138,7 +170,7 @@ describe("MapWorkspace", () => {
     render(<MapWorkspace />);
     await screen.findByRole("heading", { name: /look up an address/i });
 
-    fireEvent.click(screen.getByRole("button", { name: /add pin/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Drop a pin on the map" }));
     fireEvent.click(screen.getByTestId("fire-map-click"));
     fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
 
@@ -165,7 +197,7 @@ describe("MapWorkspace", () => {
     render(<MapWorkspace />);
     await screen.findByRole("heading", { name: /look up an address/i });
 
-    fireEvent.click(screen.getByRole("button", { name: /add pin/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Drop a pin on the map" }));
     fireEvent.click(screen.getByTestId("fire-map-click"));
     fireEvent.change(screen.getByLabelText(/label/i), { target: { value: "Home" } });
     fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
@@ -231,7 +263,7 @@ describe("MapWorkspace", () => {
     const { container } = render(<MapWorkspace />);
     await screen.findByRole("heading", { name: /look up an address/i });
 
-    fireEvent.click(screen.getByRole("button", { name: /add pin/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Drop a pin on the map" }));
 
     expect(container.querySelector(".mc-frame")).toHaveClass("is-placing-pin");
     expect(container.querySelector(".mc-workspace-panel")).toHaveClass("is-collapsed");

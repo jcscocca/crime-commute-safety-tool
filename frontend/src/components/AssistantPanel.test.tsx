@@ -185,5 +185,27 @@ describe("AssistantPanel", () => {
     const bold = await screen.findByText("bold");
     expect(bold.tagName).toBe("STRONG");
   });
+
+  it("shows the explainer and quick actions when empty, and a chip sends its prompt", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      sseResponse("event: done\ndata: {}\n\n"),
+    );
+    render(<AssistantPanel dashboardState={dashboardState} onToolResult={vi.fn()} />);
+    expect(screen.getByText("Ask about what the map is showing")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "What's near this pin?" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.messages.at(-1)).toEqual({ role: "user", content: "What's near this pin?" });
+    expect(body.dashboard_state).toEqual(dashboardState);
+  });
+
+  it("collapses to the header only", () => {
+    render(<AssistantPanel dashboardState={dashboardState} onToolResult={vi.fn()} />);
+    const collapse = screen.getByRole("button", { name: /collapse analyst/i });
+    expect(collapse).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(collapse);
+    expect(screen.queryByLabelText("Analyst message")).toBeNull();
+    expect(screen.getByRole("button", { name: /expand analyst/i })).toHaveAttribute("aria-expanded", "false");
+  });
 });
 
