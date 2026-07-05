@@ -192,7 +192,15 @@ thoughtful shell redesign (Civic Clear + night mode, Evolved Workspace layout).*
   `docs/superpowers/plans/2026-07-04-transparency-layers.md`.
 - [ ] **Slice 3 — Shell overhaul:** Evolved Workspace layout (search pill absorbs pin-drop,
   Analyst dock, theme toggle), Civic Clear tokens + night mode, self-hosted webfonts
-  (drop the Google Fonts requests — the app's last external call).
+  (drop the Google Fonts requests — the app's last external call). _Carry-ins from slice 2:_
+  (a) the night-mode `setStyle()` wipes the beat/incident/ring layers and `"load"` won't
+  re-fire — re-register via `style.load`/`transformStyle` (noted at `MapCanvas.tsx` above
+  `addRingLayers`); (b) if that re-registration lands, extract `addBeatLayers`/`addIncidentLayers`/
+  `incidentCardElement` out of the now-451-line `MapCanvas.tsx` into a `mapLayers.ts` module.
+- [ ] **Deferred (slice 2, non-blocking):** `/dashboard/incident-points` filters + sorts on the
+  unindexed `coalesce(offense_start_utc, report_utc)` expression; a Postgres expression index is
+  the mitigation when incident volume grows (needs a migration — out of scope for the no-migration
+  slices). Bounded today by the 5,000-row cap + Seattle bbox clamp.
 
 ## Conventions
 - Each unchecked box above is a candidate unit of work; large ones get their own `docs/superpowers/` spec → plan → PR (the established cadence).
