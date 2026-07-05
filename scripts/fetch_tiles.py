@@ -29,6 +29,7 @@ TOOLS_DIR = REPO / ".tools"
 TILES_OUT = REPO / "app" / "data" / "tiles" / "seattle.pmtiles"
 ASSETS_OUT = REPO / "frontend" / "public" / "basemaps-assets"
 BUILDS_URL = "https://build.protomaps.com"
+# builds.json moved to a separate metadata host; tiles still stream from BUILDS_URL.
 BUILDS_LISTING_URL = "https://build-metadata.protomaps.dev/builds.json"
 ASSETS_COMMIT = "028c18f713baecad011301ff7a69acc39bcc2ae7"
 ASSETS_TARBALL = f"https://github.com/protomaps/basemaps-assets/archive/{ASSETS_COMMIT}.tar.gz"

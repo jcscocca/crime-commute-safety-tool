@@ -51,6 +51,15 @@ try {
     }
 } finally { Pop-Location }
 
+# 0.5 Self-hosted basemap tiles: fetch once if missing (kept out of git; ~100 MB).
+#     A failure here is non-fatal — the app runs with a flat-background map fallback.
+$tiles = Join-Path $repo 'app\data\tiles\seattle.pmtiles'
+if (-not (Test-Path $tiles)) {
+    Write-Host 'Basemap tiles missing; fetching (one-time, ~100 MB)...'
+    python (Join-Path $repo 'scripts\fetch_tiles.py')
+    if ($LASTEXITCODE -ne 0) { Write-Host 'WARNING: tile fetch failed; map will use the fallback background.' }
+}
+
 # 1. Docker engine. Docker Desktop starts at login, but the engine takes a moment;
 #    if it isn't up at all, nudge Docker Desktop, then wait for readiness.
 if (-not (Test-Docker)) {
