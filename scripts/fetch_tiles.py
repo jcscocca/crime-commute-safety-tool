@@ -22,13 +22,14 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-GO_PMTILES_VERSION = "1.28.0"
+GO_PMTILES_VERSION = "1.30.3"
 SEATTLE_BBOX = "-122.55,47.40,-122.10,47.80"
 REPO = Path(__file__).resolve().parent.parent
 TOOLS_DIR = REPO / ".tools"
 TILES_OUT = REPO / "app" / "data" / "tiles" / "seattle.pmtiles"
 ASSETS_OUT = REPO / "frontend" / "public" / "basemaps-assets"
 BUILDS_URL = "https://build.protomaps.com"
+BUILDS_LISTING_URL = "https://build-metadata.protomaps.dev/builds.json"
 ASSETS_COMMIT = "028c18f713baecad011301ff7a69acc39bcc2ae7"
 ASSETS_TARBALL = f"https://github.com/protomaps/basemaps-assets/archive/{ASSETS_COMMIT}.tar.gz"
 
@@ -37,7 +38,10 @@ def release_asset_name(system: str, machine: str) -> str:
     machine_map = {"x86_64": "x86_64", "AMD64": "x86_64", "arm64": "arm64", "aarch64": "arm64"}
     arch = machine_map.get(machine, machine)
     ext = "zip" if system in {"Darwin", "Windows"} else "tar.gz"
-    return f"go-pmtiles_{GO_PMTILES_VERSION}_{system}_{arch}.{ext}"
+    # Upstream is inconsistent: Darwin assets use a hyphen after "go-pmtiles",
+    # Linux/Windows use an underscore.
+    sep = "-" if system == "Darwin" else "_"
+    return f"go-pmtiles{sep}{GO_PMTILES_VERSION}_{system}_{arch}.{ext}"
 
 
 def extract_command(pmtiles_bin: str, build_name: str, out_path: str) -> list[str]:
@@ -61,7 +65,9 @@ def latest_build_name(listing_json: str) -> str:
 
 def _download(url: str) -> bytes:
     print(f"  fetching {url}")
-    with urllib.request.urlopen(url, timeout=90) as resp:  # noqa: S310 - fixed https hosts
+    # Some hosts (build-metadata.protomaps.dev) 403 the default Python-urllib UA.
+    req = urllib.request.Request(url, headers={"User-Agent": "waypoint-fetch-tiles"})
+    with urllib.request.urlopen(req, timeout=90) as resp:  # noqa: S310 - fixed https hosts
         return resp.read()
 
 
@@ -91,7 +97,7 @@ def fetch_tiles(build: str | None, force: bool) -> None:
         print(f"tiles already present: {TILES_OUT} (use --force to refetch)")
         return
     cli = ensure_pmtiles_cli()
-    build_name = build or latest_build_name(_download(f"{BUILDS_URL}/builds.json").decode())
+    build_name = build or latest_build_name(_download(BUILDS_LISTING_URL).decode())
     TILES_OUT.parent.mkdir(parents=True, exist_ok=True)
     cmd = extract_command(cli, build_name, str(TILES_OUT))
     print("  " + " ".join(cmd))
@@ -100,7 +106,7 @@ def fetch_tiles(build: str | None, force: bool) -> None:
     except subprocess.CalledProcessError as e:
         raise SystemExit(
             f"pmtiles extract failed for build {build_name} (exit {e.returncode}); "
-            f"check the build name at {BUILDS_URL}"
+            f"check the build name at {BUILDS_LISTING_URL}"
         ) from e
     print(f"tiles written: {TILES_OUT} ({TILES_OUT.stat().st_size / 1e6:.0f} MB)")
 

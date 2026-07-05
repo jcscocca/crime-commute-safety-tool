@@ -18,8 +18,9 @@ from scripts.fetch_tiles import (
 
 
 def test_release_asset_name_covers_dev_and_deploy_platforms() -> None:
+    # Darwin assets use a hyphen after "go-pmtiles"; Linux/Windows use an underscore.
     assert release_asset_name("Darwin", "arm64") == (
-        f"go-pmtiles_{GO_PMTILES_VERSION}_Darwin_arm64.zip"
+        f"go-pmtiles-{GO_PMTILES_VERSION}_Darwin_arm64.zip"
     )
     assert release_asset_name("Linux", "x86_64") == (
         f"go-pmtiles_{GO_PMTILES_VERSION}_Linux_x86_64.tar.gz"
