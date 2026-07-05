@@ -40,22 +40,21 @@ def latest_observed_date(
     return date.fromisoformat(str(value)[:10])  # SQLite may return an ISO string
 
 
-def _fetch_page_with_retry(
+def _fetch_keyset_with_retry(
     client: SeattleSocrataClient,
     *,
-    limit: int,
-    offset: int,
-    start_date: date | None,
+    since_iso: str | None,
     end_date: date | None,
+    limit: int,
     attempts: int,
     backoff_s: float,
     sleep: Callable[[float], None],
-) -> list:
+) -> tuple[list, str | None]:
     last_exc: Exception | None = None
     for attempt in range(attempts):
         try:
-            return client.fetch_page(
-                limit=limit, offset=offset, start_date=start_date, end_date=end_date
+            return client.fetch_page_keyset(
+                since_iso=since_iso, end_date=end_date, limit=limit
             )
         except HTTPError as exc:
             if exc.code not in RETRYABLE_HTTP_STATUS:
@@ -81,21 +80,23 @@ def backfill_socrata(
     backoff_s: float = 1.0,
     sleep: Callable[[float], None] = time.sleep,
 ) -> dict[str, int]:
-    """Page from offset 0 through the date window, ingesting each page, until a short/empty
-    page (or max_pages). Each fetch is retried on transient network / 429 / 5xx errors.
-    Returns aggregate inserted/skipped counts plus the number of pages fetched.
+    """Keyset-page forward through the date window (ordered by date ASC, cursored on the last
+    row's date), ingesting each page until a short/empty page (or max_pages). Keyset paging is
+    stable under concurrent inserts — unlike ``$offset``, it can't skip rows that shift position
+    mid-walk — and the ingest dedupe absorbs the boundary re-reads the inclusive cursor causes.
+    Each fetch is retried on transient network / 429 / 5xx errors. Returns aggregate
+    inserted/skipped counts plus the number of pages fetched.
     """
     inserted_total = 0
     skipped_total = 0
     pages = 0
-    offset = 0
+    cursor = None if start_date is None else f"{start_date.isoformat()}T00:00:00"
     for _ in range(max_pages):
-        incidents = _fetch_page_with_retry(
+        incidents, next_cursor = _fetch_keyset_with_retry(
             client,
-            limit=page_size,
-            offset=offset,
-            start_date=start_date,
+            since_iso=cursor,
             end_date=end_date,
+            limit=page_size,
             attempts=attempts,
             backoff_s=backoff_s,
             sleep=sleep,
@@ -106,9 +107,14 @@ def backfill_socrata(
         inserted_total += result["inserted_count"]
         skipped_total += result["skipped_count"]
         pages += 1
-        if len(incidents) < page_size:
+        if next_cursor is None:
             break  # a short page means we've reached the end of the dataset/window
-        offset += page_size
+        if next_cursor == cursor:
+            # A full page sharing one timestamp equal to the cursor can't advance without
+            # re-reading it forever; stop rather than loop. Only reachable if a single instant
+            # holds more than page_size incidents — astronomically unlikely for SPD data.
+            break
+        cursor = next_cursor
     return {
         "inserted_count": inserted_total,
         "skipped_count": skipped_total,
