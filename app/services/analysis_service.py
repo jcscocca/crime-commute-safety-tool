@@ -12,6 +12,7 @@ from app.analysis.comparison import build_statistical_comparison
 from app.analysis.exposure import (
     count_incidents_in_place_buffer,
     place_exposure_square_km_days,
+    trim_partial_edge_months,
 )
 from app.analysis.schemas import (
     AnalysisOptionResult,
@@ -90,10 +91,16 @@ def compare_site_options(
                 exposure=exposure,
             )
         )
-        period_counts_by_option_id[option.id] = _monthly_counts(
-            incidents=matching_incidents,
-            analysis_start_date=analysis_start_date,
-            analysis_end_date=analysis_end_date,
+        # Drop partial edge months from the dispersion inputs so a short first/last calendar
+        # month doesn't inflate the overdispersion estimate (and the CIs / verdict that follow).
+        period_counts_by_option_id[option.id] = trim_partial_edge_months(
+            _monthly_counts(
+                incidents=matching_incidents,
+                analysis_start_date=analysis_start_date,
+                analysis_end_date=analysis_end_date,
+            ),
+            analysis_start_date,
+            analysis_end_date,
         )
         geometry_metadata_by_option_id[option.id] = {
             "center": {"latitude": option.latitude, "longitude": option.longitude},

@@ -16,6 +16,7 @@ from app.analysis.beat_baselines import (
     buffer_beat_overlap_km2,
     place_vs_beat,
 )
+from app.analysis.exposure import trim_partial_edge_months
 from app.analysis.rate_tests import (
     benjamini_hochberg,
     compare_incident_rates,
@@ -285,7 +286,13 @@ def neighborhood_analysis_for_places(
         beat_exposure = rest_area * days
         place_monthly = _monthly_counts(place_incidents, analysis_start_date, analysis_end_date)
         rest_monthly = _monthly_counts(rest_incidents, analysis_start_date, analysis_end_date)
-        combined_monthly = [p + r for p, r in zip(place_monthly, rest_monthly, strict=True)]
+        # Trim partial edge months from the dispersion input (not the displayed place_monthly):
+        # a short first/last calendar month would otherwise inflate the overdispersion estimate.
+        combined_monthly = trim_partial_edge_months(
+            [p + r for p, r in zip(place_monthly, rest_monthly, strict=True)],
+            analysis_start_date,
+            analysis_end_date,
+        )
         # Adjust and decide on the overdispersion-aware p-value so the verdict honors
         # the dispersion its own analytical detail reports (mirrors comparison.py).
         dispersion = dispersion_status(combined_monthly)
@@ -429,9 +436,11 @@ def _pairwise(clusters, buffered, radius_m, days, start, end):
             # Decide each pair on the overdispersion-aware p-value from the two places' combined
             # monthly counts, exactly as the Compare tab (build_statistical_comparison) does — so
             # the two surfaces can't contradict each other on the same pair.
-            combined_monthly = [
-                x + y for x, y in zip(monthly_by_id[a.id], monthly_by_id[b.id], strict=True)
-            ]
+            combined_monthly = trim_partial_edge_months(
+                [x + y for x, y in zip(monthly_by_id[a.id], monthly_by_id[b.id], strict=True)],
+                start,
+                end,
+            )
             dispersion = dispersion_status(combined_monthly)
             test = compare_incident_rates(
                 count_a=counts[a.id],
