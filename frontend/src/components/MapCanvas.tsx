@@ -191,6 +191,7 @@ export function MapCanvas({
         setMapFailed(true);
         return;
       }
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
       map.on("click", (event) => {
         onMapClickRef.current({ lat: event.lngLat.lat, lng: event.lngLat.lng });
       });

@@ -112,7 +112,7 @@ vi.mock("maplibre-gl", () => {
       this.content?.remove();
     }
   }
-  return { default: { Map: MockMap, Marker: MockMarker, Popup: MockPopup, addProtocol: vi.fn() } };
+  return { default: { Map: MockMap, Marker: MockMarker, Popup: MockPopup, NavigationControl: class {}, addProtocol: vi.fn() } };
 });
 
 vi.mock("pmtiles", () => ({ Protocol: class { tile = vi.fn(); } }));
