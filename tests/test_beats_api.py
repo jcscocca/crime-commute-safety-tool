@@ -3,6 +3,9 @@ from __future__ import annotations
 import gzip
 import json
 
+from fastapi.testclient import TestClient
+
+from app.main import create_app
 from app.services.beat_geometry_service import beats_geojson_payloads, reset_beats_cache
 
 
@@ -25,3 +28,25 @@ def test_beats_payload_is_cached_in_process() -> None:
     first_raw, _ = beats_geojson_payloads()
     second_raw, _ = beats_geojson_payloads()
     assert first_raw is second_raw  # same object — cached, not re-serialized
+
+
+def _client(tmp_path) -> TestClient:
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    return TestClient(app)
+
+
+def test_beats_endpoint_requires_session(tmp_path) -> None:
+    client = _client(tmp_path)
+    assert client.get("/dashboard/beats").status_code == 401
+
+
+def test_beats_endpoint_serves_geojson(tmp_path) -> None:
+    client = _client(tmp_path)
+    client.post("/sessions")
+    response = client.get("/dashboard/beats")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/geo+json")
+    body = response.json()
+    assert body["type"] == "FeatureCollection"
+    assert len(body["features"]) == 55
+    assert set(body["features"][0]["properties"].keys()) == {"beat"}

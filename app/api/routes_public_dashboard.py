@@ -4,7 +4,8 @@ from dataclasses import asdict
 from functools import lru_cache
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.analysis.beat_baselines import (
@@ -23,6 +24,7 @@ from app.config import get_settings
 from app.crime.sources import sources_for_layer
 from app.db import get_session
 from app.geocoding.providers import GeocodeProvider, GeocoderUpstreamError, build_provider
+from app.services.beat_geometry_service import beats_geojson_payloads
 from app.services.crime_service import dashboard_freshness_by_layer
 from app.services.dashboard_analysis_service import (
     analyze_selected_places,
@@ -154,6 +156,20 @@ def dashboard_freshness(
     # session gate just keeps it on the authenticated public tier like its siblings. The
     # frontend pill shows the entry for the active layer.
     return dashboard_freshness_by_layer(session)
+
+
+@router.get("/dashboard/beats")
+def dashboard_beats(
+    request: Request,
+    _user_id_hash: Annotated[str, Depends(required_public_user_hash)],
+) -> Response:
+    """SPD beat polygons for the map's outline layer (static bundled data)."""
+    raw, gzipped = beats_geojson_payloads()
+    headers = {"Cache-Control": "public, max-age=3600"}
+    if "gzip" in request.headers.get("accept-encoding", "").lower():
+        headers["Content-Encoding"] = "gzip"
+        return Response(content=gzipped, media_type="application/geo+json", headers=headers)
+    return Response(content=raw, media_type="application/geo+json", headers=headers)
 
 
 def get_geocode_provider() -> GeocodeProvider:

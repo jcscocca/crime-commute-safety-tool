@@ -2,7 +2,8 @@
 
 The bundled 2018 file's features carry only a ``beat`` property (no precinct/sector),
 so slimming means dropping nothing but pinning the shape. Cached for the process
-lifetime — the file is a build artifact that never changes at runtime.
+lifetime — the file is a build artifact that never changes at runtime; both forms are
+held so the route can content-negotiate without re-serializing.
 """
 
 from __future__ import annotations
