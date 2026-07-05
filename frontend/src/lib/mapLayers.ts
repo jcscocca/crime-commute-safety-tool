@@ -1,21 +1,23 @@
 import maplibregl from "maplibre-gl";
 
 import { formatIncidentAddress, titleCase } from "./addressLabel";
+import type { MapTheme } from "./mapStyle";
 import type { IncidentFeatureCollection } from "./useIncidentPoints";
 
 export const RINGS_SOURCE = "mc-rings";
 
 // Added on "style.load" (re-fires after setStyle, so the layers survive a theme swap).
-// The analyzed ring uses a fixed light-accent hex — canvas paint can't read CSS vars,
-// and #0B6E99 reads on both the light and dark basemaps (deliberate).
-export function addRingLayers(map: maplibregl.Map): void {
+// The analyzed ring uses fixed hexes — canvas paint can't read CSS vars. The dark value
+// mirrors the dark --accent so the ring reads against the dark basemap.
+export function addRingLayers(map: maplibregl.Map, theme: MapTheme): void {
+  const analyzedColor = theme === "dark" ? "#4FB3D9" : "#0B6E99";
   map.addSource(RINGS_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({
     id: "mc-ring-fill",
     type: "fill",
     source: RINGS_SOURCE,
     paint: {
-      "fill-color": ["match", ["get", "kind"], "analyzed", "#0B6E99", "#74858E"],
+      "fill-color": ["match", ["get", "kind"], "analyzed", analyzedColor, "#74858E"],
       "fill-opacity": ["match", ["get", "kind"], "analyzed", 0.15, 0.12],
     },
   });
@@ -24,7 +26,7 @@ export function addRingLayers(map: maplibregl.Map): void {
     type: "line",
     source: RINGS_SOURCE,
     filter: ["==", ["get", "kind"], "analyzed"],
-    paint: { "line-color": "#0B6E99", "line-width": 1.5 },
+    paint: { "line-color": analyzedColor, "line-width": 1.5 },
   });
   map.addLayer({
     id: "mc-ring-line-dashed",
@@ -118,9 +120,9 @@ export function addIncidentLayers(map: maplibregl.Map): void {
   });
 }
 
-export function registerDataLayers(map: maplibregl.Map): void {
+export function registerDataLayers(map: maplibregl.Map, theme: MapTheme): void {
   addBeatLayers(map);
-  addRingLayers(map);
+  addRingLayers(map, theme);
   addIncidentLayers(map);
 }
 

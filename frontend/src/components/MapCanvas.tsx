@@ -195,7 +195,7 @@ export function MapCanvas({
         onMapClickRef.current({ lat: event.lngLat.lat, lng: event.lngLat.lng });
       });
       map.on("style.load", () => {
-        registerDataLayers(map);
+        registerDataLayers(map, themeRef.current);
         setStyleEpoch((n) => n + 1);
       });
       map.on("load", () => setMapReady(true));

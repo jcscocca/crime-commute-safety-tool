@@ -36,6 +36,7 @@ vi.mock("maplibre-gl", () => {
       return this.on(event, cb);
     }
     addSource(id: string, options: Record<string, unknown>) {
+      if (this.sources.has(id)) throw new Error(`Source "${id}" already exists`);
       this.sources.set(id, { options, setData: vi.fn() });
     }
     getSource(id: string) {
@@ -131,7 +132,7 @@ type MockMapInstance = {
 };
 const MockedMap = maplibregl.Map as unknown as {
   last: MockMapInstance | null;
-  lastOptions: { style: { sources: { protomaps: { url: string } } } } | null;
+  lastOptions: { style: { sprite: string; sources: { protomaps: { url: string } } } } | null;
 };
 const MockPopup = (maplibregl as unknown as { Popup: { last: unknown } }).Popup;
 
@@ -367,11 +368,16 @@ describe("themed map", () => {
       const beats = MockedMap.last!.sources.get("mc-beats");
       expect(beats!.setData).toHaveBeenCalledWith(BEATS_FC);
     });
+    // The rings re-register with the dark accent hex after the swap (canvas paint can't
+    // read CSS vars, so the theme picks the fixed color at registration).
+    const ringLine = MockedMap.last!.layers.find((l) => l.id === "mc-ring-line");
+    expect((ringLine?.paint as Record<string, unknown>)["line-color"]).toBe("#4FB3D9");
   });
 
   it("passes the theme to the style builder", async () => {
     renderCanvas({ theme: "dark" });
     await waitFor(() => expect(MockedMap.lastOptions).not.toBeNull());
     expect(MockedMap.lastOptions!.style.sources.protomaps.url).toContain("pmtiles://");
+    expect(MockedMap.lastOptions!.style.sprite).toMatch(/\/dark$/);
   });
 });
