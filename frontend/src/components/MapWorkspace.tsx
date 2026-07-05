@@ -368,8 +368,6 @@ export function MapWorkspace() {
           limit={incidentLayer.limit}
         />
 
-        <AssistantPanel dashboardState={assistantState} onToolResult={applyAssistantToolResult} />
-
         {data.error && activeTab !== "analyze" ? <p className="mc-error" role="alert">{data.error}</p> : null}
 
         {sharedPoints ? (
@@ -394,6 +392,7 @@ export function MapWorkspace() {
           onResize={onDrawerResize}
           onPreset={onPreset}
           tabBadges={{ places: data.places.length, compare: compareSet.points.length }}
+          dock={<AssistantPanel dashboardState={assistantState} onToolResult={applyAssistantToolResult} />}
         >
           {showLanding ? (
             <AddressLookup provider={geocodingProvider} onSelect={handleLookup} onManual={() => setManualEntry(true)} />
