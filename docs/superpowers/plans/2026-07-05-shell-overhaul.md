@@ -312,6 +312,7 @@ git commit -m "feat(theme): fold legacy styles.css into the token system"
   --text-strong:#E8EDF2; --text:#B9C6D0; --text-dim:#7C8B99;
   --accent:#4FB3D9; --accent-deep:#7BC8E4;
   --accent-soft:rgba(79,179,217,.14); --accent-halo:rgba(79,179,217,.35);
+  --on-accent:#10181F;
   --danger:#F0937B; --danger-soft:rgba(240,147,123,.16);
   --ok:#5BBF87;
   --scrim:rgba(0,0,0,0.25);
@@ -319,24 +320,23 @@ git commit -m "feat(theme): fold legacy styles.css into the token system"
 }
 ```
 
-Note `--graphite`/`--slate`/`--slate-soft` are deliberately NOT overridden — data marks stay identical in both themes (product invariant). White-on-accent buttons: `#fff` on `#4FB3D9` is ~2.1:1 — FAILS AA. Therefore also add:
+Note `--graphite`/`--slate`/`--slate-soft` are deliberately NOT overridden — data marks stay identical in both themes (product invariant). White-on-accent fails AA on the bright dark accent (`#fff` on `#4FB3D9` is ~2.1:1), which is why the dark block overrides `--on-accent` to `#10181F`: every on-accent element (`.mc-addpin`, `.mc-cta`, `.mc-search-go`, `.mc-assistant-form button`, `.mc-chip.on`, `.mc-tinybtn.on`, `.mc-modal-tab.on`, `.mc-assistant-msg.is-user`) already reads `color:var(--on-accent)` since the Task-2 review fixes — NO per-component dark rules are needed.
+
+Also add to the dark block additions (the popup surface is white by MapLibre default and must follow the theme):
 
 ```css
-[data-theme="dark"] .mc-scope .mc-addpin,
-[data-theme="dark"] .mc-scope .mc-cta,
-[data-theme="dark"] .mc-scope .mc-search-go,
-[data-theme="dark"] .mc-scope .mc-assistant-form button,
-[data-theme="dark"] .mc-scope .mc-chip.on,
-[data-theme="dark"] .mc-scope .mc-tinybtn.on,
-[data-theme="dark"] .mc-scope .mc-modal-tab.on,
-[data-theme="dark"] .mc-scope .mc-assistant-msg.is-user{color:#0B1218;}
+[data-theme="dark"] .mc-scope .maplibregl-popup-content{background:var(--surface);color:var(--text-strong);}
 ```
 
-(dark text on the bright dark-theme accent — AA-compliant; one grouped rule, no per-component branching.)
+plus the popup TIP: `.maplibregl-popup-tip` draws its triangle with `border-*-color` (which side depends on anchor) — override the anchor-side border colors to `var(--surface)` in dark or the tip renders as a white speck.
+
+Additional dark-checklist notes (verified during the Task-2 review):
+- `.mc-modal` needs `border:1px solid var(--border);` in dark — its drop shadow alone doesn't separate it from the dark scrim.
+- `.mc-compare-actions` gradient already uses `transparent` as its first stop (changed from `rgba(255,255,255,0)` in the Task-2 review fixes — premultiplied interpolation, no light haze on dark), so it needs no dark override.
 
 - [ ] **Step 2: Contrast matrix check (scriptable)**
 
-Write a quick throwaway check (run with `node`, not committed): compute WCAG contrast for the pairs (text-strong/surface, text/surface, text-dim/surface-raised, accent-deep/surface, #fff/accent light, #0B1218/accent dark) for both themes; every text pair must be ≥ 4.5, large-text/UI pairs ≥ 3.0. If a pair fails, adjust the VALUE in the token block (not the semantics) and note it in the commit body.
+Write a quick throwaway check (run with `node`, not committed): compute WCAG contrast for the pairs (text-strong/surface, text/surface, text-dim/surface-raised, accent-deep/surface, --on-accent/accent for both themes — `#fff`/`#0B6E99` light, `#10181F`/`#4FB3D9` dark); every text pair must be ≥ 4.5, large-text/UI pairs ≥ 3.0. If a pair fails, adjust the VALUE in the token block (not the semantics) and note it in the commit body.
 
 - [ ] **Step 3: Manual smoke via devtools**
 
