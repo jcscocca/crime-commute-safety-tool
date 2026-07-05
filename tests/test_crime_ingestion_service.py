@@ -193,6 +193,48 @@ def test_socrata_client_builds_date_window_query(monkeypatch):
     assert captured["timeout"] == 30
 
 
+def test_socrata_client_builds_keyset_query(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self):
+            return json.dumps(
+                [
+                    {"offense_id": "1", "offense_date": "2026-04-01T00:00:00.000"},
+                    {"offense_id": "2", "offense_date": "2026-04-05T00:00:00.000"},
+                ]
+            ).encode("utf-8")
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        return FakeResponse()
+
+    monkeypatch.setattr("app.crime.seattle_socrata.urlopen", fake_urlopen)
+    client = SeattleSocrataClient(
+        base_url="https://data.seattle.gov/resource", dataset_id="tazs-3rd5"
+    )
+
+    incidents, next_cursor = client.fetch_page_keyset(since_iso="2026-04-01T00:00:00", limit=2)
+
+    query = parse_qs(urlparse(captured["url"]).query)
+    assert query["$order"] == ["offense_date ASC"]  # forward keyset order
+    assert query["$where"] == ["offense_date >= '2026-04-01T00:00:00'"]
+    assert "$offset" not in query  # keyset, not offset paging
+    assert len(incidents) == 2
+    assert next_cursor == "2026-04-05T00:00:00.000"  # last row's raw date is the next cursor
+
+    # since_iso below the floor (or None) clamps up to the source's data floor.
+    client.fetch_page_keyset(since_iso=None, limit=2)
+    where = parse_qs(urlparse(captured["url"]).query)["$where"]
+    assert where == ["offense_date >= '2018-01-01T00:00:00'"]
+
+
 def test_ingest_sample_crime_uses_packaged_fixture(tmp_path, monkeypatch):
     captured = {}
 
@@ -778,14 +820,14 @@ def test_admin_socrata_backfill_scopes_watermark_to_source(tmp_path, monkeypatch
         captured["source_dataset"] = source_dataset
         return None
 
-    def fake_fetch_page(self, limit, offset, start_date=None, end_date=None):
-        return []
+    def fake_keyset(self, *, since_iso=None, end_date=None, limit=5000):
+        return [], None
 
     monkeypatch.setattr(
         "app.api.routes_admin_crime.latest_observed_date", fake_latest_observed_date
     )
     monkeypatch.setattr(
-        "app.api.routes_admin_crime.SeattleSocrataClient.fetch_page", fake_fetch_page
+        "app.api.routes_admin_crime.SeattleSocrataClient.fetch_page_keyset", fake_keyset
     )
     app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
     client = TestClient(app)

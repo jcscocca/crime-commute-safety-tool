@@ -64,6 +64,14 @@ class SeattleSocrataClient:
         self.date_field = date_field
         self.data_floor = data_floor
 
+    def _fetch_rows(self, query_params: dict[str, Any]) -> list[dict[str, Any]]:
+        query = urlencode(query_params)
+        request = Request(f"{self.base_url}/{self.dataset_id}.json?{query}")
+        if self.app_token:
+            request.add_header("X-App-Token", self.app_token)
+        with urlopen(request, timeout=30) as response:
+            return json.loads(response.read().decode("utf-8"))
+
     def fetch_page(
         self,
         limit: int = 5000,
@@ -72,16 +80,44 @@ class SeattleSocrataClient:
         end_date: date | None = None,
     ) -> list[CrimeIncidentData]:
         start_date = floor_start_date(start_date, self.data_floor)
-        query_params = {"$limit": limit, "$offset": offset}
-        query_params["$order"] = f"{self.date_field} DESC"
-        query_params["$where"] = _date_window_where(start_date, end_date, self.date_field)
-        query = urlencode(query_params)
-        request = Request(f"{self.base_url}/{self.dataset_id}.json?{query}")
-        if self.app_token:
-            request.add_header("X-App-Token", self.app_token)
-        with urlopen(request, timeout=30) as response:
-            rows = json.loads(response.read().decode("utf-8"))
+        rows = self._fetch_rows(
+            {
+                "$limit": limit,
+                "$offset": offset,
+                "$order": f"{self.date_field} DESC",
+                "$where": _date_window_where(start_date, end_date, self.date_field),
+            }
+        )
         return [self.mapper(row) for row in rows]
+
+    def fetch_page_keyset(
+        self,
+        *,
+        since_iso: str | None = None,
+        end_date: date | None = None,
+        limit: int = 5000,
+    ) -> tuple[list[CrimeIncidentData], str | None]:
+        """Keyset page forward through the window, ordered by ``date_field`` ASC.
+
+        Returns the mapped incidents plus the raw ``date_field`` value of the last row (the next
+        cursor), or ``None`` when the page is short (the window is exhausted). Paging by a
+        monotonic date cursor with an inclusive ``>=`` lower bound — instead of a numeric
+        ``$offset`` — is stable under concurrent inserts: new rows land at future dates *ahead*
+        of the cursor and never shift the portion already walked, so no row is skipped. The
+        inclusive bound re-reads the boundary date's rows, which the ingest dedupe absorbs.
+        """
+        floor_iso = f"{self.data_floor.isoformat()}T00:00:00"
+        if since_iso is None or since_iso < floor_iso:
+            since_iso = floor_iso
+        where = f"{self.date_field} >= '{since_iso}'"
+        if end_date is not None:
+            where += f" and {self.date_field} <= '{end_date.isoformat()}T23:59:59'"
+        rows = self._fetch_rows(
+            {"$limit": limit, "$order": f"{self.date_field} ASC", "$where": where}
+        )
+        incidents = [self.mapper(row) for row in rows]
+        next_cursor = _first(rows[-1], self.date_field) if len(rows) == limit else None
+        return incidents, next_cursor
 
 
 def load_crime_csv(path: Path) -> list[CrimeIncidentData]:
