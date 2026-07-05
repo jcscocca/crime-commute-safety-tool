@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from datetime import date
+from datetime import date, timedelta
 
 from app.normalization.geo import haversine_m
 from app.schemas import CrimeIncidentData
@@ -12,6 +12,33 @@ def analysis_days(analysis_start_date: date, analysis_end_date: date) -> int:
     if days <= 0:
         raise ValueError("analysis_end_date must be on or after analysis_start_date.")
     return days
+
+
+def trim_partial_edge_months(
+    counts: list[int],
+    analysis_start_date: date,
+    analysis_end_date: date,
+) -> list[int]:
+    """Drop the leading/trailing monthly-count bin when it covers only PART of a calendar month.
+
+    A partial edge month (the window starts after the 1st, or ends before the month's last day)
+    has a systematically depressed count that inflates the index-of-dispersion estimate — and
+    the trailing bin of the default "Jan 1 → today" window is partial on almost every day. Only
+    the dispersion estimate uses the trimmed series; the rate, exposure, and displayed monthly
+    counts are untouched. ``counts`` must be the per-calendar-month bins for
+    ``[analysis_start_date, analysis_end_date]``. Trims at most one bin per edge, and keeps all
+    bins when trimming would leave fewer than two (too few to estimate dispersion from).
+    """
+    if len(counts) < 2:
+        return list(counts)
+    drop_leading = analysis_start_date.day != 1
+    # The end day is a month-end iff the next day rolls into a new month.
+    drop_trailing = (analysis_end_date + timedelta(days=1)).month == analysis_end_date.month
+    lo = 1 if drop_leading else 0
+    hi = len(counts) - 1 if drop_trailing else len(counts)
+    if hi - lo >= 2:
+        return counts[lo:hi]
+    return list(counts)
 
 
 def place_exposure_square_km_days(
