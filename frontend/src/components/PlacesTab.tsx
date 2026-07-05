@@ -41,7 +41,7 @@ function coords(place: Place): string {
 function pinSvg(selected: boolean) {
   return (
     <svg width="15" height="20" viewBox="0 0 24 32">
-      <path d="M12 0C5.4 0 0 5.2 0 11.6 0 20 12 32 12 32s12-12 12-20.4C24 5.2 18.6 0 12 0z" fill={selected ? "#CD6A45" : "#3A3F46"} />
+      <path d="M12 0C5.4 0 0 5.2 0 11.6 0 20 12 32 12 32s12-12 12-20.4C24 5.2 18.6 0 12 0z" fill={selected ? "var(--accent)" : "#3A3F46"} />
       <circle cx="12" cy="11.5" r="4.4" fill="#fff" />
     </svg>
   );

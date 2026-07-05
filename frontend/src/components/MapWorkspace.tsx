@@ -13,6 +13,7 @@ import { useCompareSet } from "../lib/useCompareSet";
 import { useDashboardData } from "../lib/useDashboardData";
 import { useDrawer } from "../lib/useDrawer";
 import { usePinDraft } from "../lib/usePinDraft";
+import { useTheme } from "../lib/useTheme";
 import { AddressLookup } from "./AddressLookup";
 import { AnalyzeTab } from "./AnalyzeTab";
 import { AssistantPanel } from "./AssistantPanel";
@@ -27,10 +28,13 @@ import { PinDraftPopover } from "./PinDraftPopover";
 import { IncidentDisclosure } from "./IncidentDisclosure";
 import { PlaceSearch } from "./PlaceSearch";
 import { PlacesTab } from "./PlacesTab";
+import { SearchPill } from "./SearchPill";
+import { ThemeToggle } from "./ThemeToggle";
 import type { ComparePoint } from "../lib/useCompareSet";
 import type { AnalysisSettings, AssistantDashboardState, BeatFeatureCollection, GeocodeResult, MapBounds, PlaceCreate, TabKey } from "../types";
 
 export function MapWorkspace() {
+  const { theme, setTheme } = useTheme();
   const initialView = useMemo(() => {
     const param = new URLSearchParams(window.location.search).get("view");
     return param ? decodeView(param) : null;
@@ -325,6 +329,7 @@ export function MapWorkspace() {
           beats={beats}
           highlightBeats={highlightBeats}
           incidentPoints={incidentLayer.geojson}
+          theme={theme}
           onViewportChange={setViewport}
           onMapClick={pinDraft.handleMapClick}
           onMarkerClick={handleToggleSelect}
@@ -333,7 +338,7 @@ export function MapWorkspace() {
         <header className="mc-topbar">
           <div className="mc-brand">
             <span className="mc-logo">
-              <svg width="16" height="16" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.2 0 11.6 0 20 12 32 12 32s12-12 12-20.4C24 5.2 18.6 0 12 0z" fill="#CD6A45" /><circle cx="12" cy="11.5" r="4.4" fill="#fff" /></svg>
+              <svg width="16" height="16" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.2 0 11.6 0 20 12 32 12 32s12-12 12-20.4C24 5.2 18.6 0 12 0z" fill="var(--accent)" /><circle cx="12" cy="11.5" r="4.4" fill="#fff" /></svg>
             </span>
             <span className="mc-wordmark">Waypoint</span>
           </div>
@@ -341,25 +346,19 @@ export function MapWorkspace() {
             <LayerToggle layer={analysis.layer} onChange={(layer) => handleAnalysisChange({ layer })} />
             <DataFreshness freshness={data.freshness} layer={analysis.layer} />
             <div className="mc-status"><span className="dot" />Public session - Seattle</div>
+            <ThemeToggle theme={theme} onChange={setTheme} />
           </div>
         </header>
 
-        <div className="mc-controls">
-          <div className="mc-actionrow">
-            <button
-              type="button"
-              className={`mc-addpin${pinDraft.addPinMode ? " is-armed" : ""}`}
-              aria-pressed={pinDraft.addPinMode}
-              onClick={() => (pinDraft.addPinMode ? pinDraft.setAddPinMode(false) : pinDraft.startAddPin())}
-            >
-              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-              Add pin
-            </button>
-          </div>
-          {pinDraft.addPinMode ? (
-            <div className="mc-helper" role="status"><span className="cross" />Click the map to drop a pin - Esc to cancel</div>
-          ) : null}
-        </div>
+        <SearchPill
+          search={(query, signal) => geocodingProvider.search(query, signal)}
+          onSelect={handleLookup}
+          addPinMode={pinDraft.addPinMode}
+          onToggleAddPin={() => (pinDraft.addPinMode ? pinDraft.setAddPinMode(false) : pinDraft.startAddPin())}
+        />
+        {pinDraft.addPinMode ? (
+          <div className="mc-helper" role="status"><span className="cross" />Click the map to drop a pin - Esc to cancel</div>
+        ) : null}
 
         <MapLegend />
         <IncidentDisclosure
@@ -368,8 +367,6 @@ export function MapWorkspace() {
           unmappableCitywideCount={incidentLayer.unmappableCitywideCount}
           limit={incidentLayer.limit}
         />
-
-        <AssistantPanel dashboardState={assistantState} onToolResult={applyAssistantToolResult} />
 
         {data.error && activeTab !== "analyze" ? <p className="mc-error" role="alert">{data.error}</p> : null}
 
@@ -395,6 +392,7 @@ export function MapWorkspace() {
           onResize={onDrawerResize}
           onPreset={onPreset}
           tabBadges={{ places: data.places.length, compare: compareSet.points.length }}
+          dock={<AssistantPanel dashboardState={assistantState} onToolResult={applyAssistantToolResult} />}
         >
           {showLanding ? (
             <AddressLookup provider={geocodingProvider} onSelect={handleLookup} onManual={() => setManualEntry(true)} />

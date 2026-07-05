@@ -1,21 +1,19 @@
-:root {
-  color: #162026;
-  background: #f4f6f8;
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  font-synthesis: none;
-  letter-spacing: 0;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+:root{
+  color-scheme:light;
+  color:#16232B;
+  background:#EEF2F5;
+  font-family:'Archivo','Helvetica Neue',system-ui,sans-serif;
+  font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;
 }
+[data-theme="dark"]{color-scheme:dark;color:#E8EDF2;background:#151C23;}
 
 /*
  * Base resets + the Places modal forms (PlaceForm / BulkPlaceEntry) and Notice. The
  * map-first dashboard is styled by styles/mapWorkspace.css (the mc- system); the old
  * dashboard-layout rules that used to live here are gone — only what the modals/Notice
- * still use remains.
+ * still use remains. The modal chrome (.mc-modal-scrim/.mc-modal) renders inside
+ * .mc-scope, so the .panel/.place-form/.notice/input/label/button rules below can use
+ * the semantic tokens defined in mapWorkspace.css.
  */
 
 * {
@@ -26,7 +24,6 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  background: #f4f6f8;
 }
 
 button {
@@ -44,7 +41,7 @@ button:disabled {
 
 .panel-label {
   margin: 0 0 6px;
-  color: #63d2cb;
+  color: var(--accent);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0;
@@ -58,17 +55,17 @@ button:disabled {
   gap: 8px 12px;
   align-items: center;
   padding: 14px 16px;
-  color: #172026;
-  background: #eaf4f3;
-  border-left: 4px solid #146c72;
+  color: var(--text-strong);
+  background: var(--accent-soft);
+  border-left: 4px solid var(--accent);
   border-radius: 8px;
 }
 
 .panel {
   min-height: 148px;
   padding: 18px;
-  background: #ffffff;
-  border: 1px solid #d8e0e6;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
 }
 
@@ -78,14 +75,14 @@ button:disabled {
   justify-content: space-between;
   gap: 16px;
   min-height: 42px;
-  color: #285a64;
+  color: var(--accent-deep);
 }
 
 .panel h2 {
   margin: 0;
   line-height: 1.15;
   letter-spacing: 0;
-  color: #162026;
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 750;
 }
@@ -114,7 +111,7 @@ button:disabled {
 
 label {
   display: block;
-  color: #263840;
+  color: var(--text);
   font-size: 0.86rem;
   font-weight: 700;
 }
@@ -125,9 +122,9 @@ select {
   width: 100%;
   min-height: 42px;
   padding: 10px 12px;
-  color: #162026;
-  background: #ffffff;
-  border: 1px solid #cfd9df;
+  color: var(--text-strong);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   font: inherit;
 }
@@ -141,7 +138,7 @@ input:focus,
 textarea:focus,
 select:focus,
 button:focus-visible {
-  outline: 3px solid rgba(43, 138, 145, 0.28);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -152,22 +149,22 @@ button:focus-visible {
   gap: 8px;
   min-height: 42px;
   padding: 0 14px;
-  color: #f8fbfc;
-  background: #1f4b56;
-  border: 1px solid #316977;
+  color: var(--on-accent);
+  background: var(--accent-deep);
+  border: 1px solid var(--accent-deep);
   border-radius: 8px;
   cursor: pointer;
   font-weight: 700;
 }
 
 .panel button:not(.icon-button):disabled {
-  background: #7e8c94;
-  border-color: #7e8c94;
+  background: var(--border-strong);
+  border-color: var(--border-strong);
 }
 
 .error {
   margin: 0;
-  color: #a33a33;
+  color: var(--danger);
   font-size: 0.9rem;
   font-weight: 700;
 }

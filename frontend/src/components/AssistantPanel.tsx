@@ -23,6 +23,7 @@ export function AssistantPanel({ dashboardState, onToolResult }: Props) {
   const [toolActivity, setToolActivity] = useState<ToolActivity[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   async function sendTurn(turnMessages: AssistantMessage[]) {
     let assistantText = "";
@@ -85,55 +86,80 @@ export function AssistantPanel({ dashboardState, onToolResult }: Props) {
   }
 
   return (
-    <aside className="mc-assistant" aria-label="Analyst">
-      <div className="mc-assistant-head">
-        <h3>Analyst</h3>
+    <aside className="mc-dock" aria-label="Analyst">
+      <div className="mc-dock-head">
+        <h3><span className="mc-dock-dot" />Analyst</h3>
         <span>{sending ? "Working" : "Ready"}</span>
-      </div>
-
-      <div className="mc-assistant-log" aria-live="polite">
-        {messages.map((message, index) => (
-          <div key={`${message.role}-${index}`} className={`mc-assistant-msg is-${message.role}`}>
-            {message.role === "assistant" ? (
-              <ReactMarkdown>{message.content}</ReactMarkdown>
-            ) : (
-              message.content
-            )}
-          </div>
-        ))}
-        {draft ? <div className="mc-assistant-msg is-assistant">{draft}</div> : null}
-        {messages.length === 0 && !draft ? <p className="mc-assistant-empty">No messages</p> : null}
-      </div>
-
-      {toolActivity.length ? (
-        <ul className="mc-assistant-tools" aria-label="Tool activity">
-          {toolActivity.map((item, index) => (
-            <li key={`${item.label}-${index}`}>{item.label}</li>
-          ))}
-        </ul>
-      ) : null}
-
-      {errorMessage ? (
-        <div className="mc-assistant-error" role="status">
-          <p>{errorMessage}</p>
-          <button type="button" className="mc-chip" onClick={handleRetry} disabled={sending}>
-            Retry
-          </button>
-        </div>
-      ) : null}
-
-      <form className="mc-assistant-form" onSubmit={handleSubmit}>
-        <label className="mc-sr" htmlFor="assistant-message">Analyst message</label>
-        <textarea
-          id="assistant-message"
-          value={input}
-          rows={2}
-          onChange={(event) => setInput(event.target.value)}
-        />
-        <button type="submit" disabled={sending || !input.trim()}>
-          Send
+        <button
+          type="button"
+          className="mc-dock-collapse"
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? "Expand analyst" : "Collapse analyst"}
+          onClick={() => setCollapsed((c) => !c)}
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d={collapsed ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} /></svg>
         </button>
-      </form>
+      </div>
+
+      {collapsed ? null : (
+        <>
+          <div className="mc-dock-log" aria-live="polite">
+            {messages.map((message, index) => (
+              <div key={`${message.role}-${index}`} className={`mc-dock-msg is-${message.role}`}>
+                {message.role === "assistant" ? (
+                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                ) : (
+                  message.content
+                )}
+              </div>
+            ))}
+            {draft ? <div className="mc-dock-msg is-assistant">{draft}</div> : null}
+            {messages.length === 0 && !draft ? (
+              <div className="mc-dock-empty">
+                <p>Ask about what the map is showing</p>
+                <div className="mc-dock-chips">
+                  {["What's near this pin?", "Compare my places"].map((prompt) => (
+                    <button key={prompt} type="button" className="mc-chip" disabled={sending}
+                      onClick={() => void sendTurn([...messages, { role: "user", content: prompt }])}>
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {toolActivity.length ? (
+            <ul className="mc-dock-tools" aria-label="Tool activity">
+              {toolActivity.map((item, index) => (
+                <li key={`${item.label}-${index}`}>{item.label}</li>
+              ))}
+            </ul>
+          ) : null}
+
+          {errorMessage ? (
+            <div className="mc-dock-error" role="status">
+              <p>{errorMessage}</p>
+              <button type="button" className="mc-chip" onClick={handleRetry} disabled={sending}>
+                Retry
+              </button>
+            </div>
+          ) : null}
+
+          <form className="mc-dock-form" onSubmit={handleSubmit}>
+            <label className="mc-sr" htmlFor="assistant-message">Analyst message</label>
+            <textarea
+              id="assistant-message"
+              value={input}
+              rows={2}
+              onChange={(event) => setInput(event.target.value)}
+            />
+            <button type="submit" disabled={sending || !input.trim()}>
+              Send
+            </button>
+          </form>
+        </>
+      )}
     </aside>
   );
 }

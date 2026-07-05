@@ -46,3 +46,21 @@ def test_built_dashboard_serves_basemap_glyphs_and_sprites(tmp_path, monkeypatch
     response = client.get("/basemaps-assets/fonts/Noto%20Sans%20Regular/0-255.pbf")
     assert response.status_code == 200
     assert response.content == b"glyphs"
+
+
+def test_built_dashboard_serves_selfhosted_ui_fonts(tmp_path, monkeypatch) -> None:
+    # Vite copies frontend/public/fonts/ into the built dashboard dir; fonts.css
+    # requests them at /fonts/. The vite dev server masks a missing backend mount,
+    # so this pins production serving (same seam as /basemaps-assets above).
+    static_dir = tmp_path / "dashboard"
+    (static_dir / "assets").mkdir(parents=True)
+    (static_dir / "index.html").write_text("<html></html>")
+    ui_fonts_dir = static_dir / "fonts"
+    ui_fonts_dir.mkdir(parents=True)
+    (ui_fonts_dir / "archivo-var.woff2").write_bytes(b"wOF2-test")
+    monkeypatch.setenv("MCA_STATIC_DASHBOARD_DIR", str(static_dir))
+
+    client = TestClient(create_app("sqlite+pysqlite:///:memory:"))
+    response = client.get("/fonts/archivo-var.woff2")
+    assert response.status_code == 200
+    assert response.content == b"wOF2-test"

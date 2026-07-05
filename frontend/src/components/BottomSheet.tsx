@@ -13,6 +13,7 @@ type Props = {
   onResize: (px: number) => void;
   onPreset: (preset: DrawerPreset) => void;
   tabBadges?: Partial<Record<TabKey, number>>;
+  dock?: ReactNode;
   children: ReactNode;
 };
 
@@ -80,6 +81,7 @@ export function BottomSheet({
   onResize,
   onPreset,
   tabBadges,
+  dock,
   children,
 }: Props) {
   const panelRef = useRef<HTMLElement>(null);
@@ -204,6 +206,7 @@ export function BottomSheet({
         })}
       </nav>
       <div className="mc-panels">{children}</div>
+      {dock ? <div className="mc-dock-slot">{dock}</div> : null}
     </section>
   );
 }

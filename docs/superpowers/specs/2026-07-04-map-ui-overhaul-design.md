@@ -114,6 +114,11 @@ Frontend map layers:
 
 **Goal:** the layout and visual language the app deserves.
 
+> **Superseded by the detailed slice-3 spec:**
+> `docs/superpowers/specs/2026-07-05-shell-overhaul-design.md` (2026-07-05) — confirms full
+> Evolved Workspace scope, picks the blue `#0B6E99`/`#4FB3D9` accent (clay retired from the
+> chrome), and sequences theme-foundation-first. The section below is the original draft.
+
 - **Layout:** top-left **search pill** ("Search address or drop a pin") absorbs the Add Pin
   affordance — its pin button arms the existing click-to-place mode; the orphaned top-left
   button dies. Top bar: brand, layer toggle, freshness pill, session chip, **theme toggle**.

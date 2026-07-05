@@ -190,13 +190,13 @@ thoughtful shell redesign (Civic Clear + night mode, Evolved Workspace layout).*
   click card with canonical incident formatting; debounced+abortable viewport hook; redacted-locations
   disclosure chip. Live-verified end-to-end. Plan:
   `docs/superpowers/plans/2026-07-04-transparency-layers.md`.
-- [ ] **Slice 3 — Shell overhaul:** Evolved Workspace layout (search pill absorbs pin-drop,
-  Analyst dock, theme toggle), Civic Clear tokens + night mode, self-hosted webfonts
-  (drop the Google Fonts requests — the app's last external call). _Carry-ins from slice 2:_
-  (a) the night-mode `setStyle()` wipes the beat/incident/ring layers and `"load"` won't
-  re-fire — re-register via `style.load`/`transformStyle` (noted at `MapCanvas.tsx` above
-  `addRingLayers`); (b) if that re-registration lands, extract `addBeatLayers`/`addIncidentLayers`/
-  `incidentCardElement` out of the now-451-line `MapCanvas.tsx` into a `mapLayers.ts` module.
+- [x] **Slice 3 — Shell overhaul:** Evolved Workspace layout (SearchPill absorbs pin-drop,
+  in-panel Analyst dock, theme toggle), Civic Clear tokens + night mode, self-hosted webfonts
+  (zero external requests — dropped the app's last external call), legend/zoom moved bottom-right.
+  Both slice-2 carry-ins landed: (a) `setStyle()` layer re-registration via `style.load`; (b) the
+  `mapLayers.ts` extraction (`addBeatLayers`/`addIncidentLayers`/`incidentCardElement` out of
+  `MapCanvas.tsx`). Deviations logged in the spec's _Shipped deviations_ section.
+  (PR pending)
 - [ ] **Deferred (slice 2, non-blocking):** `/dashboard/incident-points` filters + sorts on the
   unindexed `coalesce(offense_start_utc, report_utc)` expression; a Postgres expression index is
   the mitigation when incident volume grows (needs a migration — out of scope for the no-migration
