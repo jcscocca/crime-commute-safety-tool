@@ -3,12 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 _DECISION_PHRASES = {
-    "above_clear": "above its beat baseline, statistically clear",
-    "below_clear": "below its beat baseline, statistically clear",
-    "not_clear": "not statistically clear vs its beat",
-    "insufficient_data": "insufficient data for a beat comparison",
+    "above_clear": "above its surrounding-area baseline, statistically clear",
+    "below_clear": "below its surrounding-area baseline, statistically clear",
+    "not_clear": "not statistically clear vs its surrounding area",
+    "insufficient_data": "insufficient data for a surrounding-area comparison",
     "model_warning": "too few months to model reliably",
-    "baseline_unavailable": "no beat baseline available",
+    "baseline_unavailable": "no neighborhood baseline available",
 }
 
 
@@ -59,17 +59,19 @@ def _analyze_places_summary(result: dict[str, Any]) -> str:
         label = place.get("place_label") or "The place"
         count = place.get("place_incident_count") or 0
         if place.get("baseline_available") and place.get("rate_ratio") is not None:
-            phrase = _DECISION_PHRASES.get(place.get("decision"), "compared to its beat")
+            phrase = _DECISION_PHRASES.get(
+                place.get("decision"), "compared to its surrounding area"
+            )
             ci = ""
             lower, upper = place.get("ci_lower"), place.get("ci_upper")
             if lower is not None and upper is not None:
                 ci = f" (95% CI {lower:.1f}–{upper:.1f})"
             sentences.append(
-                f"{label}: {place['rate_ratio']:.1f}× its beat — {phrase}{ci}; "
+                f"{label}: {place['rate_ratio']:.1f}× its surrounding area — {phrase}{ci}; "
                 f"{count} reported incidents within {radius} m."
             )
         else:
-            phrase = _DECISION_PHRASES.get(place.get("decision"), "no beat comparison")
+            phrase = _DECISION_PHRASES.get(place.get("decision"), "no surrounding-area comparison")
             sentences.append(f"{label}: {count} reported incidents within {radius} m ({phrase}).")
     summary = " ".join(sentences) if sentences else "No places to analyze."
     return _with_provenance(summary, result)

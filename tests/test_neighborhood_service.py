@@ -278,3 +278,85 @@ def test_rest_of_beat_area_carves_only_the_in_beat_buffer_overlap(tmp_path):
     days = (end - start).days + 1
     expected_beat_rate = place["beat_incident_count"] / ((1.0 - overlap) * days)
     assert place["beat_rate"] == pytest.approx(expected_beat_rate, rel=1e-9)
+
+
+def test_buffer_larger_than_its_beat_pools_neighboring_beats(tmp_path):
+    # The user-reported case: a place in a tiny beat with a radius bigger than the beat. The
+    # single-beat rest area would be NEGATIVE (area_lookup 0.05 < in-beat overlap), i.e. the old
+    # "too little data" dead end. Pooling the adjacent beat the buffer touches yields a real
+    # surrounding area and a verdict.
+    from math import cos, radians
+
+    from app.analysis.beat_baselines import beats_intersecting_buffer
+
+    session, user_hash, place_id = session_with_places_and_beat_crime(tmp_path)
+    place_lat, place_lon = 47.60945, -122.33595
+    meters_per_deg_lat = 111_320.0
+    meters_per_deg_lon = 111_320.0 * cos(radians(place_lat))
+    # M3: a tiny 240 m square around the place (fully inside the 250 m buffer).
+    m3_half_m = 120.0
+    # M4: a 1 km square adjacent to M3's east edge; the buffer clips its west side.
+    m4_half_m = 500.0
+    m4_center_lon = place_lon + (m3_half_m + m4_half_m) / meters_per_deg_lon
+
+    def metric_square(clon, clat, half_m):
+        dlat, dlon = half_m / meters_per_deg_lat, half_m / meters_per_deg_lon
+        ring = [
+            (clon - dlon, clat - dlat), (clon + dlon, clat - dlat),
+            (clon + dlon, clat + dlat), (clon - dlon, clat + dlat),
+            (clon - dlon, clat - dlat),
+        ]
+        return [[ring]]
+
+    beat_polygons = {
+        "M3": metric_square(place_lon, place_lat, m3_half_m),
+        "M4": metric_square(m4_center_lon, place_lat, m4_half_m),
+    }
+    area_lookup = {"M3": 0.05, "M4": 2.0}  # M3's area < its in-buffer overlap (~0.058)
+    start, end = date(2026, 1, 1), date(2026, 6, 30)
+
+    result = neighborhood_analysis_for_places(
+        session=session,
+        user_id_hash=user_hash,
+        place_ids=[place_id],
+        radius_m=250,
+        analysis_start_date=start,
+        analysis_end_date=end,
+        offense_category=None,
+        offense_subcategory=None,
+        nibrs_group=None,
+        area_lookup=area_lookup,
+        beat_polygons=beat_polygons,
+    )
+
+    place = result["places"][0]
+    assert place["beat"] == "M3"
+    assert place["baseline_beats"] == ["M3", "M4"]
+    assert place["baseline_available"] is True  # single-beat logic would have been too_small
+    overlaps = beats_intersecting_buffer(
+        lon=place_lon, lat=place_lat, radius_m=250, beat_polygons=beat_polygons
+    )
+    assert area_lookup["M3"] - overlaps["M3"] < 0  # proves the single-beat rest was negative
+    rest_area = sum(area_lookup.values()) - sum(overlaps.values())
+    days = (end - start).days + 1
+    # All fixture incidents are DB-tagged beat M3; 5 are in-buffer (carved out), 8 remain.
+    assert place["beat_incident_count"] == 8
+    assert place["beat_rate"] == pytest.approx(8 / (rest_area * days), rel=1e-9)
+
+
+def test_buffer_swallowing_every_surrounding_beat_reports_baseline_too_small(tmp_path):
+    # The residual fallback: when the buffer covers essentially all of every beat it touches,
+    # there is still no surrounding area — the payload flags baseline_too_small (which the UI
+    # renders as the "radius too large, try smaller" message) and names the pooled beats.
+    session, user_hash, place_id = session_with_places_and_beat_crime(tmp_path)
+    result = neighborhood_analysis_for_places(
+        session=session, user_id_hash=user_hash, place_ids=[place_id], radius_m=250,
+        analysis_start_date=date(2026, 1, 1), analysis_end_date=date(2026, 6, 30),
+        offense_category=None, offense_subcategory=None, nibrs_group=None,
+        area_lookup={"M3": 0.1},  # the lone beat's area < the in-buffer overlap (~0.196)
+        beat_polygons=square_beat_polygons("M3", 47.60945, -122.33595),
+    )
+    place = result["places"][0]
+    assert place["decision"] == "insufficient_data"
+    assert place["minimum_data_status"] == "baseline_too_small"
+    assert place["baseline_beats"] == ["M3"]

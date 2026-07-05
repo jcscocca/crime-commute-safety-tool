@@ -117,7 +117,7 @@ function ComparisonBars({ rateRatio }: { rateRatio: number }) {
   return (
     <div className="mc-cmpbars" aria-hidden="true">
       <div className="mc-cmpbar">
-        <span className="name">surrounding beat</span>
+        <span className="name">surrounding area</span>
         <span className="track"><span className="fill beat" style={{ width: width(1) }} /></span>
         <span className="val">1.0×</span>
       </div>
@@ -301,7 +301,8 @@ function VerdictCard({ place, windowLabel, noun }: { place: NeighborhoodPlace; w
           <details className="mc-analytical">
             <summary>How we know</summary>
             <dl>
-              <div><dt>Place vs beat rate</dt><dd>{place.place_rate != null && place.beat_rate != null ? `${place.place_rate.toFixed(2)} vs ${place.beat_rate.toFixed(2)} /km²·day` : "—"}</dd></div>
+              <div><dt>Baseline beats</dt><dd>{place.baseline_beats?.length ? place.baseline_beats.join(" + ") : (place.beat ?? "—")}</dd></div>
+              <div><dt>Place vs area rate</dt><dd>{place.place_rate != null && place.beat_rate != null ? `${place.place_rate.toFixed(2)} vs ${place.beat_rate.toFixed(2)} /km²·day` : "—"}</dd></div>
               <div><dt>95% CI (this comparison)</dt><dd>{place.ci_lower != null && place.ci_upper != null ? `${place.ci_lower.toFixed(1)}–${place.ci_upper.toFixed(1)}×` : "—"}</dd></div>
               <div><dt>Adjusted p-value</dt><dd>{place.adjusted_p_value != null ? place.adjusted_p_value.toFixed(3) : "—"}</dd></div>
               <div><dt>Exact p-value</dt><dd>{place.exact_p_value != null ? place.exact_p_value.toFixed(3) : "—"}</dd></div>

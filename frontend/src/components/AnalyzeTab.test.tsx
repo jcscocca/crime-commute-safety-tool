@@ -117,7 +117,7 @@ describe("AnalyzeTab", () => {
       />,
     );
     expect(
-      screen.getByText("Home has more reported incidents than its surrounding beat."),
+      screen.getByText("Home has more reported incidents than its surrounding area."),
     ).toBeInTheDocument();
     expect(screen.getByText("✓ statistically clear")).toBeInTheDocument();
     expect(screen.getByText("4.0×")).toBeInTheDocument();
@@ -369,7 +369,7 @@ describe("AnalyzeTab", () => {
       />,
     );
     // Verdict, incident-details header, and reveal summary all reflect the active layer.
-    expect(screen.getByText(/Home has more 911 calls than its surrounding beat\./i)).toBeInTheDocument();
+    expect(screen.getByText(/Home has more 911 calls than its surrounding area\./i)).toBeInTheDocument();
     expect(screen.getByText("911 calls near selected places")).toBeInTheDocument();
     expect(screen.getByText(/See the 1 911 call\b/i)).toBeInTheDocument();
     // The incident table drops the (always-empty) Category column and renames Subcategory.
