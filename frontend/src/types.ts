@@ -178,6 +178,7 @@ export type NeighborhoodPlace = {
   place_id: string;
   place_label: string;
   beat: string | null;
+  baseline_beats?: string[] | null;
   radius_m: number;
   baseline_available: boolean;
   decision: "above_clear" | "below_clear" | "not_clear" | "insufficient_data" | "model_warning" | "baseline_unavailable";
