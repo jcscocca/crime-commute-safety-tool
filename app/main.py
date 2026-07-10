@@ -22,6 +22,7 @@ from app.api.routes_sessions import router as sessions_router
 from app.api.routes_uploads import router as uploads_router
 from app.config import get_settings
 from app.db import configure_database, init_db
+from app.ratelimit import BurstLimitMiddleware
 
 
 def mount_dashboard(app: FastAPI) -> None:
@@ -89,6 +90,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
         name="tiles",
     )
     mount_dashboard(app)
+    app.add_middleware(BurstLimitMiddleware, get_settings_fn=get_settings)
     return app
 
 
