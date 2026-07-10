@@ -446,7 +446,7 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
   const noun = incidentNoun(analysis.layer);
 
   return (
-    <div className="mc-panel is-active" role="tabpanel" aria-label="Analyze">
+    <div className="mc-panel is-active has-querybar" role="tabpanel" aria-label="Analyze">
       <div className="mc-querybar">
         <div className="mc-field">
           <label htmlFor="analysis-start-date">Date range</label>
