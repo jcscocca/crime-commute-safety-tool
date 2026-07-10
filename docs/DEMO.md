@@ -27,7 +27,8 @@ down when done. Design: `docs/superpowers/specs/2026-07-10-demo-on-demand-design
 ## Start / stop
 
     powershell -ExecutionPolicy Bypass -File scripts/demo/start-demo.ps1
-    # ... share the printed trycloudflare.com URL; Ctrl+C kills the tunnel ...
+    # ... share the printed trycloudflare.com URL; Ctrl+C (or stop-demo.ps1) kills the tunnel.
+# Re-running start-demo.ps1 kills any stray tunnel first — exactly one URL is live at a time.
     powershell -ExecutionPolicy Bypass -File scripts/demo/stop-demo.ps1
 
 Start refreshes SPD data automatically when it's more than 14 days stale.

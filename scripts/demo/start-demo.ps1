@@ -52,5 +52,8 @@ if (-not $dataThrough -or ([datetime]$dataThrough -lt (Get-Date).AddDays(-$Fresh
 }
 
 Write-Host ""
+# Singleton tunnel: kill any stray cloudflared first so exactly one URL is ever live
+# (a quick-tunnel URL exists only while its process runs; strays = confusing dead links).
+Get-Process cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force
 Write-Host "Starting quick tunnel — the public URL appears below (Ctrl+C stops the tunnel):"
 cloudflared tunnel --url "http://localhost:$Port"
