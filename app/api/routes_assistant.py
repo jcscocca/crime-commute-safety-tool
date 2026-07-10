@@ -38,6 +38,7 @@ def build_assistant_llm_client(settings: Settings) -> AssistantLlmClient:
         base_url=settings.llm_base_url,
         model=settings.llm_model,
         extra_body=_no_think_body(settings.llm_disable_thinking),
+        api_key=settings.llm_api_key,
     )
     fallback_base_url = settings.llm_fallback_base_url.strip()
     fallback_model = settings.llm_fallback_model.strip()
@@ -46,6 +47,7 @@ def build_assistant_llm_client(settings: Settings) -> AssistantLlmClient:
             base_url=fallback_base_url,
             model=fallback_model,
             extra_body=_no_think_body(settings.llm_fallback_disable_thinking),
+            api_key=settings.effective_llm_fallback_api_key,
         )
         return FailoverLlmClient([primary, fallback])
     return primary

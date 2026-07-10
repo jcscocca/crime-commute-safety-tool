@@ -16,9 +16,13 @@ def _settings(**overrides):
         "llm_fallback_base_url": "",
         "llm_fallback_model": "",
         "llm_fallback_disable_thinking": False,
+        "llm_api_key": "",
+        "llm_fallback_api_key": "",
     }
     base.update(overrides)
-    return SimpleNamespace(**base)
+    ns = SimpleNamespace(**base)
+    ns.effective_llm_fallback_api_key = ns.llm_fallback_api_key or ns.llm_api_key
+    return ns
 
 
 def test_no_fallback_returns_bare_primary() -> None:
@@ -69,3 +73,14 @@ def test_thinking_enabled_leaves_extra_body_empty() -> None:
     client = build_assistant_llm_client(_settings())
     assert isinstance(client, OpenAiLlmClient)
     assert client.extra_body == {}
+
+
+def test_api_keys_reach_both_clients() -> None:
+    client = build_assistant_llm_client(
+        _settings(
+            llm_api_key="gsk_primary",
+            llm_fallback_base_url="http://fb:8080/v1",
+            llm_fallback_model="qwen",
+        )
+    )
+    assert [c.api_key for c in client.clients] == ["gsk_primary", "gsk_primary"]
