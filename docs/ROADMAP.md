@@ -220,14 +220,14 @@ spec → plan → PR.*
   Seattle open-data terms verified sufficient (2026-07-10), 14 stale merged branches pruned.
   Audit report kept private outside the repo. Plan:
   `docs/superpowers/plans/2026-07-10-repo-public.md`.
-- [ ] **Slice 2 — Demo-on-demand (revised 2026-07-10):** ThinkPad + ephemeral Cloudflare
+- [x] **Slice 2 — Demo-on-demand (revised 2026-07-10):** SHIPPED #118/#119 + live-verified through the quick tunnel 2026-07-10 (dashboard end-to-end, Analyst on Groq, 429s w/ Retry-After). ThinkPad + ephemeral Cloudflare
   quick tunnel (VPS/domain/durable link deferred to a future "for-real" launch); isolated
   second compose project (own env/volume/port — the personal instance is never exposed);
   **rate limiter (the phase's one substantial new backend surface**, incl. the Groq-quota
   global cap and the long-open free-sessions cap**)**; `MCA_LLM_API_KEY` auth patch;
   Analyst on Groq free tier (offline state as fallback); refresh-on-start instead of an
   ingest cron. Spec: `docs/superpowers/specs/2026-07-10-demo-on-demand-design.md`.
-- [ ] **Follow-up — Analyst knob control (from slice-2 live testing):** the Analyst can
+- [x] **Follow-up — Analyst knob control (from slice-2 live testing):** SHIPPED #123 + live-verified (explicit "radius to 500" extracted exactly; vague ask stepped 250→1000 — adjacent-step prompt tweak is a known minor). the Analyst can
   adjust radius / dates / category / layer conversationally ("increase radius to 500")
   and re-run; changes sync the dashboard controls so they stick across turns. Spec:
   `docs/superpowers/specs/2026-07-10-analyst-knob-control-design.md`.
