@@ -63,12 +63,9 @@ async def assistant_chat(
     settings = get_settings()
     if settings.rate_limit_enabled:
         limiter = get_rate_limiter()
-        if not limiter.try_count_global(limit=settings.rate_limit_assistant_global_per_day):
-            raise HTTPException(
-                status_code=429,
-                detail="The demo Analyst has reached its daily capacity — try again tomorrow.",
-                headers={"Retry-After": "3600"},
-            )
+        # Per-session bucket first: try_count_global increments on every allowed call,
+        # so checking it first would let one over-cap session burn the shared daily
+        # budget with 429'd attempts.
         wait = limiter.try_take(
             "assistant",
             user_id_hash,
@@ -80,6 +77,12 @@ async def assistant_chat(
                 status_code=429,
                 detail="Analyst request limit reached for this session — please retry later.",
                 headers={"Retry-After": str(max(1, int(wait)))},
+            )
+        if not limiter.try_count_global(limit=settings.rate_limit_assistant_global_per_day):
+            raise HTTPException(
+                status_code=429,
+                detail="The demo Analyst has reached its daily capacity — try again tomorrow.",
+                headers={"Retry-After": "3600"},
             )
     llm_client = build_assistant_llm_client(settings)
 

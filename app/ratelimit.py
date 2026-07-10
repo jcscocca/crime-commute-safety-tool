@@ -30,6 +30,9 @@ class RateLimiterState:
         now: float | None = None,
     ) -> float:
         """Take one token; return 0.0 on success, else seconds until a token refills."""
+        if capacity <= 0:
+            # Zero capacity = the tier is fully closed; nothing ever refills.
+            return per_seconds
         now = time.monotonic() if now is None else now
         refill_per_second = capacity / per_seconds
         with self._lock:

@@ -73,6 +73,25 @@ def test_assistant_global_daily_cap(tmp_path, monkeypatch) -> None:
     assert "analyst" in detail and ("limit" in detail or "capacity" in detail)
 
 
+def test_session_rejection_does_not_burn_global_budget(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("MCA_RATE_LIMIT_ENABLED", "true")
+    monkeypatch.setenv("MCA_RATE_LIMIT_ASSISTANT_PER_HOUR", "0")
+    monkeypatch.setenv("MCA_RATE_LIMIT_ASSISTANT_GLOBAL_PER_DAY", "1")
+    app = create_app(f"sqlite+pysqlite:///{tmp_path}/rl7.sqlite3")
+    client = TestClient(app)
+    client.post("/sessions")
+    response = client.post(
+        "/assistant/chat",
+        json={"messages": [{"role": "user", "content": "hi"}], "dashboard_state": {}},
+    )
+    assert response.status_code == 429
+    assert "session" in response.json()["detail"].lower()
+    # The global daily budget (limit 1) must be untouched by the per-session rejection.
+    from app.ratelimit import get_rate_limiter
+
+    assert get_rate_limiter().try_count_global(limit=1) is True
+
+
 def test_burst_limit_on_api_routes(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("MCA_RATE_LIMIT_ENABLED", "true")
     monkeypatch.setenv("MCA_RATE_LIMIT_BURST_PER_MINUTE", "5")
