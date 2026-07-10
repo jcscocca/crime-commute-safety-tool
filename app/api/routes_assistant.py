@@ -4,7 +4,7 @@ import json
 from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -18,6 +18,7 @@ from app.assistant.llm_client import (
 from app.assistant.schemas import AssistantChatRequest, AssistantStreamEvent
 from app.config import Settings, get_settings
 from app.db import get_session
+from app.ratelimit import get_rate_limiter
 
 router = APIRouter()
 
@@ -38,6 +39,7 @@ def build_assistant_llm_client(settings: Settings) -> AssistantLlmClient:
         base_url=settings.llm_base_url,
         model=settings.llm_model,
         extra_body=_no_think_body(settings.llm_disable_thinking),
+        api_key=settings.llm_api_key,
     )
     fallback_base_url = settings.llm_fallback_base_url.strip()
     fallback_model = settings.llm_fallback_model.strip()
@@ -46,6 +48,7 @@ def build_assistant_llm_client(settings: Settings) -> AssistantLlmClient:
             base_url=fallback_base_url,
             model=fallback_model,
             extra_body=_no_think_body(settings.llm_fallback_disable_thinking),
+            api_key=settings.effective_llm_fallback_api_key,
         )
         return FailoverLlmClient([primary, fallback])
     return primary
@@ -57,7 +60,31 @@ async def assistant_chat(
     user_id_hash: Annotated[str, Depends(required_public_user_hash)],
     session: Annotated[Session, Depends(get_session)],
 ) -> StreamingResponse:
-    llm_client = build_assistant_llm_client(get_settings())
+    settings = get_settings()
+    if settings.rate_limit_enabled:
+        limiter = get_rate_limiter()
+        # Per-session bucket first: try_count_global increments on every allowed call,
+        # so checking it first would let one over-cap session burn the shared daily
+        # budget with 429'd attempts.
+        wait = limiter.try_take(
+            "assistant",
+            user_id_hash,
+            capacity=settings.rate_limit_assistant_per_hour,
+            per_seconds=3600.0,
+        )
+        if wait > 0:
+            raise HTTPException(
+                status_code=429,
+                detail="Analyst request limit reached for this session — please retry later.",
+                headers={"Retry-After": str(max(1, int(wait)))},
+            )
+        if not limiter.try_count_global(limit=settings.rate_limit_assistant_global_per_day):
+            raise HTTPException(
+                status_code=429,
+                detail="The demo Analyst has reached its daily capacity — try again tomorrow.",
+                headers={"Retry-After": "3600"},
+            )
+    llm_client = build_assistant_llm_client(settings)
 
     async def event_stream() -> AsyncIterator[str]:
         async for event in run_assistant_turn(

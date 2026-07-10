@@ -32,6 +32,7 @@ class OpenAiLlmClient:
         timeout_s: float = 120.0,
         connect_timeout_s: float = 5.0,
         extra_body: dict[str, object] | None = None,
+        api_key: str = "",
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
@@ -43,6 +44,13 @@ class OpenAiLlmClient:
         # Extra payload fields merged into each request. Used to pass llama.cpp
         # options such as chat_template_kwargs={"enable_thinking": False}.
         self.extra_body = dict(extra_body or {})
+        # Bearer auth for hosted endpoints (Groq, etc.); empty for LAN llama-swap.
+        self.api_key = api_key
+
+    def request_headers(self) -> dict[str, str]:
+        if self.api_key:
+            return {"Authorization": f"Bearer {self.api_key}"}
+        return {}
 
     async def complete(
         self,
@@ -65,7 +73,11 @@ class OpenAiLlmClient:
         timeout = httpx.Timeout(self.timeout_s, connect=self.connect_timeout_s)
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(f"{self.base_url}/chat/completions", json=payload)
+                response = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    json=payload,
+                    headers=self.request_headers(),
+                )
                 response.raise_for_status()
                 data = response.json()
         except httpx.HTTPError as exc:

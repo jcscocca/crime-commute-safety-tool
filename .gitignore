@@ -5,6 +5,7 @@ __pycache__/
 *.pyc
 .env
 .env.deploy
+.env.demo
 .superpowers/
 dev-output/
 dist/
