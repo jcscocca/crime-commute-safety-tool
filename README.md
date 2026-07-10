@@ -338,4 +338,4 @@ development — not redistributed SPD records.
 
 MIT — see [LICENSE](LICENSE). This implementation is original; related projects (Google
 Timeline parsing tools, Reitti, GeoPulse, Dawarich, and Seattle crime-data pipelines) were
-used as architecture references only.
+used as architecture references only — no AGPL/GPL/BSL source was copied.
