@@ -321,6 +321,10 @@ describe("AnalyzeTab", () => {
     expect(container.querySelector(".mc-footer")).not.toBeInTheDocument();
     const queryBar = container.querySelector(".mc-querybar") as HTMLElement;
     expect(queryBar.contains(screen.getByRole("button", { name: /run analysis/i }))).toBe(true);
+    // The panel must opt out of its top padding (has-querybar): sticky resolves against
+    // the margin box, so a negative top margin on the query bar displaces its stuck
+    // position downward and scrolled content shows through the gap above it.
+    expect(container.querySelector(".mc-panel")).toHaveClass("has-querybar");
   });
 
   it("renders an inline error with an assertive alert role when one is provided", () => {

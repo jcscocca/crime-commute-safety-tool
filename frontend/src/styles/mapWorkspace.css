@@ -240,7 +240,11 @@
 .mc-skeleton{border-radius:12px;background:linear-gradient(90deg,var(--surface-sunken),var(--surface-raised),var(--surface-sunken));background-size:200% 100%;animation:mcshimmer 1.3s ease-in-out infinite;}
 @keyframes mcshimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
 
-.mc-querybar{position:sticky;top:0;z-index:6;display:grid;gap:12px;margin:-16px -18px 16px;padding:14px 18px 12px;background:var(--surface);border-bottom:1px solid var(--border);backdrop-filter:none;}
+/* Sticky resolves against the margin box: a negative top margin displaces the stuck
+   position downward, leaving a see-through gap above the bar. So the panel opts out of
+   its top padding (has-querybar) instead of the bar carrying a negative top margin. */
+.mc-panel.has-querybar{padding-top:0;}
+.mc-querybar{position:sticky;top:0;z-index:6;display:grid;gap:12px;margin:0 -18px 16px;padding:14px 18px 12px;background:var(--surface);border-bottom:1px solid var(--border);backdrop-filter:none;}
 .mc-querybar .mc-field{margin-bottom:0;}
 .mc-querybar-run{display:flex;align-items:center;justify-content:space-between;gap:12px;}
 .mc-querybar-run .note{font-size:12px;color:var(--text);}
@@ -409,7 +413,6 @@ input.mc-inp:focus{outline:2px solid var(--accent);outline-offset:1px;}
   .mc-workspace-panel.is-collapsed .mc-tab.is-active::after{left:8px;right:auto;top:10px;bottom:10px;width:3px;height:auto;}
   .mc-workspace-panel.is-collapsed .mc-tab .pill{position:absolute;right:4px;top:4px;font-size:10px;padding:0 5px;}
   .mc-panel{padding:14px 18px;}
-  .mc-querybar{margin:-14px -18px 16px;}
   .mc-panel-head{align-items:flex-start;gap:10px;}
   .mc-head-actions{justify-content:flex-start;}
 .mc-search{height:auto;min-height:44px;}
