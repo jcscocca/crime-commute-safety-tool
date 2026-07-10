@@ -4,7 +4,7 @@ import json
 from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -18,6 +18,7 @@ from app.assistant.llm_client import (
 from app.assistant.schemas import AssistantChatRequest, AssistantStreamEvent
 from app.config import Settings, get_settings
 from app.db import get_session
+from app.ratelimit import get_rate_limiter
 
 router = APIRouter()
 
@@ -59,7 +60,28 @@ async def assistant_chat(
     user_id_hash: Annotated[str, Depends(required_public_user_hash)],
     session: Annotated[Session, Depends(get_session)],
 ) -> StreamingResponse:
-    llm_client = build_assistant_llm_client(get_settings())
+    settings = get_settings()
+    if settings.rate_limit_enabled:
+        limiter = get_rate_limiter()
+        if not limiter.try_count_global(limit=settings.rate_limit_assistant_global_per_day):
+            raise HTTPException(
+                status_code=429,
+                detail="The demo Analyst has reached its daily capacity — try again tomorrow.",
+                headers={"Retry-After": "3600"},
+            )
+        wait = limiter.try_take(
+            "assistant",
+            user_id_hash,
+            capacity=settings.rate_limit_assistant_per_hour,
+            per_seconds=3600.0,
+        )
+        if wait > 0:
+            raise HTTPException(
+                status_code=429,
+                detail="Analyst request limit reached for this session — please retry later.",
+                headers={"Retry-After": str(max(1, int(wait)))},
+            )
+    llm_client = build_assistant_llm_client(settings)
 
     async def event_stream() -> AsyncIterator[str]:
         async for event in run_assistant_turn(

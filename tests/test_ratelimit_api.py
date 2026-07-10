@@ -56,3 +56,18 @@ def test_limiter_off_by_default(tmp_path) -> None:
     client = TestClient(app)
     for _ in range(25):
         assert client.post("/sessions").status_code == 200
+
+
+def test_assistant_global_daily_cap(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("MCA_RATE_LIMIT_ENABLED", "true")
+    monkeypatch.setenv("MCA_RATE_LIMIT_ASSISTANT_GLOBAL_PER_DAY", "0")
+    app = create_app(f"sqlite+pysqlite:///{tmp_path}/rl4.sqlite3")
+    client = TestClient(app)
+    client.post("/sessions")
+    response = client.post(
+        "/assistant/chat",
+        json={"messages": [{"role": "user", "content": "hi"}], "dashboard_state": {}},
+    )
+    assert response.status_code == 429
+    detail = response.json()["detail"].lower()
+    assert "analyst" in detail and ("limit" in detail or "capacity" in detail)
