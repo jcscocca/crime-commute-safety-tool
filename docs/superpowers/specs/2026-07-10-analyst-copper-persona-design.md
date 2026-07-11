@@ -53,7 +53,7 @@ what's on file, not whether somewhere is safe"), not to strain against it.
 | Empty-state greeting | "Ask about what the map is showing" | "Copper, case desk. Point me at a place and I'll pull the reports near it." |
 | Suggestion chips | "What's near this pin?", "Compare my places" | Those two plus "What's on file around here?" (deictic — resolves against the current map view/pin, shipped in PR #121) |
 | Offline error (frontend `OFFLINE_MESSAGE`) | "The analyst is offline right now. Your data is unaffected — the rest of Waypoint works." | "Copper can't reach the case files right now. Your data is unaffected — the rest of Waypoint works." |
-| `_SAFETY_REDIRECT` (`app/assistant/agent.py`) | current redirect text | Reworded in-voice, same meaning and same redirect targets: "That's not something I can pull from the files — I don't rate places as safe or unsafe. I can show reported incident counts or exposure-adjusted rates instead." |
+| `_SAFETY_REDIRECT` (`app/assistant/agent.py`) | current redirect text | Reworded in-voice, same meaning and same redirect targets: "That's not something I can pull from the files — I can't label places safe or unsafe, rank them by safety, danger, or risk, or produce a personal safety score. I can order places by reported incident counts or compare exposure-adjusted incident rates — just ask it that way." |
 | Tool summaries (`app/assistant/summaries.py`) | bare deterministic summary | Fixed lead-in "From the reports: " prefixed to `analyze_places` / `compare_places` summaries only. The deterministic data sentence itself is byte-identical. |
 
 Everything else is untouched: clarification questions (`AssistantClarification`
@@ -77,7 +77,8 @@ Placement and structure of the dock (`mc-dock` in
 
 ## 4. First-visit cue
 
-- `localStorage` key `waypoint.copper.greeted`, unset → the avatar mark plays a
+- `localStorage` key `wp-copper-greeted` (repo convention, cf. `wp-theme`), unset → the
+  avatar mark plays a
   subtle CSS pulse (two cycles on load) to draw the eye to the dock; set after the
   user sends their first assistant message.
 - The pulse respects `prefers-reduced-motion: reduce` (no animation).
