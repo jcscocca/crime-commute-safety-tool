@@ -75,7 +75,7 @@ def _analyze_places_summary(result: dict[str, Any]) -> str:
         else:
             phrase = _DECISION_PHRASES.get(place.get("decision"), "no surrounding-area comparison")
             sentences.append(f"{label}: {count} reported incidents within {radius} m ({phrase}).")
-    summary = _REPORTS_LEAD_IN + " ".join(sentences) if sentences else "No places to analyze."
+    summary = (_REPORTS_LEAD_IN + " ".join(sentences)) if sentences else "No places to analyze."
     return _with_provenance(summary, result)
 
 
@@ -93,7 +93,7 @@ def _compare_places_summary(result: dict[str, Any]) -> str:
         parts.append(f"Reported incidents within {radius} m — {counts}.")
     if overview.get("summary_text"):
         parts.append(overview["summary_text"])
-    summary = _REPORTS_LEAD_IN + " ".join(parts) if parts else "Compared the selected places."
+    summary = (_REPORTS_LEAD_IN + " ".join(parts)) if parts else "Compared the selected places."
     return _with_provenance(summary, result)
 
 

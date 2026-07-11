@@ -154,6 +154,7 @@ def test_analyze_and_compare_summaries_carry_reports_lead_in():
 
 def test_reports_lead_in_absent_on_empty_results_and_other_tools():
     assert build_tool_summary(_envelope("analyze_places", {})) == "No places to analyze."
+    assert build_tool_summary(_envelope("compare_places", {})) == "Compared the selected places."
     assert (
         build_tool_summary(_envelope("get_dashboard_summary", {"totals": {"place_count": 2}}))
         == "You have 2 saved places."
