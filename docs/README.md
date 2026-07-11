@@ -21,3 +21,4 @@ update its doc in the same PR.
   not a description of current state.
 - **`reference/`** — background and source material (the SPD crime-analysis suite).
 - **`DEPLOY.md`** — deployment guide for the single-host stack.
+- **`IOS.md`** — Waypoint on iOS — personal build runbook (Tailscale + Capacitor shell).

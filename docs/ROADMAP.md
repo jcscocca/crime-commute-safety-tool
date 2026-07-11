@@ -242,6 +242,21 @@ spec → plan → PR.*
   baselines, BH) and the product-ethics story (the invariant, routes removal, arrests
   de-merge, privacy posture) as long-form pieces linked from the README.
 
+## Waypoint on iOS (2026-07-10)
+*Personal device + demos target (no App Store). Decomposed A/B/C; spec:
+`docs/superpowers/specs/2026-07-10-ios-shell-design.md`.*
+
+- [x] **Slice A — iOS shell + Tailscale reachability:** Capacitor 7 remote-URL shell
+  (SPM, no CocoaPods) loading the frontend from the backend's tailnet HTTPS origin;
+  env-driven server URL keeps the hostname out of the repo (the synced native config
+  is gitignored); Copper bust app icon + splash; `docs/IOS.md` runbook. On-device
+  checklist executed by the user post-merge.
+- [ ] **Slice B — phone-first redesign:** first-class phone layout for the React app
+  (navigation model, per-tab layouts, safe areas, keyboard) — own brainstorm → spec →
+  plan; also upgrades mobile web for the public demo.
+- [ ] **Slice C — niceties:** friendly offline screen, haptics, share-sheet exports,
+  app shortcuts.
+
 ## Conventions
 - Each unchecked box above is a candidate unit of work; large ones get their own `docs/superpowers/` spec → plan → PR (the established cadence).
 - Keep this file current as phases land — it is the one roadmap concurrent agents should read.

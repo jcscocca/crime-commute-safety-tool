@@ -58,5 +58,7 @@ const out = join(frontendDir, "assets");
 mkdirSync(out, { recursive: true });
 
 render(composite(1024, 800), join(out, "icon-only.png"));
+// splash and splash-dark are deliberately identical — the shell has one dark
+// surface (#1B232B), not separate light/dark splash treatments.
 render(composite(2732, 800), join(out, "splash.png"));
 render(composite(2732, 800), join(out, "splash-dark.png"));
