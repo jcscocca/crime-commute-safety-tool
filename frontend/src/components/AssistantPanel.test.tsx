@@ -127,7 +127,7 @@ describe("AssistantPanel", () => {
     fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "compare" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(await screen.findByText("Name at least two places to compare.")).toBeInTheDocument();
-    expect(screen.queryByText(/analyst is offline/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/can't reach the case files/i)).not.toBeInTheDocument();
   });
 
   it("clears the error banner when a retry succeeds", async () => {
@@ -150,7 +150,7 @@ describe("AssistantPanel", () => {
     render(<AssistantPanel dashboardState={dashboardState} />);
     fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "hi" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    expect(await screen.findByText(/analyst is offline/i)).toBeInTheDocument();
+    expect(await screen.findByText(/can't reach the case files/i)).toBeInTheDocument();
   });
 
   it("forwards tool result data to onToolResult", async () => {
@@ -191,7 +191,10 @@ describe("AssistantPanel", () => {
       sseResponse("event: done\ndata: {}\n\n"),
     );
     render(<AssistantPanel dashboardState={dashboardState} onToolResult={vi.fn()} />);
-    expect(screen.getByText("Ask about what the map is showing")).toBeInTheDocument();
+    expect(
+      screen.getByText("Copper, case desk. Point me at a place and I'll pull the reports near it."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "What's on file around here?" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "What's near this pin?" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
@@ -206,6 +209,16 @@ describe("AssistantPanel", () => {
     fireEvent.click(collapse);
     expect(screen.queryByLabelText("Analyst message")).toBeNull();
     expect(screen.getByRole("button", { name: /expand analyst/i })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("shows Copper's header with the idle status and avatar mark", () => {
+    const { container } = render(
+      <AssistantPanel dashboardState={dashboardState} onToolResult={vi.fn()} />,
+    );
+    expect(screen.getByRole("heading", { name: /copper/i })).toBeInTheDocument();
+    expect(screen.getByText("At the desk")).toBeInTheDocument();
+    expect(container.querySelector('svg[data-variant="mark"]')).not.toBeNull();
+    expect(container.querySelector('svg[data-variant="bust"]')).not.toBeNull();
   });
 });
 
