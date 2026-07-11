@@ -20,4 +20,7 @@ update its doc in the same PR.
   implementation plans, one pair per feature. A historical record of *how* things were built;
   not a description of current state.
 - **`reference/`** — background and source material (the SPD crime-analysis suite).
+- **`DEMO.md`** — demo-on-demand runbook: spin up a public, shareable demo from the
+  ThinkPad in ~2 minutes, tear it down when done.
 - **`DEPLOY.md`** — deployment guide for the single-host stack.
+- **`IOS.md`** — Waypoint on iOS — personal build runbook (Tailscale + Capacitor shell).
