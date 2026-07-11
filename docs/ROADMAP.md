@@ -249,8 +249,14 @@ spec → plan → PR.*
 - [x] **Slice A — iOS shell + Tailscale reachability:** Capacitor 7 remote-URL shell
   (SPM, no CocoaPods) loading the frontend from the backend's tailnet HTTPS origin;
   env-driven server URL keeps the hostname out of the repo (the synced native config
-  is gitignored); Copper bust app icon + splash; `docs/IOS.md` runbook. On-device
-  checklist executed by the user post-merge.
+  is gitignored); Copper bust app icon + splash; `docs/IOS.md` runbook. First device
+  run tracked as its own item below.
+- [ ] **First device run (Slice A acceptance):** one-time environment setup — Xcode on
+  the Mac (full app from the App Store, then `xcode-select`), Tailscale on ThinkPad +
+  iPhone, `tailscale serve --bg 8000` with MagicDNS/HTTPS certs enabled — then
+  `docs/IOS.md` Build & run (pick signing: free Apple ID = 7-day re-sign vs $99
+  account) and the 6-item on-device checklist. Item 4 is the empirical unknown:
+  Copper's SSE must stream token-by-token through `tailscale serve`, not buffer.
 - [ ] **Slice B — phone-first redesign:** first-class phone layout for the React app
   (navigation model, per-tab layouts, safe areas, keyboard) — own brainstorm → spec →
   plan; also upgrades mobile web for the public demo.
