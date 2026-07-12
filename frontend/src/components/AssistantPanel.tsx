@@ -46,6 +46,7 @@ export function AssistantPanel({ dashboardState, onToolResult }: Props) {
     let turnError = "";
     setMessages(turnMessages);
     setDraft("");
+    setStatusLine("");
     setErrorMessage("");
     setToolActivity([]);
     setSending(true);
