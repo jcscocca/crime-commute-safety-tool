@@ -241,6 +241,13 @@ spec → plan → PR.*
 - [ ] **Slice 3 — Write-up:** the methodology story (QP-vs-NB settled empirically,
   baselines, BH) and the product-ethics story (the invariant, routes removal, arrests
   de-merge, privacy posture) as long-form pieces linked from the README.
+- [x] **Copper streamed finals + turn progress:** model-authored replies in Copper's
+  voice streamed token-by-token (second, streamed narration call grounded on the tool
+  result + deterministic template), honest `status` phase events during the planning,
+  tool, and narration waits, and a holdback stream guard that keeps the
+  no-safety-scoring invariant absolute mid-stream. Kill switch
+  `MCA_ASSISTANT_NARRATION_ENABLED`. Spec:
+  `docs/superpowers/specs/2026-07-12-assistant-token-streaming-design.md`.
 
 ## Waypoint on iOS (2026-07-10)
 *Personal device + demos target (no App Store). Decomposed A/B/C; spec:

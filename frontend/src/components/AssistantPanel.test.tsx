@@ -237,5 +237,62 @@ describe("AssistantPanel", () => {
     const { container } = render(<AssistantPanel dashboardState={dashboardState} />);
     expect(container.querySelector("svg.mc-copper-pulse")).toBeNull();
   });
+
+  it("shows status labels transiently and clears them on the first token", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      sseResponse(
+        'event: status\ndata: {"label":"interpreting your request…"}\n\n' +
+          'event: status\ndata: {"label":"writing up…"}\n\n' +
+          'event: token\ndata: {"delta":"Two places on file."}\n\n' +
+          "event: done\ndata: {}\n\n",
+      ),
+    );
+
+    render(<AssistantPanel dashboardState={dashboardState} />);
+    fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "compare" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByText("Two places on file.")).toBeInTheDocument();
+    expect(screen.queryByText("interpreting your request…")).not.toBeInTheDocument();
+    expect(screen.queryByText("writing up…")).not.toBeInTheDocument();
+  });
+
+  it("shows the status line during the silent planning phase, before any token", async () => {
+    let ctrl!: ReadableStreamDefaultController<Uint8Array>;
+    const enc = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({ start(c) { ctrl = c; } });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } }),
+    );
+    render(<AssistantPanel dashboardState={dashboardState} />);
+    fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "hi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    ctrl.enqueue(enc.encode('event: status\ndata: {"label":"interpreting your request…"}\n\n'));
+    expect(await screen.findByText("interpreting your request…")).toBeInTheDocument();
+
+    ctrl.enqueue(enc.encode('event: token\ndata: {"delta":"Answer."}\n\n'));
+    ctrl.enqueue(enc.encode("event: done\ndata: {}\n\n"));
+    ctrl.close();
+    expect(await screen.findByText("Answer.")).toBeInTheDocument();
+    expect(screen.queryByText("interpreting your request…")).not.toBeInTheDocument();
+  });
+
+  it("replace resets the draft and commits the replacement text", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      sseResponse(
+        'event: token\ndata: {"delta":"partial answer that gets "}\n\n' +
+          'event: replace\ndata: {"text":"Final replacement answer."}\n\n' +
+          "event: done\ndata: {}\n\n",
+      ),
+    );
+
+    render(<AssistantPanel dashboardState={dashboardState} />);
+    fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "hi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByText("Final replacement answer.")).toBeInTheDocument();
+    expect(screen.queryByText(/partial answer that gets/)).not.toBeInTheDocument();
+  });
 });
 

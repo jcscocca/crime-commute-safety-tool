@@ -106,3 +106,61 @@ def test_assistant_chat_streams_agent_events(monkeypatch, tmp_path):
     assert '"delta": "hello"' in response.text
     assert "event: done" in response.text
 
+
+def test_assistant_chat_serializes_status_and_replace_events(monkeypatch, tmp_path):
+    from app.api import routes_assistant
+
+    async def fake_run_assistant_turn(*args, **kwargs):
+        yield AssistantStreamEvent(event="status", data={"label": "writing up…"})
+        yield AssistantStreamEvent(event="token", data={"delta": "partial "})
+        yield AssistantStreamEvent(event="replace", data={"text": "Full answer."})
+        yield AssistantStreamEvent(event="done", data={})
+
+    monkeypatch.setattr(routes_assistant, "run_assistant_turn", fake_run_assistant_turn)
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    client = TestClient(app)
+    client.post("/sessions")
+
+    response = client.post(
+        "/assistant/chat",
+        json={
+            "messages": [{"role": "user", "content": "Compare my places"}],
+            "dashboard_state": {"selected_place_ids": []},
+        },
+    )
+
+    assert response.status_code == 200
+    assert "event: status" in response.text
+    assert '"label": "writing up' in response.text
+    assert "event: replace" in response.text
+    assert '"text": "Full answer."' in response.text
+    assert "event: done" in response.text
+
+
+def test_assistant_chat_emits_terminal_error_frame_when_turn_raises(monkeypatch, tmp_path):
+    # An exception escaping the agent mid-stream must not truncate the SSE body:
+    # the route catches it and emits a terminal error frame so the frontend never hangs.
+    from app.api import routes_assistant
+
+    async def fake_run_assistant_turn(*args, **kwargs):
+        yield AssistantStreamEvent(event="token", data={"delta": "partial "})
+        raise RuntimeError("boom mid-stream")
+
+    monkeypatch.setattr(routes_assistant, "run_assistant_turn", fake_run_assistant_turn)
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    client = TestClient(app)
+    client.post("/sessions")
+
+    response = client.post(
+        "/assistant/chat",
+        json={
+            "messages": [{"role": "user", "content": "Compare my places"}],
+            "dashboard_state": {"selected_place_ids": []},
+        },
+    )
+
+    assert response.status_code == 200  # headers were already sent when the turn died
+    assert '"delta": "partial "' in response.text
+    assert "event: error" in response.text
+    assert "Couldn't reach the analyst" in response.text
+

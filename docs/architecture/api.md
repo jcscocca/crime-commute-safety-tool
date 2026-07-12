@@ -166,12 +166,17 @@ default configuration.
 `POST /assistant/chat` responds with **Server-Sent Events** (`text/event-stream`). The
 handler returns a `StreamingResponse` yielding SSE-formatted events. Each event is shaped
 as `AssistantStreamEvent` (`app/assistant/schemas.py`), with `event` in
-`{"meta", "tool", "token", "done", "error"}`.
+`{"meta", "status", "tool", "token", "replace", "done", "error"}` — a `status` event carries a
+`{label}` turn-progress phrase, and `replace` wholesale-replaces the turn's streamed `token`
+text (holdback-guard trip or narrated-answer fallback). See `docs/architecture/assistant.md`
+§2 for the full per-event breakdown and turn flow.
 
 The LLM backing the assistant is called via `MCA_LLM_BASE_URL` / `MCA_LLM_MODEL`
-(OpenAI-compatible). An optional failover node is configured via `MCA_LLM_FALLBACK_BASE_URL`
-/ `MCA_LLM_FALLBACK_MODEL`. If both are set, `FailoverLlmClient` is used. If the LLM is
-unreachable, only the chat panel is affected; the rest of the API is unaffected.
+(OpenAI-compatible), both for the single planning call and for the second, streamed narration
+call that writes the model-authored final (kill switch: `MCA_ASSISTANT_NARRATION_ENABLED`). An
+optional failover node is configured via `MCA_LLM_FALLBACK_BASE_URL` / `MCA_LLM_FALLBACK_MODEL`.
+If both are set, `FailoverLlmClient` is used. If the LLM is unreachable, only the chat panel is
+affected; the rest of the API is unaffected.
 
 ### Exports split
 

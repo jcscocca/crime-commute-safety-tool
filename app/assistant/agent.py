@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 from collections.abc import AsyncIterator, Iterable
@@ -7,14 +8,23 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.assistant.llm_client import AssistantLlmClient, LlmUnavailable
-from app.assistant.prompts import build_planning_messages
+from app.assistant.llm_client import (
+    AssistantLlmClient,
+    LlmStreamInterrupted,
+    LlmUnavailable,
+)
+from app.assistant.prompts import (
+    build_narration_messages,
+    build_planning_messages,
+    build_tool_grounding,
+)
 from app.assistant.schemas import (
     AssistantChatMessage,
     AssistantDashboardState,
     AssistantStreamEvent,
 )
 from app.assistant.semantic_layer import build_semantic_context
+from app.assistant.stream_guard import StreamGuardTripped, guarded_stream
 from app.assistant.summaries import build_tool_summary
 from app.assistant.tools import AssistantClarification, AssistantToolError, execute_tool
 from app.config import get_settings
@@ -147,6 +157,10 @@ SELECTION_TOOLS = (
 _UNREACHABLE_MESSAGE = (
     "Couldn't reach the analyst to interpret your request. The rest of Waypoint still works."
 )
+_NARRATION_TEMPERATURE = 0.4
+_NARRATION_MAX_TOKENS = 256
+_STATUS_INTERPRETING = "interpreting your request…"
+_STATUS_WRITING = "writing up…"
 
 
 async def run_assistant_turn(
@@ -173,6 +187,10 @@ async def run_assistant_turn(
         yield AssistantStreamEvent(event="done", data={})
         return
 
+    narrate = settings.assistant_narration_enabled
+    if narrate:
+        yield AssistantStreamEvent(event="status", data={"label": _STATUS_INTERPRETING})
+
     try:
         raw_plan = await llm_client.complete(
             build_planning_messages(messages, context),
@@ -190,6 +208,10 @@ async def run_assistant_turn(
 
     if plan.get("type") == "tool_call":
         tool_name = str(plan.get("tool_name"))
+        if narrate:
+            yield AssistantStreamEvent(
+                event="status", data={"label": f"running {tool_name}…"}
+            )
         try:
             tool_result = execute_tool(
                 session,
@@ -205,8 +227,25 @@ async def run_assistant_turn(
             yield AssistantStreamEvent(event="error", data={"message": str(exc)})
             return
         yield AssistantStreamEvent(event="tool", data=tool_result)
-        yield AssistantStreamEvent(event="token", data={"delta": build_tool_summary(tool_result)})
-        yield AssistantStreamEvent(event="done", data={})
+        summary = build_tool_summary(tool_result)
+        if not narrate:
+            yield AssistantStreamEvent(event="token", data={"delta": summary})
+            yield AssistantStreamEvent(event="done", data={})
+            return
+        yield AssistantStreamEvent(event="status", data={"label": _STATUS_WRITING})
+        grounding = build_tool_grounding(tool_name, summary, tool_result)
+        # End the read txn before the long narration await — narration needs no DB.
+        session.rollback()
+        async with contextlib.aclosing(
+            _stream_final(
+                llm_client,
+                build_narration_messages(messages, grounding),
+                summary,
+                settings.assistant_role,
+            )
+        ) as final_events:
+            async for event in final_events:
+                yield event
         return
 
     try:
@@ -217,12 +256,26 @@ async def run_assistant_turn(
     # Output-side invariant guard: a model answer that slipped past the input guard must not
     # stream safety-ranking language, place-ranking/livability prose, or a claim that the user
     # was present at an incident; replace it with the matching redirect.
-    if _contains_safety_ranking(message) or _output_ranks_places(message):
-        message = _SAFETY_REDIRECT
-    elif _claims_user_presence(message):
-        message = _PRESENCE_REDIRECT
-    yield AssistantStreamEvent(event="token", data={"delta": message})
-    yield AssistantStreamEvent(event="done", data={})
+    redirect = _output_guard_redirect(message)
+    if not narrate or redirect is not None:
+        # Kill switch, or the draft itself violates: emit the (guarded) text at once —
+        # never hand a violating draft to the narrator.
+        yield AssistantStreamEvent(event="token", data={"delta": redirect or message})
+        yield AssistantStreamEvent(event="done", data={})
+        return
+    yield AssistantStreamEvent(event="status", data={"label": _STATUS_WRITING})
+    # End the read txn before the long narration await — narration needs no DB.
+    session.rollback()
+    async with contextlib.aclosing(
+        _stream_final(
+            llm_client,
+            build_narration_messages(messages, "Draft answer (verified): " + message),
+            message,
+            settings.assistant_role,
+        )
+    ) as final_events:
+        async for event in final_events:
+            yield event
 
 
 def _recent_user_texts(
@@ -257,6 +310,57 @@ def _claims_user_presence(text: str) -> bool:
 
 def _output_ranks_places(text: str) -> bool:
     return bool(_OUTPUT_RANKING_PROSE_PATTERN.search(text))
+
+
+def _output_guard_redirect(text: str) -> str | None:
+    """The output-side invariant guard as a single predicate: the matching redirect
+    when the text violates it, else None. Used on full finals and, via the stream
+    guard, on accumulated narration text every delta."""
+    if _contains_safety_ranking(text) or _output_ranks_places(text):
+        return _SAFETY_REDIRECT
+    if _claims_user_presence(text):
+        return _PRESENCE_REDIRECT
+    return None
+
+
+async def _stream_final(
+    llm_client: AssistantLlmClient,
+    narration_messages: list[dict[str, str]],
+    fallback_text: str,
+    role: str,
+) -> AsyncIterator[AssistantStreamEvent]:
+    """Stream the narrated final through the holdback guard. On a guard trip,
+    replace with the redirect; on any narration failure (unreachable, empty,
+    mid-stream death), replace with fallback_text. Always ends with done."""
+    yielded_any = False
+    try:
+        async with contextlib.aclosing(
+            guarded_stream(
+                llm_client.stream(
+                    narration_messages,
+                    role=role,
+                    temperature=_NARRATION_TEMPERATURE,
+                    max_tokens=_NARRATION_MAX_TOKENS,
+                ),
+                _output_guard_redirect,
+            )
+        ) as chunks:
+            async for chunk in chunks:
+                yielded_any = True
+                yield AssistantStreamEvent(event="token", data={"delta": chunk})
+    except StreamGuardTripped as trip:
+        yield AssistantStreamEvent(event="replace", data={"text": trip.redirect})
+        yield AssistantStreamEvent(event="done", data={})
+        return
+    except (LlmUnavailable, LlmStreamInterrupted):
+        yield AssistantStreamEvent(event="replace", data={"text": fallback_text})
+        yield AssistantStreamEvent(event="done", data={})
+        return
+    if not yielded_any:
+        # A protocol-abiding client that ends cleanly with zero deltas (the real
+        # client raises LlmUnavailable instead) must still produce an answer.
+        yield AssistantStreamEvent(event="replace", data={"text": fallback_text})
+    yield AssistantStreamEvent(event="done", data={})
 
 
 def _tool_arguments(
