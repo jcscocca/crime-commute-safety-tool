@@ -130,6 +130,27 @@ def test_real_presence_pattern_long_span_trips_before_suffix_releases() -> None:
     assert "incident" not in released
 
 
+def test_trip_survives_upstream_cleanup_failure() -> None:
+    # A fault in the upstream generator's cleanup must not mask the trip — the
+    # consumer relies on StreamGuardTripped to emit the redirect replace event.
+    async def gen() -> AsyncIterator[str]:
+        try:
+            yield "this trips "
+            yield "never reached"
+        finally:
+            raise RuntimeError("cleanup fault")
+
+    def check(text: str) -> str | None:
+        return "R" if "trips" in text else None
+
+    async def run() -> None:
+        with pytest.raises(StreamGuardTripped):
+            async for _chunk in guarded_stream(gen(), check):
+                pass
+
+    asyncio.run(run())
+
+
 def test_trip_closes_upstream_iterator_deterministically() -> None:
     # On a guard trip the upstream generator (ultimately an httpx stream) must be
     # closed synchronously, not left for GC. Assert INSIDE the coroutine, before

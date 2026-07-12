@@ -51,7 +51,10 @@ async def guarded_stream(
     finally:
         closer = getattr(deltas, "aclose", None)
         if closer is not None:
-            await closer()
+            try:
+                await closer()
+            except Exception:
+                pass  # never mask the in-flight StreamGuardTripped / normal completion
 
 
 def _release_boundary(text: str) -> int:
