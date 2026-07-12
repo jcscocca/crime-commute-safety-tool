@@ -43,6 +43,8 @@ async def guarded_stream(
             if boundary > released:
                 yield accumulated[released:boundary]
                 released = boundary
+        # The in-loop check already scanned this exact final text; this re-check is
+        # belt-and-braces for an empty stream (loop never ran), not a distinct trip point.
         redirect = check(accumulated)
         if redirect is not None:
             raise StreamGuardTripped(redirect)

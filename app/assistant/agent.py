@@ -234,6 +234,8 @@ async def run_assistant_turn(
             return
         yield AssistantStreamEvent(event="status", data={"label": _STATUS_WRITING})
         grounding = build_tool_grounding(tool_name, summary, tool_result)
+        # End the read txn before the long narration await — narration needs no DB.
+        session.rollback()
         async with contextlib.aclosing(
             _stream_final(
                 llm_client,
@@ -262,6 +264,8 @@ async def run_assistant_turn(
         yield AssistantStreamEvent(event="done", data={})
         return
     yield AssistantStreamEvent(event="status", data={"label": _STATUS_WRITING})
+    # End the read txn before the long narration await — narration needs no DB.
+    session.rollback()
     async with contextlib.aclosing(
         _stream_final(
             llm_client,

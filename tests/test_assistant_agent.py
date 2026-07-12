@@ -10,6 +10,7 @@ import pytest
 from app.assistant.agent import run_assistant_turn
 from app.assistant.llm_client import LlmStreamInterrupted, LlmUnavailable
 from app.assistant.schemas import AssistantChatMessage, AssistantDashboardState
+from app.assistant.summaries import build_tool_summary
 from app.db import get_sessionmaker
 from app.main import create_app
 from app.models import CrimeIncident, PlaceCluster
@@ -1991,8 +1992,10 @@ def test_narration_mid_stream_death_replaces_with_template(tmp_path, monkeypatch
 
     replaces = [e for e in events if e.event == "replace"]
     assert len(replaces) == 1
-    # The replacement is the deterministic template (starts like today's summary).
-    assert replaces[0].data["text"]
+    # The replacement is exactly the deterministic template for this tool run.
+    tool_events = [e for e in events if e.event == "tool"]
+    expected = build_tool_summary(tool_events[0].data)
+    assert replaces[0].data["text"] == expected
     assert events[-1].event == "done"
 
 
@@ -2055,7 +2058,9 @@ def test_narration_clean_but_empty_stream_falls_back_to_template(tmp_path, monke
 
     replaces = [e for e in events if e.event == "replace"]
     assert len(replaces) == 1
-    assert replaces[0].data["text"]
+    tool_events = [e for e in events if e.event == "tool"]
+    expected = build_tool_summary(tool_events[0].data)
+    assert replaces[0].data["text"] == expected
     assert events[-1].event == "done"
 
 
@@ -2109,6 +2114,66 @@ def test_answer_turn_guardtripping_draft_skips_narration(tmp_path, monkeypatch):
     tokens = [e.data["delta"] for e in events if e.event == "token"]
     assert tokens == [_SAFETY_REDIRECT]
     assert client.stream_calls == []  # never narrate a violating draft
+
+
+def test_answer_turn_narration_failure_falls_back_to_draft(tmp_path, monkeypatch):
+    _narration_on(monkeypatch)
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    client = FakeStreamClient(
+        ['{"type":"final","message":"One saved place is on file."}'],
+        [],
+        fail_before_start=True,
+    )
+    try:
+        events = asyncio.run(
+            _collect(
+                session,
+                user_hash,
+                [AssistantChatMessage(role="user", content="What do you see?")],
+                AssistantDashboardState(selected_place_ids=["place-1"]),
+                client,
+            )
+        )
+    finally:
+        session.close()
+
+    replaces = [e for e in events if e.event == "replace"]
+    assert len(replaces) == 1
+    assert replaces[0].data["text"] == "One saved place is on file."
+    assert events[-1].event == "done"
+    assert not any(e.event == "error" for e in events)  # seamless fallback, not an error
+
+
+def test_answer_turn_guard_trip_mid_narration_replaces_with_redirect(tmp_path, monkeypatch):
+    _narration_on(monkeypatch)
+    from app.assistant.agent import _SAFETY_REDIRECT
+
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    # Clean draft passes the pre-narration guard; the narrator itself goes off the rails.
+    safe_words = [f"note{i} " for i in range(20)]
+    client = FakeStreamClient(
+        ['{"type":"final","message":"All quiet."}'],
+        safe_words + ["this is a dangerous", " area."],
+    )
+    try:
+        events = asyncio.run(
+            _collect(
+                session,
+                user_hash,
+                [AssistantChatMessage(role="user", content="What do you see?")],
+                AssistantDashboardState(selected_place_ids=["place-1"]),
+                client,
+            )
+        )
+    finally:
+        session.close()
+
+    replaces = [e for e in events if e.event == "replace"]
+    assert len(replaces) == 1
+    assert replaces[0].data["text"] == _SAFETY_REDIRECT
+    released = "".join(e.data["delta"] for e in events if e.event == "token")
+    assert "dangerous" not in released
+    assert events[-1].event == "done"
 
 
 def test_kill_switch_preserves_todays_exact_sequence(tmp_path):

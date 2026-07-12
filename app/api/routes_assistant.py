@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import contextlib
 import json
+import logging
 from collections.abc import AsyncIterator
 from typing import Annotated
 
@@ -9,7 +11,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import required_public_user_hash
-from app.assistant.agent import run_assistant_turn
+from app.assistant.agent import _UNREACHABLE_MESSAGE, run_assistant_turn
 from app.assistant.llm_client import (
     AssistantLlmClient,
     FailoverLlmClient,
@@ -19,6 +21,8 @@ from app.assistant.schemas import AssistantChatRequest, AssistantStreamEvent
 from app.config import Settings, get_settings
 from app.db import get_session
 from app.ratelimit import get_rate_limiter
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -87,14 +91,23 @@ async def assistant_chat(
     llm_client = build_assistant_llm_client(settings)
 
     async def event_stream() -> AsyncIterator[str]:
-        async for event in run_assistant_turn(
-            session,
-            user_id_hash,
-            request.messages,
-            request.dashboard_state,
-            llm_client,
-        ):
-            yield _sse_event(event)
+        try:
+            async with contextlib.aclosing(
+                run_assistant_turn(
+                    session,
+                    user_id_hash,
+                    request.messages,
+                    request.dashboard_state,
+                    llm_client,
+                )
+            ) as stream:
+                async for event in stream:
+                    yield _sse_event(event)
+        except Exception:
+            logger.exception("assistant turn failed mid-stream")
+            yield _sse_event(
+                AssistantStreamEvent(event="error", data={"message": _UNREACHABLE_MESSAGE})
+            )
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
