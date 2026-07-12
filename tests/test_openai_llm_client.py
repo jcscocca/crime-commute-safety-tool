@@ -142,10 +142,12 @@ class _FakeStreamResponse:
         lines: list[str],
         status_code: int = 200,
         error_after: int | None = None,
+        error_exc: Exception | None = None,
     ) -> None:
         self._lines = lines
         self.status_code = status_code
         self._error_after = error_after
+        self._error_exc = error_exc or httpx.ReadError("connection dropped")
         self.request = _DUMMY_REQUEST
 
     def raise_for_status(self) -> None:
@@ -159,7 +161,7 @@ class _FakeStreamResponse:
     async def aiter_lines(self):
         for index, line in enumerate(self._lines):
             if self._error_after is not None and index == self._error_after:
-                raise httpx.ReadError("connection dropped")
+                raise self._error_exc
             yield line
 
 
@@ -238,6 +240,28 @@ def test_stream_mid_stream_death_raises_interrupted(monkeypatch: pytest.MonkeyPa
         async for delta in _make_client().stream([{"role": "user", "content": "hi"}], role=None):
             got.append(delta)
         return got
+
+    with pytest.raises(LlmStreamInterrupted):
+        asyncio.run(run())
+
+
+def test_stream_mid_stream_non_http_error_raises_interrupted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.assistant.llm_client import LlmStreamInterrupted
+
+    _patch_stream(
+        monkeypatch,
+        _FakeStreamResponse(
+            [_sse_line("partial"), _sse_line("x")],
+            error_after=1,
+            error_exc=httpx.StreamClosed(),
+        ),
+    )
+
+    async def run() -> None:
+        async for _delta in _make_client().stream([{"role": "user", "content": "hi"}], role=None):
+            pass
 
     with pytest.raises(LlmStreamInterrupted):
         asyncio.run(run())

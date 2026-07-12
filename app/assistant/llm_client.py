@@ -165,6 +165,12 @@ class OpenAiLlmClient:
                     f"LLM stream died mid-generation: {exc}"
                 ) from exc
             raise LlmUnavailable(f"LLM endpoint unavailable: {exc}") from exc
+        except Exception as exc:  # non-HTTP transport/decode oddities degrade the same way
+            if yielded:
+                raise LlmStreamInterrupted(
+                    f"LLM stream died mid-generation: {exc}"
+                ) from exc
+            raise LlmUnavailable(f"LLM endpoint unavailable: {exc}") from exc
         if not yielded:
             raise LlmUnavailable(
                 "LLM returned an empty stream (a reasoning model may have spent the "
