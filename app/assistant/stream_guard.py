@@ -3,10 +3,14 @@ from __future__ import annotations
 import re
 from collections.abc import AsyncIterator, Callable
 
-# Words withheld behind the write head. Sized above the longest output-guard phrase
-# (~10 words for the presence-claim spans) so a completing match always overlaps the
-# unreleased tail — at worst an innocuous prefix of a violation has rendered.
-HOLDBACK_WORDS = 12
+# Words withheld behind the write head. The hard invariant holds for ANY value >= 1:
+# the word that completes a guard match is always the newest word, which is always
+# inside the held tail, and the check runs before any release of that delta — so a
+# complete violating phrase can never have rendered. The size only bounds how much
+# innocuous PREFIX of a long-span match (the presence-claim pattern's two
+# {0,40}-char gaps allow ~15-word spans) may briefly render before the trip
+# replaces it; 16 covers natural sentences of that shape.
+HOLDBACK_WORDS = 16
 
 _WORD = re.compile(r"\S+")
 

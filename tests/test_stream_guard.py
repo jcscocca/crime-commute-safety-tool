@@ -104,6 +104,32 @@ def test_trip_on_final_scan_before_tail_flush() -> None:
     asyncio.run(run())
 
 
+def test_real_presence_pattern_long_span_trips_before_suffix_releases() -> None:
+    # The presence-claim regex spans ~15 words via its {0,40}-char gaps — longer
+    # matches than the toy checks above. The completing suffix must never release.
+    from app.assistant.agent import _PRESENCE_CLAIM_PATTERN
+
+    sentence = (
+        "you were somewhere in the area and witnessed at least part "
+        "of a reported incident nearby."
+    )
+    parts = [word + " " for word in sentence.split()]
+
+    def check(text: str) -> str | None:
+        return "REDIRECT" if _PRESENCE_CLAIM_PATTERN.search(text) else None
+
+    async def run() -> list[str]:
+        released: list[str] = []
+        with pytest.raises(StreamGuardTripped):
+            async for chunk in guarded_stream(_deltas(parts), check):
+                released.append(chunk)
+        return released
+
+    released = "".join(asyncio.run(run()))
+    assert "witnessed" not in released
+    assert "incident" not in released
+
+
 def test_trip_closes_upstream_iterator_deterministically() -> None:
     # On a guard trip the upstream generator (ultimately an httpx stream) must be
     # closed synchronously, not left for GC. Assert INSIDE the coroutine, before
