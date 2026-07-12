@@ -97,9 +97,10 @@ for all three layers — reported crime `mcpp`, arrests `neighborhood`, 911 call
 `seattle_police_beats_2018.geojson` + area CSV):
 
 - `seattle_mcpp_areas.geojson` — Micro-Community Policing Plan boundaries from Seattle
-  GeoData, plus a simplified variant for the frontend/locator chips. The simplified
-  payload also carries a precomputed city outline ring (union of the MCPP polygons,
-  computed at asset-build time) so the locator chip never derives geometry client-side.
+  GeoData, plus a simplified variant for the frontend/locator chips. A precomputed city
+  outline for the locator chips is deferred to slice 3 (computing a polygon union has no
+  dep-free implementation; slice 3 decides between a build-time union script and
+  rendering the MCPP mosaic directly).
 - `seattle_mcpp_areas_area.csv` — per-MCPP land area (km²), generated the same way as
   the beat area CSV.
 
@@ -127,7 +128,7 @@ for all three layers — reported crime `mcpp`, arrests `neighborhood`, 911 call
 are treated as no-neighborhood for bucketing; such incidents still count toward
 beat/sector/city where those fields are valid.
 
-**Endpoints:** a public-tier `GET /dashboard/mcpp-polygons` (session-gated like the beat
+**Endpoints:** a public-tier `GET /dashboard/mcpp` (session-gated like the beat
 polygons endpoint, `include_in_schema` consistent with its peer). No bare-path internal
 re-exposure; `tests/test_internal_surface.py` continues to enforce the tier rules.
 
@@ -152,9 +153,10 @@ baselines: [
   slice 2 (see §10). Assistant narration/summaries switch to
   neighborhood-first copy ("similar to Capitol Hill's reported rate…") and must keep
   refusing safety-score asks.
-- **Multiplicity:** the four per-place baseline tests are Holm-adjusted **within each
-  place** (same approach as the existing pairwise section). The baselines are nested and
-  correlated; Holm is conservative and cheap.
+- **Multiplicity:** the four per-place baseline tests are Benjamini–Hochberg-adjusted
+  **within each place** (the same `benjamini_hochberg` helper the existing pairwise
+  section uses). The baselines are nested and correlated; BH keeps the whole codebase on
+  one adjustment method.
 - `relation` is computed server-side with the existing verdict rules (adjusted p
   threshold + the 1.25× effect floor); `insufficient` when the minimum-data rule fails
   for that baseline. The frontend renders relations verbatim — it never re-derives them
