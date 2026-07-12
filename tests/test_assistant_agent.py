@@ -5,11 +5,22 @@ import json
 from datetime import UTC, date, datetime
 from typing import Any
 
+import pytest
+
 from app.assistant.agent import run_assistant_turn
+from app.assistant.llm_client import LlmStreamInterrupted, LlmUnavailable
 from app.assistant.schemas import AssistantChatMessage, AssistantDashboardState
 from app.db import get_sessionmaker
 from app.main import create_app
 from app.models import CrimeIncident, PlaceCluster
+
+
+@pytest.fixture(autouse=True)
+def _narration_off(monkeypatch: pytest.MonkeyPatch):
+    # Existing turn tests pin the pre-streaming contract, which is exactly the
+    # kill-switch mode. Streaming-mode tests opt back in per-test with
+    # monkeypatch.setenv("MCA_ASSISTANT_NARRATION_ENABLED", "true").
+    monkeypatch.setenv("MCA_ASSISTANT_NARRATION_ENABLED", "false")
 
 
 class FakeClient:
@@ -1818,3 +1829,312 @@ def test_build_narration_messages_handles_empty_history():
     built = build_narration_messages([], "FACTS")
     assert [m["role"] for m in built] == ["system", "user"]
     assert "FACTS" in built[-1]["content"]
+
+
+# ---------- streamed narration mode (MCA_ASSISTANT_NARRATION_ENABLED=true) ----------
+
+
+class FakeStreamClient(FakeClient):
+    """FakeClient plus a scripted stream() for the narration call."""
+
+    def __init__(
+        self,
+        responses: list[str],
+        deltas: list[str],
+        fail_after: int | None = None,
+        fail_before_start: bool = False,
+    ) -> None:
+        super().__init__(responses)
+        self.deltas = deltas
+        self.fail_after = fail_after
+        self.fail_before_start = fail_before_start
+        self.stream_calls: list[list[dict[str, str]]] = []
+
+    async def stream(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        role: str,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ):
+        self.stream_calls.append(messages)
+        if self.fail_before_start:
+            raise LlmUnavailable("narrator offline")
+        for index, delta in enumerate(self.deltas):
+            if self.fail_after is not None and index == self.fail_after:
+                raise LlmStreamInterrupted("died mid-stream")
+            yield delta
+
+
+def _narration_on(monkeypatch):
+    monkeypatch.setenv("MCA_ASSISTANT_NARRATION_ENABLED", "true")
+
+
+def test_tool_turn_streams_narration_with_status_events(tmp_path, monkeypatch):
+    _narration_on(monkeypatch)
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    # Narration must exceed HOLDBACK_WORDS (16) so the holdback guard releases it across
+    # more than one token chunk — a realistic 2–4 sentence Copper reply per NARRATION_SYSTEM_PROMPT.
+    deltas = [
+        "Two places are on file for ",
+        "the selected window. ",
+        "Reported incident counts sit close ",
+        "together across both, ",
+        "and the rate ratio's confidence interval ",
+        "still spans one. ",
+        "Nothing here is statistically clear ",
+        "either way.",
+    ]
+    client = FakeStreamClient(
+        ['{"type":"tool_call","tool_name":"compare_places","arguments":{}}'],
+        deltas,
+    )
+    try:
+        events = asyncio.run(
+            _collect(
+                session,
+                user_hash,
+                [AssistantChatMessage(role="user", content="Compare my places")],
+                AssistantDashboardState(
+                    selected_place_ids=["place-1", "place-2"],
+                    analysis_start_date=date(2024, 1, 1),
+                    analysis_end_date=date(2024, 1, 31),
+                    radii_m=[250],
+                ),
+                client,
+            )
+        )
+    finally:
+        session.close()
+
+    names = [event.event for event in events]
+    assert names[0] == "meta"
+    assert names[-1] == "done"
+    assert "tool" in names
+    # Status markers present and ordered: interpreting -> running tool -> writing up.
+    status_labels = [e.data["label"] for e in events if e.event == "status"]
+    assert status_labels[0].startswith("interpreting")
+    assert any(label.startswith("running compare_places") for label in status_labels)
+    assert status_labels[-1].startswith("writing up")
+    # The narration IS the answer, streamed in multiple deltas.
+    tokens = [e.data["delta"] for e in events if e.event == "token"]
+    assert len(tokens) > 1
+    assert "".join(tokens) == "".join(deltas)
+    # Grounding carried the tool context to the narrator.
+    narration_prompt = json.dumps(client.stream_calls[0])
+    assert "compare_places" in narration_prompt
+
+
+def test_narration_guard_trip_replaces_with_redirect(tmp_path, monkeypatch):
+    _narration_on(monkeypatch)
+    from app.assistant.agent import _SAFETY_REDIRECT
+
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    # 20 innocuous words, then a safety-ranking phrase completes.
+    safe_words = [f"note{i} " for i in range(20)]
+    client = FakeStreamClient(
+        ['{"type":"tool_call","tool_name":"compare_places","arguments":{}}'],
+        safe_words + ["this looks like a dangerous", " area overall."],
+    )
+    try:
+        events = asyncio.run(
+            _collect(
+                session,
+                user_hash,
+                [AssistantChatMessage(role="user", content="Compare my places")],
+                AssistantDashboardState(
+                    selected_place_ids=["place-1", "place-2"],
+                    analysis_start_date=date(2024, 1, 1),
+                    analysis_end_date=date(2024, 1, 31),
+                    radii_m=[250],
+                ),
+                client,
+            )
+        )
+    finally:
+        session.close()
+
+    replaces = [e for e in events if e.event == "replace"]
+    assert len(replaces) == 1
+    assert replaces[0].data["text"] == _SAFETY_REDIRECT
+    released = "".join(e.data["delta"] for e in events if e.event == "token")
+    assert "dangerous" not in released
+    assert events[-1].event == "done"
+
+
+def test_narration_mid_stream_death_replaces_with_template(tmp_path, monkeypatch):
+    _narration_on(monkeypatch)
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    client = FakeStreamClient(
+        ['{"type":"tool_call","tool_name":"compare_places","arguments":{}}'],
+        [f"w{i} " for i in range(30)],
+        fail_after=20,
+    )
+    try:
+        events = asyncio.run(
+            _collect(
+                session,
+                user_hash,
+                [AssistantChatMessage(role="user", content="Compare my places")],
+                AssistantDashboardState(
+                    selected_place_ids=["place-1", "place-2"],
+                    analysis_start_date=date(2024, 1, 1),
+                    analysis_end_date=date(2024, 1, 31),
+                    radii_m=[250],
+                ),
+                client,
+            )
+        )
+    finally:
+        session.close()
+
+    replaces = [e for e in events if e.event == "replace"]
+    assert len(replaces) == 1
+    # The replacement is the deterministic template (starts like today's summary).
+    assert replaces[0].data["text"]
+    assert events[-1].event == "done"
+
+
+def test_narration_unreachable_falls_back_to_template(tmp_path, monkeypatch):
+    _narration_on(monkeypatch)
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    client = FakeStreamClient(
+        ['{"type":"tool_call","tool_name":"compare_places","arguments":{}}'],
+        [],
+        fail_before_start=True,
+    )
+    try:
+        events = asyncio.run(
+            _collect(
+                session,
+                user_hash,
+                [AssistantChatMessage(role="user", content="Compare my places")],
+                AssistantDashboardState(
+                    selected_place_ids=["place-1", "place-2"],
+                    analysis_start_date=date(2024, 1, 1),
+                    analysis_end_date=date(2024, 1, 31),
+                    radii_m=[250],
+                ),
+                client,
+            )
+        )
+    finally:
+        session.close()
+
+    names = [event.event for event in events]
+    assert "replace" in names
+    assert names[-1] == "done"
+    assert not any(e.event == "error" for e in events)  # seamless fallback, not an error
+
+
+def test_narration_clean_but_empty_stream_falls_back_to_template(tmp_path, monkeypatch):
+    _narration_on(monkeypatch)
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    client = FakeStreamClient(
+        ['{"type":"tool_call","tool_name":"compare_places","arguments":{}}'],
+        [],
+    )
+    try:
+        events = asyncio.run(
+            _collect(
+                session,
+                user_hash,
+                [AssistantChatMessage(role="user", content="Compare my places")],
+                AssistantDashboardState(
+                    selected_place_ids=["place-1", "place-2"],
+                    analysis_start_date=date(2024, 1, 1),
+                    analysis_end_date=date(2024, 1, 31),
+                    radii_m=[250],
+                ),
+                client,
+            )
+        )
+    finally:
+        session.close()
+
+    replaces = [e for e in events if e.event == "replace"]
+    assert len(replaces) == 1
+    assert replaces[0].data["text"]
+    assert events[-1].event == "done"
+
+
+def test_answer_turn_streams_with_plan_message_as_grounding(tmp_path, monkeypatch):
+    _narration_on(monkeypatch)
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    client = FakeStreamClient(
+        ['{"type":"final","message":"One saved place is on file."}'],
+        ["One place ", "on file."],
+    )
+    try:
+        events = asyncio.run(
+            _collect(
+                session,
+                user_hash,
+                [AssistantChatMessage(role="user", content="What do you see?")],
+                AssistantDashboardState(selected_place_ids=["place-1"]),
+                client,
+            )
+        )
+    finally:
+        session.close()
+
+    tokens = [e.data["delta"] for e in events if e.event == "token"]
+    assert "".join(tokens) == "One place on file."
+    assert "One saved place is on file." in json.dumps(client.stream_calls[0])
+
+
+def test_answer_turn_guardtripping_draft_skips_narration(tmp_path, monkeypatch):
+    _narration_on(monkeypatch)
+    from app.assistant.agent import _SAFETY_REDIRECT
+
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    client = FakeStreamClient(
+        ['{"type":"final","message":"This is a dangerous area."}'],
+        ["should never stream"],
+    )
+    try:
+        events = asyncio.run(
+            _collect(
+                session,
+                user_hash,
+                [AssistantChatMessage(role="user", content="What do you see?")],
+                AssistantDashboardState(selected_place_ids=["place-1"]),
+                client,
+            )
+        )
+    finally:
+        session.close()
+
+    tokens = [e.data["delta"] for e in events if e.event == "token"]
+    assert tokens == [_SAFETY_REDIRECT]
+    assert client.stream_calls == []  # never narrate a violating draft
+
+
+def test_kill_switch_preserves_todays_exact_sequence(tmp_path):
+    # No _narration_on: the autouse fixture holds the switch off.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    client = FakeStreamClient(
+        ['{"type":"tool_call","tool_name":"compare_places","arguments":{}}'],
+        ["never streamed"],
+    )
+    try:
+        events = asyncio.run(
+            _collect(
+                session,
+                user_hash,
+                [AssistantChatMessage(role="user", content="Compare my places")],
+                AssistantDashboardState(
+                    selected_place_ids=["place-1", "place-2"],
+                    analysis_start_date=date(2024, 1, 1),
+                    analysis_end_date=date(2024, 1, 31),
+                    radii_m=[250],
+                ),
+                client,
+            )
+        )
+    finally:
+        session.close()
+
+    assert [event.event for event in events] == ["meta", "tool", "token", "done"]
+    assert client.stream_calls == []
