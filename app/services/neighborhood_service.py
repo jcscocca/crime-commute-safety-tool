@@ -7,7 +7,7 @@ from datetime import date
 from math import pi
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import extract, func, select
 from sqlalchemy.orm import Session
 
 from app.analysis.area_baselines import mcpp_display_label, sector_for_beat
@@ -121,6 +121,51 @@ def _area_incidents(
     if nibrs_group is not None:
         stmt = stmt.where(CrimeIncident.nibrs_group == nibrs_group)
     return [_incident_data(r) for r in session.scalars(stmt).all()]
+
+
+def _area_month_counts(
+    session: Session,
+    column,
+    values: Sequence[str],
+    start: date,
+    end: date,
+    offense_category,
+    offense_subcategory,
+    nibrs_group,
+    sources: Sequence[str] | None = None,
+) -> dict[tuple[int, int], int]:
+    """Per-(year, month) incident counts for an attribute bucket — the whole-area
+    (sector/city) baselines need only counts, so group in SQL instead of
+    materializing rows. Filters MUST mirror _area_incidents exactly."""
+    effective_sources = tuple(sources) if sources is not None else (SOURCE_SPD_CRIME,)
+    start_at, end_at = _analysis_datetime_bounds(start, end)
+    observed = func.coalesce(CrimeIncident.offense_start_utc, CrimeIncident.report_utc)
+    # Postgres evaluates extract() in the session TimeZone; normalize to UTC so the SQL
+    # bucketing always matches _month_key's Python-side UTC reads. SQLite stores UTC
+    # literals (and has no timezone()), so it needs no normalization.
+    bucket = (
+        func.timezone("UTC", observed)
+        if session.get_bind().dialect.name == "postgresql"
+        else observed
+    )
+    year = extract("year", bucket)
+    month = extract("month", bucket)
+    stmt = (
+        select(year, month, func.count())
+        .where(CrimeIncident.source_dataset.in_(effective_sources))
+        .where(column.in_(tuple(values)))
+        .where(observed >= start_at)
+        .where(observed <= end_at)
+        .where(CrimeIncident.latitude.is_not(None))
+    )
+    if offense_category is not None:
+        stmt = stmt.where(CrimeIncident.offense_category == offense_category)
+    if offense_subcategory is not None:
+        stmt = stmt.where(CrimeIncident.offense_subcategory == offense_subcategory)
+    if nibrs_group is not None:
+        stmt = stmt.where(CrimeIncident.nibrs_group == nibrs_group)
+    stmt = stmt.group_by(year, month)
+    return {(int(y), int(m)): int(n) for y, m, n in session.execute(stmt).all()}
 
 
 def _beat_incidents(
@@ -249,7 +294,7 @@ def _baselines_for_place(
     beat_rest_area: float | None,
     mcpp_area_lookup: dict[str, float] | None,
     mcpp_polygons: BeatPolygons | None,
-    query_cache: dict[tuple, list[CrimeIncidentData]],
+    query_cache: dict[tuple, dict[tuple[int, int], int]],
 ) -> list[dict[str, Any]]:
     """One comparison entry per resolvable baseline geography, all sharing the place's
     buffer rate. MCPP and beat are rest-of-area (buffer carved out, mirroring the legacy
@@ -307,35 +352,39 @@ def _baselines_for_place(
              "area_km2": beat_rest_area}
         )
 
+    month_keys = _months(start, end)
+
     sector = sector_for_beat(beat)
     if sector:
         members = sorted(b for b in area_lookup if sector_for_beat(b) == sector)
         if members:
             cache_key = ("sector", sector)
-            incidents = query_cache.get(cache_key)
-            if incidents is None:
-                incidents = _area_incidents(
+            counts = query_cache.get(cache_key)
+            if counts is None:
+                counts = _area_month_counts(
                     session, CrimeIncident.beat, members, start, end,
                     offense_category, offense_subcategory, nibrs_group, sources=sources,
                 )
-                query_cache[cache_key] = incidents
+                query_cache[cache_key] = counts
+            monthly = [counts.get(key, 0) for key in month_keys]
             candidates.append(
-                {"kind": "sector", "label": f"Sector {sector}", "incidents": incidents,
-                 "area_km2": sum(area_lookup[b] for b in members)}
+                {"kind": "sector", "label": f"Sector {sector}", "monthly": monthly,
+                 "count": sum(monthly), "area_km2": sum(area_lookup[b] for b in members)}
             )
 
     if area_lookup:
         cache_key = ("city",)
-        incidents = query_cache.get(cache_key)
-        if incidents is None:
-            incidents = _area_incidents(
+        counts = query_cache.get(cache_key)
+        if counts is None:
+            counts = _area_month_counts(
                 session, CrimeIncident.beat, sorted(area_lookup), start, end,
                 offense_category, offense_subcategory, nibrs_group, sources=sources,
             )
-            query_cache[cache_key] = incidents
+            query_cache[cache_key] = counts
+        monthly = [counts.get(key, 0) for key in month_keys]
         candidates.append(
-            {"kind": "city", "label": "Citywide", "incidents": incidents,
-             "area_km2": sum(area_lookup.values())}
+            {"kind": "city", "label": "Citywide", "monthly": monthly,
+             "count": sum(monthly), "area_km2": sum(area_lookup.values())}
         )
 
     if not candidates:
@@ -345,7 +394,15 @@ def _baselines_for_place(
     place_monthly = _monthly_counts(place_incidents, start, end)
     prepared, p_values = [], []
     for cand in candidates:
-        baseline_monthly = _monthly_counts(cand["incidents"], start, end)
+        # mcpp/beat materialize rows (they carve the buffer out by distance); sector/city
+        # carry precomputed whole-area month counts from grouped SQL. Both reduce to the
+        # same two values the stats consume.
+        if "incidents" in cand:
+            baseline_monthly = _monthly_counts(cand["incidents"], start, end)
+            baseline_count = len(cand["incidents"])
+        else:
+            baseline_monthly = cand["monthly"]
+            baseline_count = cand["count"]
         combined_monthly = trim_partial_edge_months(
             [p + b for p, b in zip(place_monthly, baseline_monthly, strict=True)], start, end
         )
@@ -354,23 +411,23 @@ def _baselines_for_place(
         test = compare_incident_rates(
             count_a=len(place_incidents),
             exposure_a=max(place_exposure, 1e-9),
-            count_b=len(cand["incidents"]),
+            count_b=baseline_count,
             exposure_b=max(exposure, 1e-9),
             overdispersion_phi=dispersion.phi,
         )
         p_values.append(test.p_value)
-        prepared.append((cand, combined_monthly, exposure))
+        prepared.append((cand, baseline_count, combined_monthly, exposure))
 
     entries = []
     # BH within the place across its baseline comparisons (nested, correlated references
     # presented together — one adjustment family per place, like the pairwise section).
-    for (cand, combined_monthly, exposure), adjusted in zip(
+    for (cand, baseline_count, combined_monthly, exposure), adjusted in zip(
         prepared, benjamini_hochberg(p_values), strict=True
     ):
         result = place_vs_beat(
             place_count=len(place_incidents),
             place_exposure=place_exposure,
-            beat_count=len(cand["incidents"]),
+            beat_count=baseline_count,
             beat_exposure=exposure,
             combined_monthly_counts=combined_monthly,
             analysis_days=days,
@@ -381,7 +438,7 @@ def _baselines_for_place(
                 "kind": cand["kind"],
                 "label": cand["label"],
                 "area_km2": cand["area_km2"],
-                "baseline_incident_count": len(cand["incidents"]),
+                "baseline_incident_count": baseline_count,
                 "baseline_rate": result.beat_rate,
                 "rate_ratio": result.rate_ratio,
                 "ci_lower": result.ci_lower,
@@ -566,7 +623,7 @@ def neighborhood_analysis_for_places(
 
     places = []
     # Sector/city baselines are place-independent; compute each once per request.
-    baseline_query_cache: dict[tuple, list[CrimeIncidentData]] = {}
+    baseline_query_cache: dict[tuple, dict[tuple[int, int], int]] = {}
     for entry in raw:
         cluster = entry["cluster"]
         place_stats = (
