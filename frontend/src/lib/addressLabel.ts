@@ -40,6 +40,18 @@ export function titleCase(value: string): string {
     .join(" ");
 }
 
+/** Compact a geocoder display name for pins/cards/payloads: house number merged with
+ * street, plus the Seattle segment when present. Always ≤120 chars (backend
+ * AnalysisPoint.label cap). */
+export function compactGeocodeLabel(label: string): string {
+  const parts = label.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length === 0) return label.slice(0, 120);
+  const base = /^\d+[a-z]?$/i.test(parts[0]) && parts.length > 1 ? `${parts[0]} ${parts[1]}` : parts[0];
+  const city = parts.find((part, i) => i > 0 && part.toLowerCase() === "seattle");
+  const compact = city && base.toLowerCase() !== "seattle" ? `${base}, ${city}` : base;
+  return compact.slice(0, 120);
+}
+
 export function formatIncidentAddress(raw: string | null | undefined): string {
   if (raw == null) return "Unavailable";
   const text = raw.trim();

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 
-import { formatIncidentAddress } from "./addressLabel";
+import { compactGeocodeLabel, formatIncidentAddress } from "./addressLabel";
 
 describe("formatIncidentAddress", () => {
   it("collapses the same intersection regardless of cross-street order", () => {
@@ -40,5 +40,35 @@ describe("formatIncidentAddress", () => {
   it("title-cases a full street address it does not otherwise recognize", () => {
     expect(formatIncidentAddress("12018 NORTH PARK AVE N")).toBe("12018 North Park Ave N");
     expect(formatIncidentAddress("SEATTLE AREA")).toBe("Seattle Area");
+  });
+});
+
+describe("compactGeocodeLabel", () => {
+  it("merges the house number with the street and keeps the Seattle segment", () => {
+    const raw =
+      "4500, University Way Northeast, Greek Row, University Heights, University District, Seattle, King County, Washington, 98105, United States";
+    expect(raw.length).toBeGreaterThan(120);
+    expect(compactGeocodeLabel(raw)).toBe("4500 University Way Northeast, Seattle");
+  });
+
+  it("keeps a venue-first label as its own base plus Seattle", () => {
+    const raw = "Space Needle, 400, Broad Street, Belltown, Seattle, King County, Washington, 98109, United States";
+    expect(compactGeocodeLabel(raw)).toBe("Space Needle, Seattle");
+  });
+
+  it("falls back to the base segment when there is no Seattle segment", () => {
+    const raw = "500, Main Street, Portland, Oregon, USA";
+    expect(compactGeocodeLabel(raw)).toBe("500 Main Street");
+  });
+
+  it("is safe on an empty string", () => {
+    expect(compactGeocodeLabel("")).toBe("");
+  });
+
+  it("still slices a >120-char base with no comma segments to 120 chars", () => {
+    const raw = "a".repeat(150);
+    const result = compactGeocodeLabel(raw);
+    expect(result.length).toBe(120);
+    expect(result).toBe(raw.slice(0, 120));
   });
 });

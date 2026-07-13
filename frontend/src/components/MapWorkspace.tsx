@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 
 import { createBulkPlaces, createPlace, deletePlace, getBeatPolygons, getMcppPolygons } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
+import { compactGeocodeLabel } from "../lib/addressLabel";
 import { interpretToolResult } from "../lib/assistantBridge";
 import { DRAWER_PEEK, FOCUS_CHROME_MIN } from "../lib/drawer";
 import { geocodingProvider } from "../lib/geocoding";
@@ -172,7 +173,7 @@ export function MapWorkspace() {
     invalidateAnalysisContext();
     setSelectedIds(new Set());
     setManualEntry(false);
-    setLookupPoint({ latitude: result.latitude, longitude: result.longitude, label: result.label });
+    setLookupPoint({ latitude: result.latitude, longitude: result.longitude, label: compactGeocodeLabel(result.label) });
     setActiveTab("analyze");
   }
 

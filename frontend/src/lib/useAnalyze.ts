@@ -58,7 +58,9 @@ export function useAnalyze({ selectedIds, analysis, refreshWithFallback, setErro
     neighborhoodVersionRef.current = nVersion;
     setNeighborhood(null);
     const payload = {
-      ...(usePoints ? { points } : { place_ids: Array.from(selectedIds) }),
+      ...(usePoints
+        ? { points: points!.map((p) => ({ ...p, label: p.label.slice(0, 120) })) }
+        : { place_ids: Array.from(selectedIds) }),
       analysis_start_date: analysis.startDate,
       analysis_end_date: analysis.endDate,
       radii_m: [analysis.radiusM],

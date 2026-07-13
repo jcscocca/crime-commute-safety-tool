@@ -44,7 +44,9 @@ export function useCompare({ selectedIds, analysis, setError, points }: CompareD
     versionRef.current = version;
     try {
       const result = await comparePlaces({
-        ...(usePoints ? { points } : { place_ids: Array.from(selectedIds) }),
+        ...(usePoints
+          ? { points: points!.map((p) => ({ ...p, label: p.label.slice(0, 120) })) }
+          : { place_ids: Array.from(selectedIds) }),
         analysis_start_date: analysis.startDate,
         analysis_end_date: analysis.endDate,
         radius_m: analysis.radiusM,
