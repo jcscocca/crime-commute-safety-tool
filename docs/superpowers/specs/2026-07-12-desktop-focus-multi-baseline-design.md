@@ -161,8 +161,10 @@ baselines: [
   threshold + the 1.25× effect floor); `insufficient` when the minimum-data rule fails
   for that baseline. The frontend renders relations verbatim — it never re-derives them
   from band-vs-tick geometry, so plot and fine print cannot diverge.
-- A baseline with zero incidents in the window reuses the existing zero-count CI
-  handling; its tick renders at 0 with the note copy.
+- A whole-area baseline (sector/city) with zero incidents in the window reuses the
+  existing zero-count CI handling; its tick renders at 0 with the note copy. A
+  rest-of-area baseline (MCPP/beat) whose rest is empty (or whose rest area is
+  non-positive) is omitted instead, mirroring the legacy `baseline_too_small` refusal.
 - Missing baselines (place outside every MCPP polygon; no sector because beat unknown)
   are simply omitted from the array; the headline aggregates whatever is present.
 
@@ -200,7 +202,7 @@ New component (working name `BaselineIntervalPlot`) replacing `ComparisonBars` i
   of {area}". No safe/unsafe/dangerous, no ranking language. The output ranking-prose
   guard (#106) applies to assistant narration of these results.
 - Methods appendix (`frontend/src/lib/methodsDefinitions.ts`) documents: MCPP source and
-  vintage, rest-of-area vs whole-area baselines, Holm adjustment across the four
+  vintage, rest-of-area vs whole-area baselines, Benjamini–Hochberg adjustment across the four
   baselines, and the nested-baseline caveat.
 - `docs/architecture/data-model.md` and the API contract doc get the payload change;
   ROADMAP gets its tick per the usual cadence.
@@ -222,7 +224,7 @@ New component (working name `BaselineIntervalPlot`) replacing `ComparisonBars` i
 
 - **Backend (pytest):** MCPP point-in-polygon assignment (boundary + outside cases);
   junk-value bucketing; sector derivation from beat prefixes; area sums; per-baseline
-  ratio/CI/p against hand-computed fixtures; Holm adjustment ordering; zero-count and
+  ratio/CI/p against hand-computed fixtures; Benjamini–Hochberg adjustment ordering; zero-count and
   missing-baseline payload shapes; endpoint tier placement (`test_internal_surface.py`).
 - **Frontend (vitest):** relation rendering is verbatim from payload; shared-axis domain
   computation; identity letter/color assignment incl. >4 places; focus preset clamp

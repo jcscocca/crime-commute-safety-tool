@@ -257,8 +257,10 @@ def _baselines_for_place(
     place's own incidents appear in both halves of the combined monthly counts for
     sector/city, which is negligible at those scales. Geography that cannot be resolved
     (no polygon hit, no sector letter) is omitted rather than reported as a failed
-    comparison; statistical inadequacy on a resolved geography reports
-    relation="insufficient" via the decision machinery.
+    comparison, and so is a rest-of-area (mcpp/beat) entry whose rest is empty or whose
+    rest area is non-positive — mirroring the legacy ``baseline_too_small`` refusal.
+    Statistical inadequacy on a surviving entry (e.g. a zero-count sector/city baseline)
+    reports relation="insufficient" via the decision machinery.
     """
     candidates: list[dict[str, Any]] = []
 
