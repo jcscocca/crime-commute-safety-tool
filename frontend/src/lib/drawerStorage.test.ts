@@ -18,7 +18,8 @@ describe("drawer storage", () => {
     saveDrawerState({ collapsed: true, widthPx: 99999 });
     const loaded = loadDrawerState();
     expect(loaded.collapsed).toBe(true);
-    expect(loaded.widthPx).toBe(720);
+    // jsdom window.innerWidth defaults to 1024, so drawerMax() == 1024 - 96 == 928
+    expect(loaded.widthPx).toBe(928);
   });
 
   it("falls back to defaults when storage throws", () => {
