@@ -3,16 +3,22 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// Captures each distinct flyTo reference MapCanvas receives — the real MapCanvas re-flies
+// on reference change, so the capture list mirrors the fly sequence the map would perform.
+const flyToCaptures = vi.hoisted(() => [] as ({ lat: number; lng: number } | null)[]);
 vi.mock("./MapCanvas", () => ({
-  MapCanvas: ({ places, draft, onMapClick, onMarkerClick }: any) => (
-    <div data-testid="mapcanvas">
-      <button data-testid="fire-map-click" onClick={() => onMapClick({ lat: 47.6, lng: -122.3 })} />
-      {draft ? <div data-testid="draft-pin" /> : null}
-      {places.map((place: any) => (
-        <button key={place.id} data-testid={`marker-${place.id}`} onClick={() => onMarkerClick(place.id)} />
-      ))}
-    </div>
-  ),
+  MapCanvas: ({ places, draft, flyTo, onMapClick, onMarkerClick }: any) => {
+    if (flyToCaptures[flyToCaptures.length - 1] !== flyTo) flyToCaptures.push(flyTo);
+    return (
+      <div data-testid="mapcanvas">
+        <button data-testid="fire-map-click" onClick={() => onMapClick({ lat: 47.6, lng: -122.3 })} />
+        {draft ? <div data-testid="draft-pin" /> : null}
+        {places.map((place: any) => (
+          <button key={place.id} data-testid={`marker-${place.id}`} onClick={() => onMarkerClick(place.id)} />
+        ))}
+      </div>
+    );
+  },
 }));
 
 vi.mock("../api/client", () => ({
@@ -42,7 +48,7 @@ vi.mock("../lib/geocoding", async (importOriginal) => ({
 }));
 
 import { MapWorkspace } from "./MapWorkspace";
-import { analyzePlaces, comparePlaces, createBulkPlaces, createPlace, createSession, getDashboardSummary, getIncidentDetails, getNeighborhoodAnalysis, streamAssistantChat } from "../api/client";
+import { analyzePlaces, comparePlaces, createBulkPlaces, createPlace, createSession, getDashboardSummary, getIncidentDetails, getMcppPolygons, getNeighborhoodAnalysis, streamAssistantChat } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
 import { encodeView } from "../lib/savedView";
 import type { DashboardSummary, IncidentDetailsResponse, NeighborhoodAnalysis, Place, SiteComparison } from "../types";
@@ -569,6 +575,63 @@ describe("MapWorkspace", () => {
         points: [{ latitude: 47.61, longitude: -122.34, label: "123 Main St" }],
         layer: "calls",
       }));
+    });
+  });
+
+  it("lets a later search recenter supersede the last chip fly", async () => {
+    flyToCaptures.length = 0;
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary());
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 1 });
+    vi.mocked(getIncidentDetails).mockResolvedValue(makeIncidentDetails());
+    // A verdict card with a locator chip needs a neighborhood place + MCPP geometry.
+    vi.mocked(getNeighborhoodAnalysis).mockResolvedValue({
+      ...makeNeighborhoodAnalysis(),
+      places: [{
+        place_id: "lookup-0", place_label: "123 Main St", beat: "M2", radius_m: 250,
+        baseline_available: false, decision: "baseline_unavailable", place_incident_count: 1,
+        place_rate: 0.5, place_rate_ci_lower: 0.3, place_rate_ci_upper: 0.8,
+        minimum_data_status: "met", nearest_incident_m: null, monthly_counts: [],
+        category_breakdown: [], baselines: [],
+      }],
+    });
+    vi.mocked(getMcppPolygons).mockResolvedValueOnce({
+      type: "FeatureCollection",
+      features: [{
+        type: "Feature",
+        properties: { mcpp: "DOWNTOWN" },
+        geometry: { type: "Polygon", coordinates: [[[-122.4, 47.5], [-122.3, 47.5], [-122.3, 47.7], [-122.4, 47.7], [-122.4, 47.5]]] },
+      }],
+    });
+    geocodeSearch.mockResolvedValue([{ label: "123 Main St", latitude: 47.61, longitude: -122.34, source: "test" }]);
+
+    render(<MapWorkspace />);
+    await screen.findByRole("heading", { name: /look up an address/i });
+    fireEvent.change(screen.getByLabelText(/search an address/i), { target: { value: "123 Main" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    fireEvent.click(await screen.findByText("123 Main St"));
+
+    // The lookup itself flies the map to the looked-up address (pinDraft.flyTo).
+    await waitFor(() => {
+      expect(flyToCaptures[flyToCaptures.length - 1]).toEqual({ lat: 47.61, lng: -122.34 });
+    });
+
+    // Clicking the chip hands MapCanvas a FRESH flyTo reference for the place's coords
+    // (the real MapCanvas re-flies on reference change, even to the same spot).
+    const capturesBeforeChip = flyToCaptures.length;
+    fireEvent.click(await screen.findByRole("button", { name: "Fly the map to A" }));
+    await waitFor(() => {
+      expect(flyToCaptures.length).toBeGreaterThan(capturesBeforeChip);
+      expect(flyToCaptures[flyToCaptures.length - 1]).toEqual({ lat: 47.61, lng: -122.34 });
+    });
+
+    // A later search recenter must supersede the chip fly — the stale chipFlyTo must not
+    // swallow pinDraft.flyTo for the rest of the session.
+    geocodeSearch.mockResolvedValue([{ label: "456 Oak St", latitude: 47.7, longitude: -122.2, source: "test" }]);
+    fireEvent.change(screen.getByRole("combobox", { name: /search address or place/i }), { target: { value: "456 Oak" } });
+    fireEvent.click(await screen.findByRole("option", { name: "456 Oak St" }));
+    await waitFor(() => {
+      expect(flyToCaptures[flyToCaptures.length - 1]).toEqual({ lat: 47.7, lng: -122.2 });
     });
   });
 

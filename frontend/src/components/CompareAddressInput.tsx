@@ -1,6 +1,7 @@
 import { type FormEvent } from "react";
 
 import { useAddressSearch, SEARCH_EMPTY_MSG, SEARCH_ERROR_MSG } from "../lib/useAddressSearch";
+import { compactGeocodeLabel } from "../lib/addressLabel";
 import type { GeocodingProvider } from "../lib/geocoding";
 import type { ComparePoint } from "../lib/useCompareSet";
 import type { GeocodeResult } from "../types";
@@ -21,7 +22,7 @@ export function CompareAddressInput({ provider, onAdd, disabled }: Props) {
 
   function handleSelect(result: GeocodeResult) {
     rememberPlace(result);
-    onAdd({ latitude: result.latitude, longitude: result.longitude, label: result.label });
+    onAdd({ latitude: result.latitude, longitude: result.longitude, label: compactGeocodeLabel(result.label) });
     setQuery("");
   }
 

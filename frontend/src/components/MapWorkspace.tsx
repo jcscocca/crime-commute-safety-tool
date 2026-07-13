@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 
 import { createBulkPlaces, createPlace, deletePlace, getBeatPolygons, getMcppPolygons } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
+import { compactGeocodeLabel } from "../lib/addressLabel";
 import { interpretToolResult } from "../lib/assistantBridge";
 import { DRAWER_PEEK, FOCUS_CHROME_MIN } from "../lib/drawer";
 import { geocodingProvider } from "../lib/geocoding";
@@ -32,7 +33,7 @@ import { PlacesTab } from "./PlacesTab";
 import { SearchPill } from "./SearchPill";
 import { ThemeToggle } from "./ThemeToggle";
 import type { ComparePoint } from "../lib/useCompareSet";
-import type { AnalysisSettings, AssistantDashboardState, BeatFeatureCollection, GeocodeResult, MapBounds, McppFeatureCollection, PlaceCreate, TabKey } from "../types";
+import type { AnalysisSettings, AssistantDashboardState, BeatFeatureCollection, GeocodeResult, LatLng, MapBounds, McppFeatureCollection, PlaceCreate, TabKey } from "../types";
 
 export function MapWorkspace() {
   const { theme, setTheme } = useTheme();
@@ -47,6 +48,7 @@ export function MapWorkspace() {
   const [activeTab, setActiveTab] = useState<TabKey>(initialView?.tab ?? "places");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lookupPoint, setLookupPoint] = useState<ComparePoint | null>(null);
+  const [chipFlyTo, setChipFlyTo] = useState<LatLng | null>(null);
   // Latches once the user leaves the landing for manual place management; the landing does
   // not return for the rest of the session (a lookup resets it).
   const [manualEntry, setManualEntry] = useState(false);
@@ -166,12 +168,18 @@ export function MapWorkspace() {
     setDrawerCollapsed,
   });
 
+  // A newer search/preview target supersedes the last chip fly; chip clicks leave
+  // pinDraft.flyTo untouched so this never fires for them.
+  useEffect(() => {
+    setChipFlyTo(null);
+  }, [pinDraft.flyTo]);
+
   function handleLookup(result: GeocodeResult) {
     pinDraft.previewSearch(result);
     invalidateAnalysisContext();
     setSelectedIds(new Set());
     setManualEntry(false);
-    setLookupPoint({ latitude: result.latitude, longitude: result.longitude, label: result.label });
+    setLookupPoint({ latitude: result.latitude, longitude: result.longitude, label: compactGeocodeLabel(result.label) });
     setActiveTab("analyze");
   }
 
@@ -343,7 +351,7 @@ export function MapWorkspace() {
           addPinMode={pinDraft.addPinMode}
           summary={data.summary}
           radiusM={analysis.radiusM}
-          flyTo={pinDraft.flyTo}
+          flyTo={chipFlyTo ?? pinDraft.flyTo}
           beats={beats}
           highlightBeats={highlightBeats}
           incidentPoints={incidentLayer.geojson}
@@ -461,6 +469,7 @@ export function MapWorkspace() {
               onSave={lookupPoint ? handleSaveLookup : undefined}
               onHoverPlace={setHoveredPlaceId}
               mcppPolygons={mcppPolygons}
+              onFlyTo={({ latitude, longitude }) => setChipFlyTo({ lat: latitude, lng: longitude })}
             />
           ) : null}
           {activeTab === "compare" ? (
