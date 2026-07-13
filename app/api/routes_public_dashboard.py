@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from app.analysis.area_baselines import load_mcpp_areas, load_mcpp_polygons
 from app.analysis.beat_baselines import (
     BeatPolygons,
     load_beat_areas,
@@ -48,6 +49,16 @@ def _beat_areas() -> dict[str, float]:
 @lru_cache(maxsize=1)
 def _beat_polygons() -> BeatPolygons:
     return load_beat_polygons()
+
+
+@lru_cache(maxsize=1)
+def _mcpp_areas() -> dict[str, float]:
+    return load_mcpp_areas()
+
+
+@lru_cache(maxsize=1)
+def _mcpp_polygons() -> BeatPolygons:
+    return load_mcpp_polygons()
 
 
 @router.post("/dashboard/analyze")
@@ -165,6 +176,8 @@ def dashboard_neighborhood(
             nibrs_group=request.nibrs_group,
             area_lookup=_beat_areas(),
             beat_polygons=_beat_polygons(),
+            mcpp_area_lookup=_mcpp_areas(),
+            mcpp_polygons=_mcpp_polygons(),
             sources=sources_for_layer(request.layer),
         )
     except ValueError as exc:
