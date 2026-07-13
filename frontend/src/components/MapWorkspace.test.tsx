@@ -27,6 +27,7 @@ vi.mock("../api/client", () => ({
   getIncidentPoints: vi.fn().mockResolvedValue({
     points: [], returned_count: 0, total_count: 0, unmappable_citywide_count: 0, limit: 5000,
   }),
+  getMcppPolygons: vi.fn().mockResolvedValue({ type: "FeatureCollection", features: [] }),
   getNeighborhoodAnalysis: vi.fn(),
   getDashboardSummary: vi.fn(),
   getDashboardFreshness: vi.fn().mockResolvedValue(null),
