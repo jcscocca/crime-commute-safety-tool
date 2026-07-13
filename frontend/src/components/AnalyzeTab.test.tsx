@@ -136,6 +136,27 @@ describe("AnalyzeTab", () => {
     }
   });
 
+  it("reports card hover to onHoverPlace", () => {
+    const onHoverPlace = vi.fn();
+    render(
+      <AnalyzeTab
+        selected={[home]}
+        analysis={analysis}
+        availableRadii={[250]}
+        running={false}
+        neighborhood={neighborhood}
+        onChange={vi.fn()}
+        onRun={vi.fn()}
+        onHoverPlace={onHoverPlace}
+      />,
+    );
+    const card = screen.getByLabelText(/Verdict for/);
+    fireEvent.mouseEnter(card);
+    expect(onHoverPlace).toHaveBeenCalledWith(expect.any(String));
+    fireEvent.mouseLeave(card);
+    expect(onHoverPlace).toHaveBeenLastCalledWith(null);
+  });
+
   it("shows the confidence interval in analytical detail, not on the verdict line", () => {
     const { container } = render(
       <AnalyzeTab

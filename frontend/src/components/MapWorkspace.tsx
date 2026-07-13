@@ -5,6 +5,7 @@ import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
 import { interpretToolResult } from "../lib/assistantBridge";
 import { DRAWER_PEEK } from "../lib/drawer";
 import { geocodingProvider } from "../lib/geocoding";
+import { placeIdentity, type PlaceIdentity } from "../lib/placeIdentity";
 import { decodeView, encodeView } from "../lib/savedView";
 import { useAnalyze } from "../lib/useAnalyze";
 import { useIncidentPoints } from "../lib/useIncidentPoints";
@@ -104,6 +105,14 @@ export function MapWorkspace() {
     }
     return data.places.filter((place) => selectedIds.has(place.id));
   }, [sharedPoints, lookupPoint, data.places, selectedIds]);
+
+  // One identity source for cards AND pins: index within `selected` (AnalyzeTab letters
+  // use the same array order, so the teal "B" card is always the teal "B" pin).
+  const identityByPlaceId = useMemo(
+    () => new Map<string, PlaceIdentity>(selected.map((place, index) => [place.id, placeIdentity(index)])),
+    [selected],
+  );
+  const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
   const compareSet = useCompareSet(selected);
 
   const analyze = useAnalyze({ selectedIds, analysis, refreshWithFallback: data.refreshWithFallback, setError: data.setError, points: sharedPoints ?? (lookupPoint ? [lookupPoint] : undefined) });
@@ -330,6 +339,8 @@ export function MapWorkspace() {
           highlightBeats={highlightBeats}
           incidentPoints={incidentLayer.geojson}
           theme={theme}
+          identityByPlaceId={identityByPlaceId}
+          pulsePlaceId={hoveredPlaceId}
           onViewportChange={setViewport}
           onMapClick={pinDraft.handleMapClick}
           onMarkerClick={handleToggleSelect}
@@ -439,6 +450,7 @@ export function MapWorkspace() {
               onCopyLink={() => buildShareUrl("analyze")}
               onCompareWith={() => setActiveTab("compare")}
               onSave={lookupPoint ? handleSaveLookup : undefined}
+              onHoverPlace={setHoveredPlaceId}
             />
           ) : null}
           {activeTab === "compare" ? (

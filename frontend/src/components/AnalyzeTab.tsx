@@ -55,6 +55,7 @@ type Props = {
   onCopyLink?: () => string | null;
   onCompareWith?: () => void;
   onSave?: () => void;
+  onHoverPlace?: (placeId: string | null) => void;
 };
 
 const CATEGORIES: { value: string; label: string }[] = [
@@ -252,11 +253,18 @@ function CategoryBreakdown({ rows }: { rows: CategoryShare[] }) {
   );
 }
 
-function VerdictCard({ place, index, windowLabel, noun, domainMax }: { place: NeighborhoodPlace; index: number; windowLabel: string; noun: IncidentNoun; domainMax: number }) {
+function VerdictCard({ place, index, windowLabel, noun, domainMax, onHoverPlace }: { place: NeighborhoodPlace; index: number; windowLabel: string; noun: IncidentNoun; domainMax: number; onHoverPlace?: (placeId: string | null) => void }) {
   const identity = placeIdentity(index);
   const headline = aggregateHeadline(place, noun);
   return (
-    <section className="mc-verdict" aria-label={`Verdict for ${place.place_label}`}>
+    <section
+      className="mc-verdict"
+      aria-label={`Verdict for ${place.place_label}`}
+      onMouseEnter={() => onHoverPlace?.(place.place_id)}
+      onMouseLeave={() => onHoverPlace?.(null)}
+      onFocus={() => onHoverPlace?.(place.place_id)}
+      onBlur={() => onHoverPlace?.(null)}
+    >
       <div className="mc-verdict-head">
         <span className={`mc-idbadge id-${identity.slot}`} aria-hidden="true">{identity.letter}</span>
         <p className="mc-verdict-headline">{headline}</p>
@@ -431,7 +439,7 @@ function IncidentDetailsCards({ details, noun, showCategory }: { details: Incide
   );
 }
 
-export function AnalyzeTab({ selected, analysis, availableRadii, running, incidentDetails, neighborhood, error, panelWidthPx, onChange, onRun, onCopyLink, onCompareWith, onSave }: Props) {
+export function AnalyzeTab({ selected, analysis, availableRadii, running, incidentDetails, neighborhood, error, panelWidthPx, onChange, onRun, onCopyLink, onCompareWith, onSave, onHoverPlace }: Props) {
   const radii = availableRadii.length > 0 ? availableRadii : [250, 500, 1000];
   const canRun = selected.length >= 1 && !running;
   const width = panelWidthPx ?? Infinity;
@@ -543,7 +551,7 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
           {(() => {
             const domainMax = plotDomainMax(neighborhood?.places ?? []);
             return neighborhood?.places?.map((place, index) => (
-              <VerdictCard key={place.place_id} place={place} index={index} windowLabel={windowLabel} noun={noun} domainMax={domainMax} />
+              <VerdictCard key={place.place_id} place={place} index={index} windowLabel={windowLabel} noun={noun} domainMax={domainMax} onHoverPlace={onHoverPlace} />
             ));
           })()}
 
