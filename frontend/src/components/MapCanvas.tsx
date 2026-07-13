@@ -315,7 +315,7 @@ export function MapCanvas({
     for (const [id, el] of markerElsRef.current) {
       el.classList.toggle("is-pulsing", id === pulsePlaceId);
     }
-  }, [pulsePlaceId, places, selectedIds, summary, radiusM, draft, mapReady]);
+  }, [pulsePlaceId, places, selectedIds, summary, radiusM, draft, mapReady, identityByPlaceId]);
 
   useEffect(() => {
     const map = mapRef.current;

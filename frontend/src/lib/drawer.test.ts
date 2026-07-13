@@ -15,11 +15,11 @@ describe("drawer math", () => {
     expect(DRAWER_MIN).toBe(340);
   });
 
-  it("drawerMax leaves a 96px map strip, floored at DRAWER_MIN", () => {
+  it("drawerMax leaves a 96px strip, capped at 90% of the viewport, floored at DRAWER_MIN", () => {
     setViewport(800);
-    expect(drawerMax()).toBe(704);
+    expect(drawerMax()).toBe(704); // min(800-96, 720) = 704
     setViewport(2000);
-    expect(drawerMax()).toBe(1904);
+    expect(drawerMax()).toBe(1800); // min(2000-96, 1800) — wide monitors keep a 10% strip
   });
 
   it("clamps width into [DRAWER_MIN, drawerMax]", () => {
@@ -31,14 +31,14 @@ describe("drawer math", () => {
 });
 
 describe("focus preset geometry", () => {
-  it("drawerMax leaves a 96px map strip", () => {
-    // jsdom window.innerWidth defaults to 1024
-    expect(drawerMax()).toBe(1024 - 96);
+  it("drawerMax applies the 90% cap when it is tighter than the 96px strip", () => {
+    // jsdom window.innerWidth defaults to 1024: min(1024-96, round(921.6)) = 922
+    expect(drawerMax()).toBe(922);
   });
 
   it("clampWidth allows widths up to drawerMax", () => {
-    expect(clampWidth(1024 - 96)).toBe(1024 - 96);
-    expect(clampWidth(5000)).toBe(1024 - 96);
+    expect(clampWidth(922)).toBe(922);
+    expect(clampWidth(5000)).toBe(922);
   });
 
   it("drawerMax never drops below DRAWER_MIN on narrow windows", () => {

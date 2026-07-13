@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { createBulkPlaces, createPlace, deletePlace, getBeatPolygons } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
 import { interpretToolResult } from "../lib/assistantBridge";
-import { DRAWER_PEEK } from "../lib/drawer";
+import { DRAWER_PEEK, FOCUS_CHROME_MIN } from "../lib/drawer";
 import { geocodingProvider } from "../lib/geocoding";
 import { placeIdentity, type PlaceIdentity } from "../lib/placeIdentity";
 import { decodeView, encodeView } from "../lib/savedView";
@@ -321,10 +321,14 @@ export function MapWorkspace() {
   const showLanding =
     data.places.length === 0 && !lookupPoint && !sharedPoints && !manualEntry && activeTab === "places" && !pinDraft.draft;
 
+  // Recomputed every render: useDrawer's window-resize listener always produces a new
+  // drawer object, so viewport changes re-render. No extra state needed.
+  const isFocus = !drawer.collapsed && window.innerWidth - drawer.widthPx < FOCUS_CHROME_MIN;
+
   return (
     <div className="mc-scope">
       <div
-        className={`mc-frame${pinDraft.addPinMode ? " is-placing-pin" : ""}`}
+        className={`mc-frame${pinDraft.addPinMode ? " is-placing-pin" : ""}${isFocus ? " is-focus" : ""}`}
         style={{ "--panel-width": `${drawer.collapsed ? DRAWER_PEEK : drawer.widthPx}px` } as CSSProperties}
       >
         <MapCanvas

@@ -126,6 +126,15 @@
   font-family:var(--f-mono);background:var(--surface-sunken);padding:3px 8px;border-radius:6px;}
 .mc-frame .maplibregl-ctrl-bottom-right{right:calc(var(--panel-width) + 14px);bottom:18px;z-index:1100;}
 
+/* Focus mode: the map is a locator strip — shed map-reading chrome, stack the topbar
+   vertically inside the strip so layer/theme/freshness stay reachable. */
+.mc-frame.is-focus .mc-wordmark,.mc-frame.is-focus .mc-status{display:none;}
+.mc-frame.is-focus .mc-topbar{flex-direction:column;align-items:flex-start;height:auto;gap:10px;padding:12px 10px;}
+.mc-frame.is-focus .mc-topbar-right{flex-wrap:wrap;row-gap:8px;}
+.mc-frame.is-focus .mc-searchpill,.mc-frame.is-focus .mc-legend,.mc-frame.is-focus .mc-disclosure,.mc-frame.is-focus .mc-helper{display:none;}
+.mc-frame.is-focus .maplibregl-ctrl-bottom-right{display:none;}
+.mc-frame.is-focus .mc-attrib{right:auto;left:8px;max-width:calc(100vw - var(--panel-width) - 16px);}
+
 .mc-workspace-panel{position:absolute;top:0;right:0;bottom:0;z-index:1200;width:var(--panel-width);height:auto;
   background:var(--surface);border-left:1px solid var(--border);border-radius:0;
   box-shadow:-18px 0 40px -28px rgba(16,24,32,.25);
