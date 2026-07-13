@@ -481,3 +481,48 @@ def test_place_rate_interval_present_without_beat_baseline(tmp_path):
     assert place["baseline_available"] is False
     assert place["place_rate"] > 0
     assert place["place_rate_ci_lower"] < place["place_rate_ci_upper"]
+
+
+def test_area_month_counts_matches_materialized_counts(tmp_path):
+    session, user_hash, place_id = session_with_places_and_beat_crime(tmp_path)
+    from datetime import UTC, datetime
+
+    from app.models import CrimeIncident
+    from app.services.neighborhood_service import (
+        _area_incidents,
+        _area_month_counts,
+        _monthly_counts,
+        _months,
+    )
+
+    # A row whose offense_start_utc is NULL falls back to report_utc in both paths —
+    # _monthly_counts (Python coalesce) and _area_month_counts (SQL coalesce) must bucket
+    # it identically. Insert one via the fixture's established pattern.
+    session.add(
+        CrimeIncident(
+            id="null-offense-start",
+            offense_start_utc=None,
+            report_utc=datetime(2026, 3, 20, tzinfo=UTC),
+            offense_category="PROPERTY",
+            offense_subcategory="Theft",
+            nibrs_group="PROPERTY",
+            beat="M3",
+            mcpp="TEST HILL",
+            latitude=47.60945,
+            longitude=-122.33595,
+        )
+    )
+    session.commit()
+
+    start, end = date(2026, 1, 1), date(2026, 6, 30)
+    incidents = _area_incidents(
+        session, CrimeIncident.beat, ["M3"], start, end, None, None, None
+    )
+    counts = _area_month_counts(
+        session, CrimeIncident.beat, ["M3"], start, end, None, None, None
+    )
+    assert [counts.get(m, 0) for m in _months(start, end)] == _monthly_counts(
+        incidents, start, end
+    )
+    assert sum(counts.values()) == len(incidents)
+    assert any(i.id == "null-offense-start" for i in incidents)
