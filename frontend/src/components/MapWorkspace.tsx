@@ -168,6 +168,12 @@ export function MapWorkspace() {
     setDrawerCollapsed,
   });
 
+  // A newer search/preview target supersedes the last chip fly; chip clicks leave
+  // pinDraft.flyTo untouched so this never fires for them.
+  useEffect(() => {
+    setChipFlyTo(null);
+  }, [pinDraft.flyTo]);
+
   function handleLookup(result: GeocodeResult) {
     pinDraft.previewSearch(result);
     invalidateAnalysisContext();
