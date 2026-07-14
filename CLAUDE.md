@@ -1,6 +1,6 @@
-# Waypoint — agent guide
+# CompCat — agent guide
 
-Waypoint is a privacy-first web app for exploring **reported Seattle SPD incident
+CompCat is a privacy-first web app for exploring **reported Seattle SPD incident
 context** around places. FastAPI + SQLAlchemy/Alembic backend, React +
 TypeScript + Vite frontend, SQLite for dev / Postgres for deploy.
 
@@ -9,7 +9,7 @@ the roadmap live under [`docs/`](docs/README.md) — start there before changing
 
 ## Product invariant (do not break)
 
-Waypoint reports *reported incident context*. It MUST NOT score safety, rank places as
+CompCat reports *reported incident context*. It MUST NOT score safety, rank places as
 safe/unsafe/dangerous, or claim a user was present at an incident. The assistant refuses
 safety-score requests by design (`app/assistant/agent.py`). Keep this true in code and
 copy.

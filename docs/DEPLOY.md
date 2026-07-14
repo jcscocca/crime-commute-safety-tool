@@ -1,4 +1,4 @@
-# Deploying Waypoint for a small internal trial (~5 testers)
+# Deploying CompCat for a small internal trial (~5 testers)
 
 This runs the whole app — FastAPI API **and** the built React UI — in one container,
 with Postgres alongside, via `docker compose`. Each tester's browser gets its own
@@ -9,10 +9,10 @@ endpoints, so testers can't see each other's places.
 
 This trial runs **entirely on the ThinkPad** — no second machine:
 
-- **Waypoint** (API + UI + Postgres) — this `docker compose` stack, on `:8000`.
+- **CompCat** (API + UI + Postgres) — this `docker compose` stack, on `:8000`.
 - **Analyst LLM** (llama-swap, OpenAI-compatible) — already serving on the ThinkPad at `:8080`.
 
-Because Waypoint runs in a container, it reaches the host-port LLM service via
+Because CompCat runs in a container, it reaches the host-port LLM service via
 `host.docker.internal`. Put this wiring in `.env.deploy` (alongside the secrets from the next
 section):
 
@@ -26,7 +26,7 @@ there is nothing to start there:
 
 ```powershell
 cp .env.deploy.example .env.deploy        # fill in secrets (next section) + the wiring above
-docker compose --env-file .env.deploy up -d --build   # Waypoint on :8000
+docker compose --env-file .env.deploy up -d --build   # CompCat on :8000
 # then load crime data (step 3 below) and open http://localhost:8000
 ```
 

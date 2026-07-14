@@ -1,4 +1,4 @@
-SQLAlchemy/Alembic schema for Waypoint's FastAPI backend: 11 mapped tables spanning the upload-to-cluster pipeline, SPD incident data, statistical comparison, and infrastructure.
+SQLAlchemy/Alembic schema for CompCat's FastAPI backend: 11 mapped tables spanning the upload-to-cluster pipeline, SPD incident data, statistical comparison, and infrastructure.
 
 > Verified against `5fe1da0` (2026-07-03); route tables dropped by migration 0012, arrests foundation adds source_dataset discrimination.
 

@@ -1,12 +1,12 @@
 # API Contract
 
 This document covers the auth model, tier contracts, enforcement invariant, and transport
-notes for the Waypoint API. The live `/openapi.json` (and Swagger UI at `/docs`) is the
+notes for the CompCat API. The live `/openapi.json` (and Swagger UI at `/docs`) is the
 field-level source of truth; this document covers rules and tier structure only.
 
 > Verified against `d30235b` (2026-06-29).
 
-⚠ **Invariant:** Waypoint reports *reported incident context*. The API must not score
+⚠ **Invariant:** CompCat reports *reported incident context*. The API must not score
 safety, rank places as safe/unsafe/dangerous, or claim a user was present at an incident.
 The assistant refuses safety-score requests by design (`app/assistant/agent.py`). This
 invariant applies to code, copy, and any future endpoints.

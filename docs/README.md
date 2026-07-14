@@ -1,4 +1,4 @@
-# Waypoint documentation
+# CompCat documentation
 
 Canonical, current-state reference for **maintainers and AI agents working this repo**. Each
 architecture doc states the commit it was last verified against; when you change a subsystem,
@@ -11,8 +11,8 @@ update its doc in the same PR.
 | [Architecture overview](architecture/overview.md) | System map: layers, the public/internal/admin API tiers, the subsystem index, an end-to-end request walkthrough, and the backend↔frontend boundary. **Start here.** |
 | [Data model](architecture/data-model.md) | The 11 SQLAlchemy entities, the upload→stop→cluster lifecycle, coordinate generalization, and the Alembic migration approach. |
 | [API contract](architecture/api.md) | Auth model (session cookie, demo identity, admin token), the three-tier endpoint reference, the internal-surface invariant, and upload/SSE transport notes. |
-| [Assistant / agent design](architecture/assistant.md) | The Waypoint Analyst: the single-LLM-call decision-tree turn, the tool toolbox + frontend bridge, deterministic summaries, and the safety-refusal guard. |
-| [Roadmap](ROADMAP.md) | Where Waypoint is going: a subsystem maturity snapshot and phased work, refreshed against current `main`. |
+| [Assistant / agent design](architecture/assistant.md) | The CompCat Analyst: the single-LLM-call decision-tree turn, the tool toolbox + frontend bridge, deterministic summaries, and the safety-refusal guard. |
+| [Roadmap](ROADMAP.md) | Where CompCat is going: a subsystem maturity snapshot and phased work, refreshed against current `main`. |
 
 ## Also under `docs/`
 
@@ -23,4 +23,4 @@ update its doc in the same PR.
 - **`DEMO.md`** — demo-on-demand runbook: spin up a public, shareable demo from the
   ThinkPad in ~2 minutes, tear it down when done.
 - **`DEPLOY.md`** — deployment guide for the single-host stack.
-- **`IOS.md`** — Waypoint on iOS — personal build runbook (Tailscale + Capacitor shell).
+- **`IOS.md`** — CompCat on iOS — personal build runbook (Tailscale + Capacitor shell).

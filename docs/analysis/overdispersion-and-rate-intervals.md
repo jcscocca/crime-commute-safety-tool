@@ -6,7 +6,7 @@ interval added to the site-comparison payload (`rate_confidence_interval` in
 
 ## TL;DR
 
-Waypoint's comparison engine already models reported-incident counts as **quasi-Poisson**
+CompCat's comparison engine already models reported-incident counts as **quasi-Poisson**
 (a Poisson log-rate-ratio whose standard error is inflated by an empirically estimated
 overdispersion factor φ). A recurring question is whether a **negative binomial (NB2)** model
 would be more appropriate. We tested this against the real SPD source data.
@@ -59,7 +59,7 @@ The discriminating diagnostic (Ver Hoef & Boveng 2007) is the **slope of log(var
 log(mean)** across units: ≈ 1 ⇒ the quasi-Poisson (constant variance/mean ratio) family;
 ≈ 2 ⇒ the NB2 (variance/mean ratio rising with the mean) family. This is a data question, not
 a prior — crime-count literature often defaults to NB, but that default is for **regression
-across many areas**, which is not the shape of Waypoint's pairwise two-count comparison.
+across many areas**, which is not the shape of CompCat's pairwise two-count comparison.
 
 ## 3. Empirical method
 

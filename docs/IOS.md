@@ -1,4 +1,4 @@
-# Waypoint on iOS — personal build
+# CompCat on iOS — personal build
 
 The iOS app is a Capacitor shell in **remote-URL mode**: the WKWebView loads the
 frontend straight from the backend over your tailnet. Same-origin sessions, SSE, and
@@ -48,7 +48,7 @@ gitignored piece (`capacitor.config.json`, `config.xml`, `public/`,
 1. Cold boot on cellular with Tailscale connected → dashboard renders.
 2. Save a place; force-quit; relaunch → session + place persist.
 3. Map pans/zooms; tiles load.
-4. Copper chat streams token-by-token (confirms SSE isn't buffered by
+4. Tabby chat streams token-by-token (confirms SSE isn't buffered by
    `tailscale serve`); first-visit pulse shows on a fresh install, stops after the
    first send.
 5. Light and night themes render; status bar legible in both.
