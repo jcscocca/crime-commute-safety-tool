@@ -61,6 +61,8 @@ Expected: green. All subsequent tasks run inside `../waypoint-slice2`.
 - Create: `frontend/src/components/PlaceChipStrip.test.tsx`
 - Modify: `frontend/src/styles/mapWorkspace.css` (append chip rules after the `.mc-idbadge` block, ~line 443)
 
+**Naming caution:** a DIFFERENT `.mc-chip` chip system already exists (`mapWorkspace.css:276`, used by AnalyzeTab filters, LayerToggle, AssistantPanel prompts). All new rules below are therefore scoped under `.mc-chipstrip` so they cannot leak onto those consumers.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `frontend/src/components/PlaceChipStrip.test.tsx`:
@@ -201,15 +203,15 @@ In `frontend/src/styles/mapWorkspace.css`, directly after the `.mc-idbadge.id-x{
 
 ```css
 .mc-chipstrip{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 10px;}
-.mc-chip{display:inline-flex;align-items:center;gap:6px;max-width:180px;padding:4px 10px;border-radius:999px;
+.mc-chipstrip .mc-chip{display:inline-flex;align-items:center;gap:6px;max-width:180px;padding:4px 10px;border-radius:999px;
   border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;cursor:pointer;}
-.mc-chip:hover{border-color:var(--border-strong);}
-.mc-chip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--text-strong);}
-.mc-chip.on:hover{border-color:var(--accent-deep);}
-.mc-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
-.mc-chip-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.mc-chip-add{color:var(--accent-deep);border-style:dashed;}
-.mc-chip .mc-idbadge{width:16px;height:16px;font-size:9.5px;margin-left:-4px;}
+.mc-chipstrip .mc-chip:hover{border-color:var(--border-strong);}
+.mc-chipstrip .mc-chip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--text-strong);}
+.mc-chipstrip .mc-chip.on:hover{border-color:var(--accent-deep);}
+.mc-chipstrip .mc-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.mc-chipstrip .mc-chip-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mc-chipstrip .mc-chip-add{color:var(--accent-deep);border-style:dashed;}
+.mc-chipstrip .mc-chip .mc-idbadge{width:16px;height:16px;font-size:9.5px;margin-left:-4px;}
 ```
 
 - [ ] **Step 5: Run the test to verify it passes**
