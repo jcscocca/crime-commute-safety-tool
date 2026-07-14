@@ -15,7 +15,7 @@ type ToolActivity = {
 };
 
 const OFFLINE_MESSAGE =
-  "Copper can't reach the case files right now. Your data is unaffected — the rest of Waypoint works.";
+  "Tabby can't reach the case files right now. Your data is unaffected — the rest of CompCat works.";
 
 const SUGGESTED_PROMPTS = [
   "What's near this pin?",
@@ -116,7 +116,7 @@ export function AssistantPanel({ dashboardState, onToolResult }: Props) {
       <div className="mc-dock-head">
         <h3>
           <TabbyAvatar variant="mark" size={20} className={greeted ? undefined : "mc-tabby-pulse"} />
-          Copper
+          Tabby
           <span className="mc-dock-role">case desk · analyst</span>
         </h3>
         <span className="mc-dock-status">{sending ? "Checking the files…" : "At the desk"}</span>
@@ -154,7 +154,7 @@ export function AssistantPanel({ dashboardState, onToolResult }: Props) {
             {messages.length === 0 && !draft ? (
               <div className="mc-dock-empty">
                 <TabbyAvatar variant="bust" size={72} />
-                <p>Copper, case desk. Point me at a place and I'll pull the reports near it.</p>
+                <p>Tabby, case desk. Point me at a place and I'll pull the reports near it.</p>
                 <div className="mc-dock-chips">
                   {SUGGESTED_PROMPTS.map((prompt) => (
                     <button key={prompt} type="button" className="mc-chip" disabled={sending}

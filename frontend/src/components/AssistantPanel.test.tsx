@@ -193,7 +193,7 @@ describe("AssistantPanel", () => {
     );
     render(<AssistantPanel dashboardState={dashboardState} onToolResult={vi.fn()} />);
     expect(
-      screen.getByText("Copper, case desk. Point me at a place and I'll pull the reports near it."),
+      screen.getByText("Tabby, case desk. Point me at a place and I'll pull the reports near it."),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "What's on file around here?" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "What's near this pin?" }));
@@ -212,11 +212,11 @@ describe("AssistantPanel", () => {
     expect(screen.getByRole("button", { name: /expand analyst/i })).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("shows Copper's header with the idle status and avatar mark", () => {
+  it("shows Tabby's header with the idle status and avatar mark", () => {
     const { container } = render(
       <AssistantPanel dashboardState={dashboardState} onToolResult={vi.fn()} />,
     );
-    expect(screen.getByRole("heading", { name: /copper/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /tabby/i })).toBeInTheDocument();
     expect(screen.getByText("At the desk")).toBeInTheDocument();
     expect(container.querySelector('svg[data-variant="mark"]')).not.toBeNull();
     expect(container.querySelector('svg[data-variant="bust"]')).not.toBeNull();
