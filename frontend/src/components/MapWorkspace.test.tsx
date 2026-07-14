@@ -160,7 +160,7 @@ describe("MapWorkspace", () => {
 
     expect(await screen.findByText("Home")).toBeInTheDocument();
     expect(createSession).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Waypoint")).toBeInTheDocument();
+    expect(screen.getByText("CompCat")).toBeInTheDocument();
   });
 
   it("drops a pin from a map click and saves it", async () => {
