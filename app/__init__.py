@@ -1,1 +1,1 @@
-"""Waypoint application package."""
+"""CompCat application package."""

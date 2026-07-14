@@ -1,5 +1,5 @@
-// Renders the iOS app icon + splash from the approved Copper bust art
-// (frontend/src/components/CopperAvatar.tsx) onto the night-mode surface.
+// Renders the iOS app icon + splash from the approved Tabby bust art
+// (frontend/src/components/TabbyAvatar.tsx) onto the night-mode surface.
 // Usage: node scripts/render_ios_icon.mjs
 import { mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -16,26 +16,35 @@ const frontendDir = join(here, "..", "frontend");
 const require = createRequire(join(frontendDir, "package.json"));
 const { Resvg } = require("@resvg/resvg-js");
 
-const BG = "#1B232B";
+const BG = "#1A222B";
 
 const BUST = `
-  <path d="M34 44 Q22 72 32 96 Q41 99 43 80 Q39 60 41 47 Z" fill="#6b4520" />
-  <path d="M86 44 Q98 72 88 96 Q79 99 77 80 Q81 60 79 47 Z" fill="#6b4520" />
-  <path d="M28 100 Q34 80 50 78 L60 86 L70 78 Q86 80 92 100 Z" fill="#8a7a5f" />
-  <path d="M50 78 L60 96 L44 92 Z" fill="#6f6249" />
-  <path d="M70 78 L60 96 L76 92 Z" fill="#6f6249" />
-  <polygon points="60,86 55,93 60,99 65,93" fill="#eee8da" />
-  <circle cx="60" cy="54" r="25" fill="#b5793f" />
-  <ellipse cx="60" cy="38" rx="30" ry="7" fill="#33332f" />
-  <path d="M40 38 Q42 20 60 20 Q78 20 80 38 Q60 32 40 38 Z" fill="#444441" />
-  <rect x="41" y="31" width="38" height="5" fill="#2c2c2a" />
-  <rect x="44" y="48" width="11" height="4" rx="2" fill="#8a5a2e" />
-  <rect x="65" y="48" width="11" height="4" rx="2" fill="#8a5a2e" />
-  <circle cx="50" cy="55" r="3" fill="#2b2b2b" />
-  <circle cx="71" cy="55" r="3" fill="#2b2b2b" />
-  <ellipse cx="60" cy="67" rx="12" ry="9" fill="#e2c495" />
-  <ellipse cx="60" cy="62" rx="4.8" ry="3.2" fill="#2b2b2b" />
-  <path d="M60 66 Q60 71 54 71" stroke="#6b4520" stroke-width="1.6" fill="none" stroke-linecap="round" />
+  <path d="M28 102 Q34 84 48 80 L60 86 L72 80 Q86 84 92 102 Z" fill="#9c6630" />
+  <polygon points="60,86 54,93 60,100 66,93" fill="#e2c495" />
+  <path d="M47 82 Q60 91 73 82 L73 87 Q60 96 47 87 Z" fill="#2f6c4f" />
+  <circle cx="60" cy="93" r="3.2" fill="#d9b036" />
+  <path d="M31 50 L26 20 L54 34 Z" fill="#b5793f" />
+  <path d="M89 50 L94 20 L66 34 Z" fill="#b5793f" />
+  <path d="M34 44 L31 27 L48 36 Z" fill="#6b4520" />
+  <path d="M86 44 L89 27 L72 36 Z" fill="#6b4520" />
+  <circle cx="60" cy="62" r="30" fill="#b5793f" />
+  <path d="M53 34 Q54 41 52 46" stroke="#8a5a2e" stroke-width="3.4" fill="none" stroke-linecap="round" />
+  <path d="M60 33 L60 45" stroke="#8a5a2e" stroke-width="3.4" stroke-linecap="round" />
+  <path d="M67 34 Q66 41 68 46" stroke="#8a5a2e" stroke-width="3.4" fill="none" stroke-linecap="round" />
+  <path d="M32 56 L41 58" stroke="#8a5a2e" stroke-width="3" stroke-linecap="round" />
+  <path d="M88 56 L79 58" stroke="#8a5a2e" stroke-width="3" stroke-linecap="round" />
+  <circle cx="49" cy="58" r="3.6" fill="#2f6c4f" />
+  <circle cx="71" cy="58" r="3.6" fill="#2f6c4f" />
+  <circle cx="49" cy="58" r="1.5" fill="#1c1c1a" />
+  <circle cx="71" cy="58" r="1.5" fill="#1c1c1a" />
+  <ellipse cx="60" cy="72" rx="12" ry="9" fill="#e2c495" />
+  <path d="M56.5 68.5 L63.5 68.5 L60 73 Z" fill="#8a4b3a" />
+  <path d="M60 73 Q60 77 55 77.5" stroke="#6b4520" stroke-width="1.6" fill="none" stroke-linecap="round" />
+  <path d="M60 73 Q60 77 65 77.5" stroke="#6b4520" stroke-width="1.6" fill="none" stroke-linecap="round" />
+  <path d="M47 70 Q39 68 32 67" stroke="#e2c495" stroke-width="1.5" fill="none" stroke-linecap="round" />
+  <path d="M47 74 Q39 75 33 76" stroke="#e2c495" stroke-width="1.5" fill="none" stroke-linecap="round" />
+  <path d="M73 70 Q81 68 88 67" stroke="#e2c495" stroke-width="1.5" fill="none" stroke-linecap="round" />
+  <path d="M73 74 Q81 75 87 76" stroke="#e2c495" stroke-width="1.5" fill="none" stroke-linecap="round" />
 `;
 
 // canvas: outer square; art: bust box (120-unit art scaled + centered)
@@ -59,6 +68,6 @@ mkdirSync(out, { recursive: true });
 
 render(composite(1024, 800), join(out, "icon-only.png"));
 // splash and splash-dark are deliberately identical — the shell has one dark
-// surface (#1B232B), not separate light/dark splash treatments.
+// surface (#1A222B), not separate light/dark splash treatments.
 render(composite(2732, 800), join(out, "splash.png"));
 render(composite(2732, 800), join(out, "splash-dark.png"));

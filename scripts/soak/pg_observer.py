@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Postgres observer for Waypoint's soak test (H2).
+"""Postgres observer for CompCat's soak test (H2).
 
 Samples pg_stat_activity / pg_stat_database / pg_locks on an interval and snapshots
 pg_stat_statements over the run. Shells `docker compose exec db psql --csv` so the
@@ -193,7 +193,7 @@ def _pg_stat_statements_ready(psql: _Psql) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Waypoint Postgres soak observer")
+    ap = argparse.ArgumentParser(description="CompCat Postgres soak observer")
     ap.add_argument("--interval", type=float, default=float(os.environ.get("SOAK_PG_INTERVAL", 15)))
     ap.add_argument("--duration", default=os.environ.get("SOAK_DURATION", "2h"))
     ap.add_argument("--out", default=os.environ.get("SOAK_OUT", "soak-out"))

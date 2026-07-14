@@ -122,18 +122,14 @@ function makeSiteComparison(aLabel: string, bLabel: string): SiteComparison {
 }
 
 beforeEach(() => {
-  // useTheme() reads matchMedia when no theme is stored; jsdom lacks it. Clear the stored
-  // theme and the document attribute so the toggle test doesn't inherit prior-test state.
-  vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
-    matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
-  }));
+  // Clear the stored theme and the document attribute so the toggle test
+  // doesn't inherit prior-test state.
   localStorage.removeItem("wp-theme");
   document.documentElement.removeAttribute("data-theme");
 });
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  vi.unstubAllGlobals();
   localStorage.removeItem("wp-theme");
   document.documentElement.removeAttribute("data-theme");
 });
@@ -164,7 +160,7 @@ describe("MapWorkspace", () => {
 
     expect(await screen.findByText("Home")).toBeInTheDocument();
     expect(createSession).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Waypoint")).toBeInTheDocument();
+    expect(screen.getByText("CompCat")).toBeInTheDocument();
   });
 
   it("drops a pin from a map click and saves it", async () => {

@@ -1,22 +1,24 @@
-# Waypoint
+# CompCat
 
 [![CI](https://github.com/jcscocca/waypoint/actions/workflows/ci.yml/badge.svg)](https://github.com/jcscocca/waypoint/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Waypoint is a privacy-first web app for exploring **reported Seattle SPD incident context**
+*CompCat — a pun on CompStat. Formerly Waypoint.*
+
+CompCat is a privacy-first web app for exploring **reported Seattle SPD incident context**
 around the addresses you care about. Look up an address, pick a radius and date range, and
-Waypoint shows how many reported incidents fall nearby, what kinds, and how candidate
+CompCat shows how many reported incidents fall nearby, what kinds, and how candidate
 addresses compare — with honest statistics (exposure-adjusted rates, confidence intervals,
 overdispersion handling) and an optional AI analyst grounded in your dashboard.
 
-> **The product invariant:** Waypoint describes *reported incident context*. It does **not**
+> **The product invariant:** CompCat describes *reported incident context*. It does **not**
 > score safety, rank places as safe or unsafe, or claim anyone was present when an incident
 > happened. The AI analyst refuses safety-scoring requests by design. This constraint shapes
 > the whole product — see [docs/](docs/README.md) for how.
 
 | Light | Night |
 | --- | --- |
-| ![Waypoint dashboard, light theme](docs/images/dashboard-light.png) | ![Waypoint dashboard, night theme](docs/images/dashboard-night.png) |
+| ![CompCat dashboard, light theme](docs/images/dashboard-light.png) | ![CompCat dashboard, night theme](docs/images/dashboard-night.png) |
 
 Built with FastAPI + SQLAlchemy/Alembic, React + TypeScript + Vite, MapLibre over a
 self-hosted Seattle vector-tile extract, SQLite for dev / Postgres for deploy. The deployed
@@ -31,7 +33,7 @@ proxied.
 - Shows reported-incident counts, nearest-incident distance, the category mix, the top specific
   offenses, and the individual incident rows behind the numbers.
 - Compares two or more candidate addresses side by side at a single radius.
-- Optional **Waypoint Analyst** chat that answers questions grounded in your current dashboard
+- Optional **CompCat Analyst** chat that answers questions grounded in your current dashboard
   data ("how does this address compare to my downtown one?").
 - Statistical, exposure-adjusted rate comparison of place buffers.
 - Exports privacy-safe, Tableau-ready CSVs using generalized display coordinates.
@@ -47,7 +49,7 @@ proxied.
 
 ## The dashboard
 
-The dashboard is the primary way to use Waypoint. It is a single-page React app built around a
+The dashboard is the primary way to use CompCat. It is a single-page React app built around a
 full-screen MapLibre map of Seattle, with a resizable side drawer organized into four tabs.
 
 - **Places** — add places four ways: search by name/address (OpenStreetMap Nominatim geocoding),
@@ -68,7 +70,7 @@ backend proxy `GET /dashboard/geocode` (session-required), which caches results 
 the upstream. Production must set `MCA_GEOCODER_CONTACT_EMAIL` (an identifiable contact is
 required by Nominatim's usage policy). The browser never calls the geocoder directly.
 
-## The Waypoint Analyst
+## The CompCat Analyst
 
 The Analyst panel is an optional chat assistant that answers questions about your dashboard data.
 It is grounded in what you currently have selected (places, date range, radii, and offense
@@ -81,7 +83,7 @@ Under the hood the assistant plans with a single LLM call and can invoke a small
 token.
 
 The assistant talks directly to an **OpenAI-compatible LLM endpoint** (any server exposing a
-`/chat/completions` API — llama.cpp/llama-swap, vLLM, etc.). Waypoint reaches it at
+`/chat/completions` API — llama.cpp/llama-swap, vLLM, etc.). CompCat reaches it at
 `MCA_LLM_BASE_URL` (default `http://127.0.0.1:8080/v1`) using the model `MCA_LLM_MODEL`. If no
 endpoint is running, the rest of the dashboard works normally — only the Analyst panel is
 unavailable. See [Running the Analyst](#running-the-analyst-optional).
@@ -152,7 +154,7 @@ make install        # create .venv and install the app with dev extras
 make run            # start the API on http://127.0.0.1:8000 (SQLite by default)
 ```
 
-With no `.env`, Waypoint uses a local SQLite database at
+With no `.env`, CompCat uses a local SQLite database at
 `./dev-output/mobility.sqlite3` and creates its schema on startup, so `make run` works out
 of the box. Load the bundled sample crime data so analysis returns results:
 
@@ -190,7 +192,7 @@ VITE_BACKEND_TARGET=http://127.0.0.1:8001 npm run dev
 
 The Analyst panel needs a running OpenAI-compatible LLM endpoint (any server exposing a
 `/chat/completions` API — llama.cpp/llama-swap, vLLM, etc.). Start your endpoint (on its own
-port so it does not collide with the API on `8000`) and point Waypoint at it:
+port so it does not collide with the API on `8000`) and point CompCat at it:
 
 ```bash
 export MCA_LLM_BASE_URL=http://127.0.0.1:8080/v1   # this is the default
@@ -232,7 +234,7 @@ make migrate     # apply Alembic migrations (for Postgres/production)
 ## Configuration
 
 All backend settings are environment variables (prefix `MCA_`, except `SOCRATA_APP_TOKEN`). See
-`.env.example` for a starting point. In `production`, Waypoint refuses to boot with the default
+`.env.example` for a starting point. In `production`, CompCat refuses to boot with the default
 salt/secret and forces secure cookies.
 
 | Variable | Default | Purpose |
@@ -323,7 +325,7 @@ each row as:
 Crime data comes from Seattle's open-data portal — by default the SPD "Crime Data: 2008-Present"
 dataset (`tazs-3rd5`). Reported crime data can be incomplete, delayed, corrected, or
 geographically generalized, and personal location history can be incomplete, inaccurate, or
-biased by device behavior. Waypoint provides context summaries, not safety predictions.
+biased by device behavior. CompCat provides context summaries, not safety predictions.
 
 Police beat boundaries come from the City of Seattle's Seattle GeoData open-data site
 (Seattle Police Department Beats layer; source: City of Seattle, Seattle Police Department

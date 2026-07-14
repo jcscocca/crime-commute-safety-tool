@@ -15,7 +15,7 @@ from app.geocoding.providers import (
 def _provider_with_transport(handler) -> NominatimProvider:
     return NominatimProvider(
         base_url="https://nominatim.example/search",
-        user_agent="Waypoint/0.1 (ops@example.com)",
+        user_agent="CompCat/0.1 (ops@example.com)",
         max_results=5,
         timeout_s=5.0,
         transport=httpx.MockTransport(handler),
@@ -26,7 +26,7 @@ def test_nominatim_provider_maps_rows_to_hits():
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.params["q"] == "pike place"
         assert request.url.params["format"] == "jsonv2"
-        assert request.headers["User-Agent"] == "Waypoint/0.1 (ops@example.com)"
+        assert request.headers["User-Agent"] == "CompCat/0.1 (ops@example.com)"
         return httpx.Response(
             200,
             json=[
@@ -79,7 +79,7 @@ def test_nominatim_provider_sends_viewbox_and_bounded():
 
     provider = NominatimProvider(
         base_url="https://nominatim.example/search",
-        user_agent="Waypoint/0.1 (ops@example.com)",
+        user_agent="CompCat/0.1 (ops@example.com)",
         max_results=5,
         timeout_s=5.0,
         viewbox="-122.55,47.78,-122.10,47.43",

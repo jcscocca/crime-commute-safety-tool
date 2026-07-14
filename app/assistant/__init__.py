@@ -1,2 +1,2 @@
-"""Assistant package for Waypoint's reported-incident analyst."""
+"""Assistant package for CompCat's reported-incident analyst."""
 

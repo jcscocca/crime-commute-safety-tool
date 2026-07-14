@@ -1,6 +1,6 @@
 # Demo-on-demand runbook
 
-Spin up a public, shareable Waypoint demo from the ThinkPad in ~2 minutes, and tear it
+Spin up a public, shareable CompCat demo from the ThinkPad in ~2 minutes, and tear it
 down when done. Design: `docs/superpowers/specs/2026-07-10-demo-on-demand-design.md`.
 
 ## What it is
@@ -15,8 +15,8 @@ down when done. Design: `docs/superpowers/specs/2026-07-10-demo-on-demand-design
 - The **Analyst runs on Groq** (free tier) via `MCA_LLM_API_KEY`; if the key is absent or
   Groq is down, the app degrades to the built-in "analyst offline" panel.
 
-The Analyst chat presents as **Copper**, a fictional case-desk hound — point the demo
-audience at the dock, ask "What's on file around here?", and let him pull the reports.
+The Analyst chat presents as **Tabby**, a fictional case-desk cat — point the demo
+audience at the dock, ask "What's on file around here?", and let her pull the reports.
 
 ## Prerequisites (one-time)
 

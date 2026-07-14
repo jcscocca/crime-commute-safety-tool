@@ -6,9 +6,9 @@ const PLACEHOLDER_SERVER_URL = "https://waypoint.example.ts.net";
 
 const config: CapacitorConfig = {
   appId: "com.jscocca.waypoint",
-  appName: "Waypoint",
+  appName: "CompCat",
   webDir: "../app/static/dashboard",
-  backgroundColor: "#1B232B",
+  backgroundColor: "#1A222B",
   server: {
     url: process.env.MCA_IOS_SERVER_URL || PLACEHOLDER_SERVER_URL,
   },

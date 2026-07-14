@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sustained-load driver for Waypoint's Postgres soak test (H2).
+"""Sustained-load driver for CompCat's Postgres soak test (H2).
 
 Spins up N threaded virtual users that hammer the public dashboard endpoints and
 streams per-request latency to CSV. Pair with scripts/soak/pg_observer.py.
@@ -351,7 +351,7 @@ def _reporter(recorder, deadline, stop, counter, requested):
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Waypoint Postgres soak load driver")
+    ap = argparse.ArgumentParser(description="CompCat Postgres soak load driver")
     ap.add_argument("--users", type=int, default=int(os.environ.get("SOAK_USERS", 25)))
     ap.add_argument("--duration", default=os.environ.get("SOAK_DURATION", "2h"))
     ap.add_argument("--ramp", type=int, default=int(os.environ.get("SOAK_RAMP", 60)))

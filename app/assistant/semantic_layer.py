@@ -12,7 +12,7 @@ from app.services.analysis_runs import latest_analysis_run_id
 from app.services.dashboard_service import dashboard_summary
 
 POLICY_CAVEATS = [
-    "Waypoint describes reported incident context, not personal safety.",
+    "CompCat describes reported incident context, not personal safety.",
     "Do not label places as safe or unsafe.",
     "Expected weekly visits are routine metadata, not a risk denominator.",
     (

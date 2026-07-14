@@ -13,7 +13,7 @@ describe("capacitor config", () => {
     const { default: config } = await import("./capacitor.config");
     expect(config.server?.url).toBe("https://waypoint.example.ts.net");
     expect(config.appId).toBe("com.jscocca.waypoint");
-    expect(config.appName).toBe("Waypoint");
+    expect(config.appName).toBe("CompCat");
     expect(config.webDir).toBe("../app/static/dashboard");
   });
 

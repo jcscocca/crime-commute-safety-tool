@@ -101,7 +101,7 @@ _SAFETY_REDIRECT = (
 
 # Presence-claim guard — the third prong of the product invariant: the assistant MUST NOT
 # assert that the user was personally present at, witnessed, or was victimized by a reported
-# incident (Waypoint knows only self-reported visit counts near a place, never presence at an
+# incident (CompCat knows only self-reported visit counts near a place, never presence at an
 # event). This catches both a model answer asserting it ("you were present at this incident",
 # "you were robbed here") and a user asking for it ("was I present at any of these?"). It is
 # deliberately narrow — a first/second-person subject tied to a victimization word, or to a
@@ -122,7 +122,7 @@ _PRESENCE_CLAIM_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _PRESENCE_REDIRECT = (
-    "Waypoint reports incidents near a place, but it can't determine anyone's personal presence "
+    "CompCat reports incidents near a place, but it can't determine anyone's personal presence "
     "at or involvement in a specific incident — it only knows the places you've saved, not where "
     "you have been. I can show the reported incidents near a place instead."
 )
@@ -155,7 +155,7 @@ SELECTION_TOOLS = (
     "analyze_places",
 )
 _UNREACHABLE_MESSAGE = (
-    "Couldn't reach the analyst to interpret your request. The rest of Waypoint still works."
+    "Couldn't reach the analyst to interpret your request. The rest of CompCat still works."
 )
 _NARRATION_TEMPERATURE = 0.4
 _NARRATION_MAX_TOKENS = 256

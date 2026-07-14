@@ -366,9 +366,9 @@ export function MapWorkspace() {
         <header className="mc-topbar">
           <div className="mc-brand">
             <span className="mc-logo">
-              <svg width="16" height="16" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.2 0 11.6 0 20 12 32 12 32s12-12 12-20.4C24 5.2 18.6 0 12 0z" fill="var(--accent)" /><circle cx="12" cy="11.5" r="4.4" fill="#fff" /></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24"><path d="M4 9 L4 4 L9 7 Q12 6 15 7 L20 4 L20 9 Q21.5 11.5 21.5 14 Q21.5 20 12 20 Q2.5 20 2.5 14 Q2.5 11.5 4 9 Z" fill="var(--on-accent)" /><circle cx="8.5" cy="13" r="1.3" fill="var(--accent)" /><circle cx="15.5" cy="13" r="1.3" fill="var(--accent)" /></svg>
             </span>
-            <span className="mc-wordmark">Waypoint</span>
+            <span className="mc-wordmark">CompCat</span>
           </div>
           <div className="mc-topbar-right">
             <LayerToggle layer={analysis.layer} onChange={(layer) => handleAnalysisChange({ layer })} />

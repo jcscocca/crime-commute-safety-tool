@@ -38,7 +38,7 @@ afterEach(cleanup);
 describe("App", () => {
   it("renders the map-first workspace shell", async () => {
     render(<App />);
-    expect(await screen.findByText("Waypoint")).toBeInTheDocument();
+    expect(await screen.findByText("CompCat")).toBeInTheDocument();
     expect(screen.getAllByRole("tab")).toHaveLength(4);
   });
 });

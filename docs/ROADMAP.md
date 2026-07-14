@@ -1,15 +1,15 @@
-# Waypoint — Roadmap
+# CompCat — Roadmap
 
 **Last updated:** 2026-07-09 · **Status:** canonical, living document.
 **Verified against:** base commit `5fe1da0` (routes removal — backend excision + migration 0012).
 
-This is the single source of truth for *where Waypoint is going*. It supersedes the dated
+This is the single source of truth for *where CompCat is going*. It supersedes the dated
 drafts under `docs/superpowers/` (`2026-06-26-waypoint-next-steps-roadmap.md`,
 `2026-06-26-waypoint-hardening-consolidation-design.md`), which are retained for history.
 It was produced from a subsystem-by-subsystem maturity survey of the repo; per-area evidence
 lives in the code and the spec/plan pairs under `docs/superpowers/`.
 
-> **Product invariant (the thread through everything below):** Waypoint reports *reported
+> **Product invariant (the thread through everything below):** CompCat reports *reported
 > incident context*. It MUST NOT score safety or rank places safe/unsafe/dangerous. Every
 > phase here has an invariant checkpoint — it is the thing most worth defending as the
 > surface grows.
@@ -23,7 +23,7 @@ lives in the code and the spec/plan pairs under `docs/superpowers/`.
 
 ## Where it stands
 
-Waypoint is a **disciplined, low-debt, near-shipped v1**. The analytical core (rate-ratio
+CompCat is a **disciplined, low-debt, near-shipped v1**. The analytical core (rate-ratio
 engine, neighborhood baselines, exposure model) is genuinely production-grade and well-tested;
 the public dashboard, places, geocoding, exports, and the Analyst are all real and wired. A
 repo-wide marker sweep found **essentially zero in-code TODO/FIXME debt**. All of the
@@ -203,7 +203,7 @@ thoughtful shell redesign (Civic Clear + night mode, Evolved Workspace layout).*
   slices). Bounded today by the 5,000-row cap + Seattle bbox clamp.
 
 ## Phase 7 — Public capstone (2026-07-09)
-*Strategic direction chosen 2026-07-09: Waypoint's next chapter is a **portfolio/showcase
+*Strategic direction chosen 2026-07-09: CompCat's next chapter is a **portfolio/showcase
 capstone** — public repo (real history), hosted live demo, deep write-up — for both the
 3-minute hiring skim and the technical-peer deep dive. This deliberately replaces the
 "eventual public release" service pile (auth/tenancy/accounts stay unplanned). Sequenced
@@ -249,7 +249,7 @@ spec → plan → PR.*
   `MCA_ASSISTANT_NARRATION_ENABLED`. Spec:
   `docs/superpowers/specs/2026-07-12-assistant-token-streaming-design.md`.
 
-## Waypoint on iOS (2026-07-10)
+## CompCat on iOS (2026-07-10)
 *Personal device + demos target (no App Store). Decomposed A/B/C; spec:
 `docs/superpowers/specs/2026-07-10-ios-shell-design.md`.*
 
@@ -263,7 +263,7 @@ spec → plan → PR.*
   iPhone, `tailscale serve --bg 8000` with MagicDNS/HTTPS certs enabled — then
   `docs/IOS.md` Build & run (pick signing: free Apple ID = 7-day re-sign vs $99
   account) and the 6-item on-device checklist. Item 4 is the empirical unknown:
-  Copper's SSE must stream token-by-token through `tailscale serve`, not buffer.
+  Tabby's SSE must stream token-by-token through `tailscale serve`, not buffer.
 - [ ] **Slice B — phone-first redesign:** first-class phone layout for the React app
   (navigation model, per-tab layouts, safe areas, keyboard) — own brainstorm → spec →
   plan; also upgrades mobile web for the public demo.
@@ -294,7 +294,7 @@ independently-shippable slices. Spec:
 ---
 
 > **Eventual public release — superseded by Phase 7 (2026-07-09).** The open question this
-> note held ("does Waypoint ever go public, and as what?") is now answered: Waypoint goes
+> note held ("does CompCat ever go public, and as what?") is now answered: CompCat goes
 > public as a **showcase** (Phase 7 — public repo, hosted demo, write-up), not as an
 > operated multi-user service. The service pile this note enumerated (real authentication,
 > encryption at rest, per-user tenant isolation, user accounts, onboarding) remains

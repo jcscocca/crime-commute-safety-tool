@@ -47,7 +47,7 @@ export function PersonalUpload({ onUploaded }: Props) {
         immediately — only the clusters are kept, and you can delete everything anytime.
       </p>
       <p className="mc-upload-caveat">
-        Waypoint shows reported-incident context near these places. It never claims you were
+        CompCat shows reported-incident context near these places. It never claims you were
         present at any incident and does not score safety.
       </p>
       <label className="mc-upload-check">

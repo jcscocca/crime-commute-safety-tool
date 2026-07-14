@@ -1876,7 +1876,7 @@ def test_tool_turn_streams_narration_with_status_events(tmp_path, monkeypatch):
     _narration_on(monkeypatch)
     session, user_hash = _session_with_place_and_crime(tmp_path)
     # Narration must exceed HOLDBACK_WORDS (16) so the holdback guard releases it across
-    # more than one token chunk — a realistic 2–4 sentence Copper reply per NARRATION_SYSTEM_PROMPT.
+    # more than one token chunk — a realistic 2–4 sentence Tabby reply per NARRATION_SYSTEM_PROMPT.
     deltas = [
         "Two places are on file for ",
         "the selected window. ",

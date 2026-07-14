@@ -1,17 +1,17 @@
-Reference for the Waypoint Analyst — the optional chat assistant that is grounded in the user's current dashboard data and answers questions about reported SPD incident context.
+Reference for the CompCat Analyst — the optional chat assistant that is grounded in the user's current dashboard data and answers questions about reported SPD incident context.
 
 > Verified against `5641377` (2026-07-12).
 
-## Persona — "Copper, case desk"
+## Persona — "Tabby, case desk"
 
-The Analyst presents as **Copper**, a fictional basset-hound detective at the case desk
+The Analyst presents as **Tabby**, a fictional tabby-cat detective at the case desk
 (spec: `docs/superpowers/specs/2026-07-10-analyst-copper-persona-design.md`). The persona is
-chrome + framing copy only: the `CopperAvatar` mark/bust SVGs and greeting/status/offline
+chrome + framing copy only: the `TabbyAvatar` mark/bust SVGs and greeting/status/offline
 strings in `AssistantPanel.tsx`, the in-voice `_SAFETY_REDIRECT`, the streamed narration's
 system prompt (`NARRATION_SYSTEM_PROMPT` in `app/assistant/prompts.py` — "a dry, methodical
-records hound"), and a layer-aware lead-in on `analyze_places`/`compare_places` summaries
+records cat"), and a layer-aware lead-in on `analyze_places`/`compare_places` summaries
 ("From the reports: ", "From the arrest records: ", or "From the call logs: " — see §5). Data
-content, the guards, and the planning prompt carry no persona. Copper wears no SPD insignia and
+content, the guards, and the planning prompt carry no persona. Tabby wears no SPD insignia and
 never claims official status; "analyst" remains the product term (and the dock's aria-label).
 
 ---
@@ -22,7 +22,7 @@ Every user turn follows a fixed three-phase path. There is exactly **one** *plan
 per turn (a *classify-and-plan* call), and a deterministic summary or answer is always produced
 from its output without waiting on any further model generation. When narration is enabled
 (the default — see §2 for the full turn/event picture), that deterministic text is then handed
-to a second, **streamed** narration call that writes the user-facing reply in Copper's voice;
+to a second, **streamed** narration call that writes the user-facing reply in Tabby's voice;
 every failure mode of that second call degrades back to the deterministic text, so the
 single-planning-call reliability story below still holds end to end.
 
@@ -104,7 +104,7 @@ narration call.
 
 **The narration call.** A second, streamed LLM call (`llm_client.stream` —
 `OpenAiLlmClient.stream` or, with a configured fallback endpoint, `FailoverLlmClient.stream`)
-writes the user-facing reply in Copper's voice (`NARRATION_SYSTEM_PROMPT`,
+writes the user-facing reply in Tabby's voice (`NARRATION_SYSTEM_PROMPT`,
 `app/assistant/prompts.py`). It is grounded on the deterministic text, never free-floating: for a
 `tool_call` turn the grounding is the tool-result JSON (trimmed to
 `MAX_GROUNDING_RESULT_CHARS = 4000` characters) plus the template summary framed as
@@ -268,7 +268,7 @@ The SSE endpoint in `app/api/routes_assistant.py` builds the client via `build_a
 > call, `LlmUnavailable` is raised, the agent emits an `error` SSE event with a user-readable
 > message, and returns. A failure of the **narration** call (§2) does *not* emit `error` — it
 > degrades to a `replace` event carrying the already-computed deterministic text, since the plan
-> already succeeded by the time narration runs. Either way, the rest of the Waypoint app
+> already succeeded by the time narration runs. Either way, the rest of the CompCat app
 > (dashboard, places, exports) is unaffected.
 
 ---
@@ -372,7 +372,7 @@ flowchart TD
     N --> O[build_tool_summary\ndeterministic one-liner, no LLM]
     O -- narration off --> P[Stream summary as one\ntoken event + done]
     O -- narration on --> R1[Stream status: writing up…\nsession.rollback before the await]
-    R1 --> R2[Narration call: llm_client.stream\nCopper persona + grounding\ntemperature 0.4, max_tokens 256]
+    R1 --> R2[Narration call: llm_client.stream\nTabby persona + grounding\ntemperature 0.4, max_tokens 256]
     R2 --> R3[guarded_stream: re-scan full text\nper delta, release 16 words\nbehind the write head\nStream token events]
     R3 -- guard trips --> R4[Stream replace event: redirect\n+ done]
     R3 -- unreachable / empty /\ndies mid-stream --> R5[Stream replace event: template summary\n+ done]
