@@ -19,7 +19,9 @@ invariant applies to code, copy, and any future endpoints.
 
 `POST /sessions` creates an anonymous session token (HMAC-signed, 24 h TTL) and sets it
 as an `HttpOnly` cookie named `mca_session` (`MCA_SESSION_SECRET` is the signing key).
-The cookie is `Secure` in `prod`/`production` environments; settable explicitly via
+Posting again with a valid cookie is idempotent — the session is resumed, not rotated
+(a reload keeps the same pseudonymous identity for the cookie's 24 h TTL). The cookie is
+`Secure` in `prod`/`production` environments; settable explicitly via
 `MCA_SESSION_COOKIE_SECURE`. Logic lives in `app/sessions.py`.
 
 The `public_user_hash` function in `app/sessions.py` derives a stable pseudonymous hash

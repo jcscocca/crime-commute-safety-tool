@@ -26,6 +26,7 @@ type Props = {
   onImportSubmit: (csv: string) => Promise<void>;
   onUploaded?: () => void;
   onClose: () => void;
+  onRename: (id: string, label: string) => Promise<void>;
 };
 
 function modalLabel(kind: ManageView): string {
@@ -66,8 +67,10 @@ export function ManagePlacesModal({
   onImportSubmit,
   onUploaded,
   onClose,
+  onRename,
 }: Props) {
   const [view, setView] = useState<ManageView>(initialView);
+  const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
   const analyzedAtRadius = summary?.crime_summaries.some((entry) => entry.radius_m === radiusM) ?? false;
 
   return (
@@ -119,7 +122,26 @@ export function ManagePlacesModal({
                       </button>
                       <span className="gly">{pinSvg(selected)}</span>
                       <div className="meta">
-                        <div className="nm">{place.display_label}</div>
+                        {editing?.id === place.id ? (
+                          <input
+                            className="mc-rename-input"
+                            aria-label={`New name for ${place.display_label}`}
+                            value={editing.value}
+                            autoFocus
+                            onChange={(e) => setEditing({ id: place.id, value: e.target.value })}
+                            onKeyDown={async (e) => {
+                              if (e.key === "Escape") setEditing(null);
+                              if (e.key === "Enter") {
+                                const label = editing.value.trim();
+                                if (!label) return;
+                                await onRename(place.id, label);
+                                setEditing(null);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div className="nm">{place.display_label}</div>
+                        )}
                         <div className="sub">{coords(place)}</div>
                         {isSensitive(place.sensitivity_class) ? (
                           <span className="cnt" title="Excluded from public CSV exports">Hidden from exports</span>
@@ -128,6 +150,9 @@ export function ManagePlacesModal({
                       <div className="right">
                         {count !== null ? <span className="cnt">{count} {summary?.layer === "calls" ? "calls" : summary?.layer === "arrests" ? "arr." : "inc."}</span> : null}
                         {low ? <span className="cnt low">Low data</span> : null}
+                        <button type="button" className="ico" aria-label={`Rename ${place.display_label}`} onClick={() => setEditing({ id: place.id, value: place.display_label })}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3l4 4L8 20l-5 1 1-5L17 3z" /></svg>
+                        </button>
                         <button type="button" className="ico" aria-label={`Remove ${place.display_label}`} onClick={() => onDelete(place.id)}>
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" /></svg>
                         </button>

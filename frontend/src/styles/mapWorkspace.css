@@ -453,6 +453,7 @@ input.mc-inp:focus{outline:2px solid var(--accent);outline-offset:1px;}
 .mc-chipstrip .mc-chip-add{color:var(--accent-deep);border-style:dashed;}
 .mc-chipstrip .mc-chip .mc-idbadge{width:16px;height:16px;font-size:9.5px;margin-left:-4px;}
 .mc-manage{display:grid;gap:10px;}
+.mc-rename-input{width:100%;font:inherit;padding:2px 6px;border:1px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--text-strong);}
 .mc-locator{flex:none;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;--idc:var(--id-x);}
 .mc-locator.id-a{--idc:var(--id-a);}.mc-locator.id-b{--idc:var(--id-b);}.mc-locator.id-c{--idc:var(--id-c);}.mc-locator.id-d{--idc:var(--id-d);}
 .mc-locator .mosaic{fill:none;stroke:var(--border);stroke-width:.6;}

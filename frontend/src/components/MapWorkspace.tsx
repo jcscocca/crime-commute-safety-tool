@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
-import { createBulkPlaces, createPlace, deletePlace, getBeatPolygons, getMcppPolygons } from "../api/client";
+import { createBulkPlaces, createPlace, deletePlace, getBeatPolygons, getMcppPolygons, updatePlace } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
 import { compactGeocodeLabel } from "../lib/addressLabel";
 import { interpretToolResult } from "../lib/assistantBridge";
@@ -14,6 +14,7 @@ import { useCompare } from "../lib/useCompare";
 import { useCompareSet } from "../lib/useCompareSet";
 import { useDashboardData } from "../lib/useDashboardData";
 import { useDrawer } from "../lib/useDrawer";
+import { usePersistedSelection } from "../lib/usePersistedSelection";
 import { usePinDraft } from "../lib/usePinDraft";
 import { useTheme } from "../lib/useTheme";
 import { AddressLookup } from "./AddressLookup";
@@ -47,7 +48,6 @@ export function MapWorkspace() {
   const [showBadLink, setShowBadLink] = useState(hadViewParam && initialView === null);
 
   const [activeTab, setActiveTab] = useState<TabKey>(initialView?.tab ?? "analyze");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lookupPoint, setLookupPoint] = useState<ComparePoint | null>(null);
   const [chipFlyTo, setChipFlyTo] = useState<LatLng | null>(null);
   const [managePlaces, setManagePlaces] = useState<ManageView | null>(null);
@@ -79,6 +79,8 @@ export function MapWorkspace() {
   const incidentLayer = useIncidentPoints({ bounds: viewport, analysis });
 
   const data = useDashboardData();
+  const { selectedIds, setSelectedIds, restored } = usePersistedSelection(data.places);
+  const [pendingAutoRun, setPendingAutoRun] = useState(false);
   const { drawer, setCollapsed: setDrawerCollapsed, onResize: onDrawerResize, onToggleCollapsed, onPreset } = useDrawer();
 
   // A shared view has no persisted places to select from, so synthesize a place-shaped
@@ -141,6 +143,28 @@ export function MapWorkspace() {
     else if (initialView.tab === "analyze") void analyze.runAnalyze();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // "Analysis greets you": one shot after the persisted selection is restored. Skips
+  // sessions that already own their first run (share links via initialView, lookup,
+  // shared views) and empty selections. The flag fires runAnalyze only AFTER the
+  // restored ids have committed — useAnalyze snapshots selectedIds per render, so a
+  // same-tick call would analyze the pre-restore (empty) set.
+  const autoRunArmedRef = useRef(false);
+  useEffect(() => {
+    if (!restored || autoRunArmedRef.current) return;
+    autoRunArmedRef.current = true;
+    if (!initialView && !lookupPoint && !sharedPoints && selectedIds.size > 0) {
+      setPendingAutoRun(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restored]);
+
+  useEffect(() => {
+    if (!pendingAutoRun || selectedIds.size === 0) return;
+    setPendingAutoRun(false);
+    void analyze.runAnalyze();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAutoRun, selectedIds]);
 
   // Selection and analysis-control changes drop any current Analyze/Compare results (and
   // invalidate in-flight ones) so a stale pane never lingers against a new selection.
@@ -223,6 +247,15 @@ export function MapWorkspace() {
     invalidateAnalysisContext();
     setLookupPoint(null);
     pinDraft.setDraft(null);
+    if (sharedPoints) {
+      // A chip click during a shared view exits it (same as the banner's Exit) and
+      // starts a fresh selection with the clicked place; the pending-auto-run effect
+      // owns the follow-up run once the new selection commits.
+      setSharedPoints(null);
+      setSelectedIds(new Set([id]));
+      setPendingAutoRun(true);
+      return;
+    }
     setSelectedIds((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -504,6 +537,15 @@ export function MapWorkspace() {
             onImportSubmit={handleImport}
             onUploaded={data.personalUploadsEnabled ? () => data.refreshWithFallback("Uploaded, but dashboard totals could not refresh.") : undefined}
             onClose={() => setManagePlaces(null)}
+            onRename={async (id, label) => {
+              data.setError("");
+              try {
+                await updatePlace(id, { display_label: label });
+                await data.refreshWithFallback("Renamed, but dashboard totals could not refresh.");
+              } catch {
+                data.setError("Unable to rename place. Try again.");
+              }
+            }}
           />
         ) : null}
       </div>

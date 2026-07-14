@@ -107,6 +107,13 @@ export function deletePlace(placeId: string): Promise<void> {
   return request(`/places/${placeId}`, { method: "DELETE" });
 }
 
+export function updatePlace(placeId: string, payload: { display_label: string }): Promise<Place> {
+  return request(`/places/${placeId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function uploadPersonalData(file: File): Promise<{ place_cluster_count: number }> {
   const body = new FormData();
   body.append("file", file);
