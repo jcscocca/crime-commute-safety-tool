@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Live end-to-end smoke test for the Waypoint dashboard.
+"""Live end-to-end smoke test for the CompCat dashboard.
 
 Drives the running instance through all major endpoints and prints PASS/FAIL
 per step, exiting non-zero on any hard failure.
@@ -403,7 +403,7 @@ def step9_assistant(id1: str) -> bool:
 
 
 def main() -> int:
-    print(f"Waypoint live smoke test  →  {BASE_URL}")
+    print(f"CompCat live smoke test  →  {BASE_URL}")
     print("-" * 60)
 
     hard_failures: list[str] = []

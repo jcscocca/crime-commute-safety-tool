@@ -1,6 +1,6 @@
-# Bring up the full Waypoint stack on the ThinkPad, on demand.
+# Bring up the full CompCat stack on the ThinkPad, on demand.
 #
-# Run this when you want Waypoint; nothing here auto-starts on its own (containers
+# Run this when you want CompCat; nothing here auto-starts on its own (containers
 # use restart: "no"). It's idempotent: anything already running is left alone.
 #
 # It ALWAYS pulls the latest from origin first (this checkout is pull-only - do dev on
@@ -24,7 +24,7 @@ function Wait-Docker([int]$timeoutSec = 120) {
     return $false
 }
 
-Write-Host '== Waypoint bring-up =='
+Write-Host '== CompCat bring-up =='
 
 # 0. Always pull latest from origin, and rebuild only if HEAD actually moved. This checkout is
 #    pull-only (do dev on the Mac). If the tree is dirty or origin is unreachable, warn and start
@@ -107,5 +107,5 @@ $ip = (Get-NetIPAddress -AddressFamily IPv4 |
     Where-Object { $_.InterfaceAlias -notlike '*vEthernet*' -and $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } |
     Select-Object -First 1).IPAddress
 Write-Host ''
-Write-Host "Waypoint is starting. From the Mac:  http://${ip}:8000"
+Write-Host "CompCat is starting. From the Mac:  http://${ip}:8000"
 Write-Host '(give the api ~20-30s to migrate + boot, then hard-refresh Safari.)'

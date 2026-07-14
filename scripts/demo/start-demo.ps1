@@ -1,4 +1,4 @@
-# Start the Waypoint demo-on-demand instance and expose it via an ephemeral
+# Start the CompCat demo-on-demand instance and expose it via an ephemeral
 # Cloudflare quick tunnel. Works from any directory (it cd's to the repo root).
 #   powershell -ExecutionPolicy Bypass -File scripts/demo/start-demo.ps1
 param(

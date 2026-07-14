@@ -4,7 +4,7 @@ Reference for the CompCat Analyst — the optional chat assistant that is ground
 
 ## Persona — "Tabby, case desk"
 
-The Analyst presents as **Tabby**, a fictional basset-hound detective at the case desk
+The Analyst presents as **Tabby**, a fictional tabby-cat detective at the case desk
 (spec: `docs/superpowers/specs/2026-07-10-analyst-copper-persona-design.md`). The persona is
 chrome + framing copy only: the `TabbyAvatar` mark/bust SVGs and greeting/status/offline
 strings in `AssistantPanel.tsx`, the in-voice `_SAFETY_REDIRECT`, the streamed narration's

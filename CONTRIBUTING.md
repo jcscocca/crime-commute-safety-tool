@@ -1,6 +1,6 @@
 # Contributing
 
-Waypoint is a personal portfolio project, shared publicly so the code and the
+CompCat is a personal portfolio project, shared publicly so the code and the
 methodology can be read — it is not seeking contributions and has no support
 commitment.
 
