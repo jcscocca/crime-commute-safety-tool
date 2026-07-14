@@ -205,7 +205,7 @@ describe("MapWorkspace", () => {
     fireEvent.change(screen.getByLabelText(/label/i), { target: { value: "Home" } });
     fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
 
-    expect(await screen.findByRole("checkbox", { name: "Select Home" })).toHaveAttribute("aria-checked", "true");
+    expect(await screen.findByRole("checkbox", { name: "Home" })).toHaveAttribute("aria-checked", "true");
 
     fireEvent.click(screen.getByRole("tab", { name: /analyze/i }));
     fireEvent.click(screen.getByRole("button", { name: /run analysis/i }));
@@ -235,7 +235,7 @@ describe("MapWorkspace", () => {
     await screen.findByRole("heading", { name: /look up an address/i });
 
     fireEvent.click(screen.getByRole("button", { name: /add places manually/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bulk CSV" }));
     fireEvent.change(screen.getByLabelText("CSV rows"), {
       target: { value: "display_label,latitude,longitude\nHome,47.61,-122.33\nWork,47.62,-122.34" },
     });
@@ -310,7 +310,7 @@ describe("MapWorkspace", () => {
     render(<MapWorkspace />);
     await screen.findByText("Home");
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Select Home" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Home" }));
     fireEvent.click(screen.getByRole("tab", { name: /analyze/i }));
     fireEvent.click(screen.getByRole("button", { name: /run analysis/i }));
 
@@ -336,7 +336,7 @@ describe("MapWorkspace", () => {
     render(<MapWorkspace />);
     await screen.findByText("Home");
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Select Home" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Home" }));
     fireEvent.click(screen.getByRole("tab", { name: /analyze/i }));
     fireEvent.click(screen.getByRole("button", { name: /run analysis/i }));
 
@@ -363,7 +363,7 @@ describe("MapWorkspace", () => {
     render(<MapWorkspace />);
     await screen.findByText("Home");
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Select Home" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Home" }));
     fireEvent.click(screen.getByRole("tab", { name: /analyze/i }));
     fireEvent.click(screen.getByRole("button", { name: /run analysis/i }));
 
@@ -383,7 +383,7 @@ describe("MapWorkspace", () => {
     render(<MapWorkspace />);
     await screen.findByText("Home");
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Select Home" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Home" }));
     fireEvent.click(screen.getByRole("tab", { name: /analyze/i }));
     fireEvent.click(screen.getByRole("button", { name: /run analysis/i }));
 
