@@ -162,3 +162,61 @@ def test_session_id_from_token_rejects_expired_token():
     expired_token = f"{expired_payload}.{_sign(expired_payload)}"
 
     assert session_id_from_token(expired_token) is None
+
+
+def test_post_sessions_preserves_valid_session(tmp_path):
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    client = TestClient(app)
+
+    first_response = client.post("/sessions")
+    assert first_response.json()["session_state"] == "created"
+    cookie_value = client.cookies.get("mca_session")
+    assert cookie_value is not None
+
+    create_response = client.post(
+        "/places",
+        json={
+            "display_label": "Library",
+            "latitude": 47.621,
+            "longitude": -122.321,
+            "visit_count": 4,
+        },
+    )
+    assert create_response.status_code == 201
+
+    second_response = client.post("/sessions")
+
+    assert second_response.status_code == 200
+    assert second_response.json()["session_state"] == "resumed"
+    assert "set-cookie" not in second_response.headers
+    assert client.cookies.get("mca_session") == cookie_value
+
+    list_response = client.get("/places")
+    assert list_response.status_code == 200
+    assert list_response.json()["count"] == 1
+
+
+def test_post_sessions_mints_when_cookie_invalid(tmp_path):
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    client = TestClient(app)
+    client.cookies.set("mca_session", "garbage-token-value")
+
+    response = client.post("/sessions")
+
+    assert response.status_code == 200
+    assert response.json()["session_state"] == "created"
+    assert "mca_session" in response.cookies
+
+
+def test_post_sessions_mints_when_cookie_expired(tmp_path):
+    app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
+    client = TestClient(app)
+    expired_payload = "expired-session:1"
+    expired_token = f"{expired_payload}.{_sign(expired_payload)}"
+    client.cookies.set("mca_session", expired_token)
+
+    response = client.post("/sessions")
+
+    assert response.status_code == 200
+    assert response.json()["session_state"] == "created"
+    assert "mca_session" in response.cookies

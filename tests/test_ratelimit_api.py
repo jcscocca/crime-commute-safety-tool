@@ -16,8 +16,11 @@ def limited_client(tmp_path, monkeypatch) -> TestClient:
 
 
 def test_session_creation_capped(limited_client: TestClient) -> None:
+    # POST /sessions resumes for free with a valid cookie, so each new-mint
+    # attempt must start from a clean cookie jar to actually burn budget.
     for _ in range(3):
         assert limited_client.post("/sessions").status_code == 200
+        limited_client.cookies.clear()
     response = limited_client.post("/sessions")
     assert response.status_code == 429
     assert "Retry-After" in response.headers
@@ -28,12 +31,14 @@ def test_session_creation_capped(limited_client: TestClient) -> None:
 
 def test_spoofed_proxy_header_ignored_without_trust(limited_client: TestClient) -> None:
     # All 4 calls come from the same socket peer; the spoofed header must NOT
-    # give each call a fresh bucket.
+    # give each call a fresh bucket. Clear cookies between attempts so each
+    # call actually mints (a resumed call is free and wouldn't exercise the cap).
     for i in range(3):
         assert (
             limited_client.post("/sessions", headers={"CF-Connecting-IP": f"8.8.8.{i}"}).status_code
             == 200
         )
+        limited_client.cookies.clear()
     assert (
         limited_client.post("/sessions", headers={"CF-Connecting-IP": "8.8.9.9"}).status_code
         == 429
@@ -47,7 +52,9 @@ def test_trusted_proxy_header_separates_clients(tmp_path, monkeypatch) -> None:
     app = create_app(f"sqlite+pysqlite:///{tmp_path}/rl2.sqlite3")
     client = TestClient(app)
     assert client.post("/sessions", headers={"CF-Connecting-IP": "8.8.8.1"}).status_code == 200
+    client.cookies.clear()
     assert client.post("/sessions", headers={"CF-Connecting-IP": "8.8.8.2"}).status_code == 200
+    client.cookies.clear()
     assert client.post("/sessions", headers={"CF-Connecting-IP": "8.8.8.1"}).status_code == 429
 
 

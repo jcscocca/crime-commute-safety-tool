@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ManagePlacesModal } from "./ManagePlacesModal";
 import type { DashboardSummary, Place } from "../types";
 
 afterEach(cleanup);
+afterEach(() => vi.clearAllMocks());
 
 function place(id: string, label: string): Place {
   return {
@@ -35,6 +36,7 @@ const baseProps = {
   onImportSubmit: vi.fn().mockResolvedValue(undefined),
   onUploaded: undefined,
   onClose: vi.fn(),
+  onRename: vi.fn().mockResolvedValue(undefined),
 };
 
 describe("ManagePlacesModal", () => {
@@ -82,5 +84,35 @@ describe("ManagePlacesModal", () => {
     expect(baseProps.onStartAddPin).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(baseProps.onClose).toHaveBeenCalled();
+  });
+
+  it("renames a place inline: pencil, edit, Enter", async () => {
+    render(<ManagePlacesModal {...baseProps} initialView="manage" />);
+    fireEvent.click(screen.getByRole("button", { name: "Rename Home" }));
+    const input = screen.getByRole("textbox", { name: "New name for Home" });
+    fireEvent.change(input, { target: { value: "Home base" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(baseProps.onRename).toHaveBeenCalledWith("p1", "Home base"));
+    expect(screen.queryByRole("textbox", { name: "New name for Home" })).not.toBeInTheDocument();
+  });
+
+  it("escape cancels a rename without calling the API", () => {
+    render(<ManagePlacesModal {...baseProps} initialView="manage" />);
+    fireEvent.click(screen.getByRole("button", { name: "Rename Home" }));
+    const input = screen.getByRole("textbox", { name: "New name for Home" });
+    fireEvent.change(input, { target: { value: "whatever" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(baseProps.onRename).not.toHaveBeenCalled();
+    expect(screen.getByText("Home")).toBeInTheDocument();
+  });
+
+  it("rejects an empty rename", () => {
+    render(<ManagePlacesModal {...baseProps} initialView="manage" />);
+    fireEvent.click(screen.getByRole("button", { name: "Rename Home" }));
+    const input = screen.getByRole("textbox", { name: "New name for Home" });
+    fireEvent.change(input, { target: { value: "   " } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(baseProps.onRename).not.toHaveBeenCalled();
+    expect(input).toBeInTheDocument();
   });
 });
