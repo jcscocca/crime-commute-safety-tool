@@ -336,6 +336,30 @@ export function MapWorkspace() {
   // drawer object, so viewport changes re-render. No extra state needed.
   const isFocus = !drawer.collapsed && window.innerWidth - drawer.widthPx < FOCUS_CHROME_MIN;
 
+  // Rendered INSIDE the Analyze/Compare panels (topSlot): .mc-panel is absolutely
+  // positioned over .mc-panels, so a sibling rendered outside would be painted over.
+  const drawerTopSlot = (
+    <>
+      <PlaceChipStrip
+        places={data.places}
+        identityByPlaceId={identityByPlaceId}
+        onToggle={handleToggleSelect}
+        onHoverPlace={setHoveredPlaceId}
+        onAdd={() => setManagePlaces("manage")}
+      />
+      {pinDraft.draft ? (
+        <PinDraftPopover
+          draft={pinDraft.draft}
+          saving={pinDraft.draftSaving}
+          error={pinDraft.draftError}
+          onChange={(patch) => pinDraft.setDraft((current) => (current ? { ...current, ...patch } : current))}
+          onSave={pinDraft.saveDraft}
+          onCancel={() => pinDraft.setDraft(null)}
+        />
+      ) : null}
+    </>
+  );
+
   return (
     <div className="mc-scope">
       <div
@@ -424,27 +448,9 @@ export function MapWorkspace() {
             <AddressLookup provider={geocodingProvider} onSelect={handleLookup} onManual={() => setManagePlaces("manual")} />
           ) : (
             <>
-          {activeTab === "analyze" || activeTab === "compare" ? (
-            <PlaceChipStrip
-              places={data.places}
-              identityByPlaceId={identityByPlaceId}
-              onToggle={handleToggleSelect}
-              onHoverPlace={setHoveredPlaceId}
-              onAdd={() => setManagePlaces("manage")}
-            />
-          ) : null}
-          {pinDraft.draft ? (
-            <PinDraftPopover
-              draft={pinDraft.draft}
-              saving={pinDraft.draftSaving}
-              error={pinDraft.draftError}
-              onChange={(patch) => pinDraft.setDraft((current) => (current ? { ...current, ...patch } : current))}
-              onSave={pinDraft.saveDraft}
-              onCancel={() => pinDraft.setDraft(null)}
-            />
-          ) : null}
           {activeTab === "analyze" ? (
             <AnalyzeTab
+              topSlot={drawerTopSlot}
               selected={selected}
               analysis={analysis}
               availableRadii={data.availableRadii}
@@ -465,6 +471,7 @@ export function MapWorkspace() {
           ) : null}
           {activeTab === "compare" ? (
             <CompareTab
+              topSlot={drawerTopSlot}
               set={compareSet.points}
               provider={geocodingProvider}
               onAddPoint={compareSet.add}

@@ -205,7 +205,12 @@ describe("MapWorkspace", () => {
     fireEvent.change(screen.getByLabelText(/label/i), { target: { value: "Home" } });
     fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
 
-    expect(await screen.findByRole("checkbox", { name: "Home" })).toHaveAttribute("aria-checked", "true");
+    // Scoped inside the Analyze panel: the chip strip must render WITHIN the absolutely
+    // positioned .mc-panel (as its topSlot), not as a covered sibling behind it.
+    await waitFor(() => {
+      const analyzePanel = screen.getByRole("tabpanel", { name: "Analyze" });
+      expect(within(analyzePanel).getByRole("checkbox", { name: "Home" })).toHaveAttribute("aria-checked", "true");
+    });
 
     fireEvent.click(screen.getByRole("tab", { name: /analyze/i }));
     fireEvent.click(screen.getByRole("button", { name: /run analysis/i }));
