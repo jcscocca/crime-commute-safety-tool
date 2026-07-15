@@ -411,6 +411,11 @@ input.mc-inp:focus{outline:2px solid var(--accent);outline-offset:1px;}
   .mc-searchpill{top:calc(env(safe-area-inset-top) + 64px);left:calc(env(safe-area-inset-left) + 16px);width:auto;max-width:calc(100vw - 32px);}
   .mc-empty{top:34%;width:min(260px,calc(100% - 96px));padding:16px 18px;}
 
+  /* No side panel on mobile: drop the desktop --panel-width offset from map chrome and
+     lift the zoom + (required) attribution above the peek sheet so they stay visible.
+     Vertical offsets approximate the peek height; confirm/tune during on-device acceptance. */
+  .mc-frame .maplibregl-ctrl-bottom-right{right:calc(env(safe-area-inset-right) + 8px);bottom:calc(env(safe-area-inset-bottom) + 132px);}
+
   /* Workspace panel becomes a bottom sheet: full width, height-driven, flex column. */
   .mc-workspace-panel{
     top:auto;left:0;right:0;bottom:0;
