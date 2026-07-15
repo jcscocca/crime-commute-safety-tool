@@ -7,7 +7,7 @@
 # the Mac), and rebuilds only if HEAD actually moved. If the tree is dirty or origin is
 # unreachable it warns and starts the current checkout rather than failing to come up.
 #
-#   pwsh -File scripts\start-waypoint.ps1     # pull latest, rebuild if it changed, then start
+#   pwsh -File scripts\start-compcat.ps1     # pull latest, rebuild if it changed, then start
 #
 # To stop everything when you're done: `docker compose stop`,
 # and close llama-swap from Task Manager (or just reboot — nothing comes back).
