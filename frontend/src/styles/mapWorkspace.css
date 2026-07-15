@@ -157,14 +157,16 @@
 .mc-tab.is-active::after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:2.5px;border-radius:2px;background:var(--accent);}
 .mc-tab .pill{font-family:var(--f-mono);font-size:11px;background:var(--surface-sunken);color:var(--text);padding:1px 7px;border-radius:99px;}
 
-.mc-workspace-panel.is-collapsed .mc-snaps{right:14px;}
-.mc-workspace-panel.is-collapsed .mc-snaps button span{display:none;}
-.mc-workspace-panel.is-collapsed .mc-panels{display:none;}
-.mc-workspace-panel.is-collapsed .mc-tabs{display:flex;flex-direction:column;align-items:center;gap:8px;padding:70px 14px 0;border-bottom:0;}
-.mc-workspace-panel.is-collapsed .mc-tab{width:52px;height:52px;padding:0;gap:0;border-radius:12px;font-size:0;}
-.mc-workspace-panel.is-collapsed .mc-tab svg{width:18px;height:18px;}
-.mc-workspace-panel.is-collapsed .mc-tab.is-active::after{left:8px;right:auto;top:10px;bottom:10px;width:3px;height:auto;}
-.mc-workspace-panel.is-collapsed .mc-tab .pill{position:absolute;right:4px;top:4px;font-size:10px;padding:0 5px;}
+@media (min-width:761px){
+  .mc-workspace-panel.is-collapsed .mc-snaps{right:14px;}
+  .mc-workspace-panel.is-collapsed .mc-snaps button span{display:none;}
+  .mc-workspace-panel.is-collapsed .mc-panels{display:none;}
+  .mc-workspace-panel.is-collapsed .mc-tabs{display:flex;flex-direction:column;align-items:center;gap:8px;padding:70px 14px 0;border-bottom:0;}
+  .mc-workspace-panel.is-collapsed .mc-tab{width:52px;height:52px;padding:0;gap:0;border-radius:12px;font-size:0;}
+  .mc-workspace-panel.is-collapsed .mc-tab svg{width:18px;height:18px;}
+  .mc-workspace-panel.is-collapsed .mc-tab.is-active::after{left:8px;right:auto;top:10px;bottom:10px;width:3px;height:auto;}
+  .mc-workspace-panel.is-collapsed .mc-tab .pill{position:absolute;right:4px;top:4px;font-size:10px;padding:0 5px;}
+}
 
 .mc-panels{position:relative;flex:1;overflow:hidden;}
 .mc-panel{display:none;position:absolute;inset:0;padding:16px 18px;overflow:auto;}
@@ -436,7 +438,6 @@ input.mc-inp:focus{outline:2px solid var(--accent);outline-offset:1px;}
   .mc-tab .pill{padding:1px 6px;}
 
   .mc-panels{flex:1;min-height:0;overflow:auto;}
-  .mc-dock-slot{padding-bottom:env(safe-area-inset-bottom);}
   .mc-workspace-panel.is-collapsed .mc-panels,
   .mc-workspace-panel.is-collapsed .mc-dock-slot{display:none;}
   .mc-workspace-panel.is-collapsed .mc-tabs{border-bottom:0;}
