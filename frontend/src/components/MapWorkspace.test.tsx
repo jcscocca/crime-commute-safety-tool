@@ -338,6 +338,17 @@ describe("MapWorkspace", () => {
     }
   });
 
+  it("narrow viewport does not enter desktop focus mode", async () => {
+    window.innerWidth = 375;
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home]));
+
+    const { container } = render(<MapWorkspace />);
+    await screen.findByText("Home");
+
+    expect(container.querySelector(".mc-frame")?.classList.contains("is-focus")).toBe(false);
+  });
+
   it("collapses the workspace panel while choosing where to drop a pin", async () => {
     vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
     vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary());

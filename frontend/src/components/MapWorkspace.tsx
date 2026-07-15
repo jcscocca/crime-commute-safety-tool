@@ -367,11 +367,11 @@ export function MapWorkspace() {
 
   // Recomputed every render: useDrawer's window-resize listener always produces a new
   // drawer object, so viewport changes re-render. No extra state needed.
-  const isFocus = !drawer.collapsed && window.innerWidth - drawer.widthPx < FOCUS_CHROME_MIN;
-
-  // Same window-width read as isFocus (re-evaluated on useDrawer's resize re-render):
-  // below the breakpoint the panel is a bottom sheet and the layer controls live inside it.
   const isMobile = window.innerWidth <= MOBILE_MAX_WIDTH;
+  // Focus mode is a desktop side-panel concept — force it off on mobile (the bottom sheet).
+  const isFocus = !isMobile && !drawer.collapsed && window.innerWidth - drawer.widthPx < FOCUS_CHROME_MIN;
+
+  // Below the breakpoint the panel is a bottom sheet and the layer controls live inside it.
   const layerControls = (
     <>
       <LayerToggle layer={analysis.layer} onChange={(layer) => handleAnalysisChange({ layer })} />
