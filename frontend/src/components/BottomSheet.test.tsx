@@ -174,4 +174,24 @@ describe("BottomSheet", () => {
     fireEvent.pointerUp(grabber, { clientY: 100, pointerId: 1 });
     expect(props.onToggleCollapsed).toHaveBeenCalledTimes(1);
   });
+
+  it("mobile: an upward drag expands when collapsed; a downward drag while collapsed does nothing", () => {
+    const { props } = renderSheet({ isMobile: true, collapsed: true });
+    const grabber = screen.getByRole("button", { name: /expand panel/i });
+    // drag up 80px while collapsed → expand
+    fireEvent.pointerDown(grabber, { clientY: 180, pointerId: 1 });
+    fireEvent.pointerUp(grabber, { clientY: 100, pointerId: 1 });
+    // drag down 80px while still collapsed → ignored
+    fireEvent.pointerDown(grabber, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerUp(grabber, { clientY: 180, pointerId: 1 });
+    expect(props.onToggleCollapsed).toHaveBeenCalledTimes(1);
+  });
+
+  it("mobile: a short drag between slop and threshold is ignored (no toggle)", () => {
+    const { props } = renderSheet({ isMobile: true, collapsed: false });
+    const grabber = screen.getByRole("button", { name: /collapse panel/i });
+    fireEvent.pointerDown(grabber, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerUp(grabber, { clientY: 120, pointerId: 1 }); // dy=20, dead zone
+    expect(props.onToggleCollapsed).not.toHaveBeenCalled();
+  });
 });
