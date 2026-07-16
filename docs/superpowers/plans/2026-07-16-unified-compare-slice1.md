@@ -424,7 +424,7 @@ export function useCompare({ selectedIds, analysis, setError, points }: CompareD
 - [ ] **Step 4: Run to verify all tests pass**
 
 Run: `cd frontend && npx vitest run src/lib/useCompare.test.ts --environment jsdom`
-Expected: PASS (8 tests).
+Expected: PASS (7 tests).
 
 - [ ] **Step 5: Commit**
 
