@@ -127,7 +127,7 @@ export function MapWorkspace() {
       new Set(
         data.places
           .filter((p) => p.latitude != null && p.longitude != null)
-          .map((p) => keyOf({ latitude: p.latitude as number, longitude: p.longitude as number, label: p.display_label })),
+          .map((p) => keyOf({ latitude: p.latitude as number, longitude: p.longitude as number })),
       ),
     [data.places],
   );
