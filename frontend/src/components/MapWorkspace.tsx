@@ -47,7 +47,7 @@ export function MapWorkspace() {
   const [sharedPoints, setSharedPoints] = useState(initialView ? initialView.points : null);
   const [showBadLink, setShowBadLink] = useState(hadViewParam && initialView === null);
 
-  const [activeTab, setActiveTab] = useState<TabKey>(initialView?.tab ?? "analyze");
+  const [activeTab, setActiveTab] = useState<TabKey>(initialView ? (initialView.points.length >= 2 ? "compare" : "analyze") : "analyze");
   const [lookupPoint, setLookupPoint] = useState<ComparePoint | null>(null);
   const [chipFlyTo, setChipFlyTo] = useState<LatLng | null>(null);
   const [managePlaces, setManagePlaces] = useState<ManageView | null>(null);
@@ -148,8 +148,8 @@ export function MapWorkspace() {
   // (not just an empty tab) is what the recipient sees on load.
   useEffect(() => {
     if (!initialView) return;
-    if (initialView.tab === "compare") void compare.runCompare();
-    else if (initialView.tab === "analyze") void analyze.runAnalyze();
+    if (initialView.points.length >= 2) void compare.runCompare();
+    else void analyze.runAnalyze();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -350,7 +350,7 @@ export function MapWorkspace() {
       : (sharedPoints ?? selected.map((p) => ({ latitude: Number((p.latitude ?? 0).toFixed(3)), longitude: Number((p.longitude ?? 0).toFixed(3)), label: p.display_label })));
     if (points.length === 0) return null;
     const encoded = encodeView({
-      tab, points, radiusM: analysis.radiusM,
+      points, radiusM: analysis.radiusM,
       startDate: analysis.startDate, endDate: analysis.endDate,
       layer: analysis.layer, offenseCategory: analysis.offenseCategory,
     });

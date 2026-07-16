@@ -551,7 +551,6 @@ describe("MapWorkspace", () => {
     vi.mocked(getNeighborhoodAnalysis).mockResolvedValue(makeNeighborhoodAnalysis());
 
     const view = encodeView({
-      tab: "analyze",
       points: [{ latitude: 47.61, longitude: -122.34, label: "Pike Place" }],
       radiusM: 250, startDate: "2024-01-01", endDate: "2024-01-31",
       layer: "reported", offenseCategory: "",
@@ -570,7 +569,6 @@ describe("MapWorkspace", () => {
     vi.mocked(comparePlaces).mockResolvedValue(makeSiteComparison("Pike Place", "Second Site"));
 
     const view = encodeView({
-      tab: "compare",
       points: [
         { latitude: 47.61, longitude: -122.34, label: "Pike Place" },
         { latitude: 47.62, longitude: -122.33, label: "Waterfront" },
@@ -848,7 +846,6 @@ describe("MapWorkspace", () => {
     vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 1 });
 
     const view = encodeView({
-      tab: "analyze",
       points: [{ latitude: 47.61, longitude: -122.34, label: "Pike Place" }],
       radiusM: 250, startDate: "2024-01-01", endDate: "2024-01-31",
       layer: "reported", offenseCategory: "",
