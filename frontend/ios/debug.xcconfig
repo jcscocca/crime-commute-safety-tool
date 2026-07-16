@@ -1,1 +1,5 @@
 CAPACITOR_DEBUG = true
+
+// Personal Apple Developer Team ID, kept out of version control.
+// Optional include (`?`) so fresh clones / CI without the local file still build.
+#include? "Signing.local.xcconfig"
