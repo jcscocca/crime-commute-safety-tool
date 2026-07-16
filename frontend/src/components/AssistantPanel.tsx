@@ -34,7 +34,7 @@ export function AssistantPanel({ dashboardState, onToolResult, defaultCollapsed 
   const [toolActivity, setToolActivity] = useState<ToolActivity[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [sending, setSending] = useState(false);
-  const [collapsed, setCollapsed] = useState(() => defaultCollapsed && localStorage.getItem(GREETED_KEY) === "1");
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const [greeted, setGreeted] = useState(() => localStorage.getItem(GREETED_KEY) === "1");
 
   async function sendTurn(turnMessages: AssistantMessage[]) {
