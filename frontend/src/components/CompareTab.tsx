@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { ANALYSIS_MIN_DATE } from "../lib/analysisDefaults";
@@ -65,7 +65,7 @@ export function CompareTab({ entries, provider, onAddEntry, onRemoveEntry, saved
   const radii = availableRadii.length > 0 ? availableRadii : [250, 500, 1000];
   const noun = useMemo(() => incidentNoun(analysis.layer), [analysis.layer]);
   const canRun = entries.length >= 1 && !running;
-  const hasResults = Boolean(neighborhood || comparison);
+  const hasResults = Boolean(neighborhood || comparison || incidents);
 
   const resultsAnchorRef = useRef<HTMLDivElement>(null);
   const wasRunningRef = useRef(false);
@@ -262,7 +262,7 @@ export function CompareTab({ entries, provider, onAddEntry, onRemoveEntry, saved
               <CompareRateNumberLine rows={verdict.rows} noun={noun} radiusM={analysis.radiusM} />
             </>
           ) : neighborhood?.places?.length ? (
-            neighborhood.places.map((_, index) => moduleFor(index))
+            neighborhood.places.map((place, index) => <Fragment key={place.place_id}>{moduleFor(index)}</Fragment>)
           ) : null}
 
           {hasResults ? (

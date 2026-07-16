@@ -127,6 +127,12 @@ describe("CompareTab (unified panel)", () => {
     expect(screen.getByText("500 block of Pike St")).toBeInTheDocument();
   });
 
+  it("still renders the incident disclosure when only the incidents payload survived", () => {
+    render(<CompareTab {...base} entries={entriesOf("Pike", "Bell")} incidents={incidents} runPoints={entriesOf("Pike", "Bell")} />);
+    expect(screen.getByText(/see the 2 reported incidents/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("compare-ranked")).not.toBeInTheDocument();
+  });
+
   it("address rows: remove fires with the index; unsaved rows offer Save", () => {
     const onRemoveEntry = vi.fn();
     const onSaveEntry = vi.fn();
