@@ -294,6 +294,10 @@
 .mc-explist li{display:flex;gap:9px;font-size:12.5px;line-height:1.5;color:var(--text);list-style:none;}
 .mc-explist li svg{flex:none;width:15px;height:15px;color:var(--text-dim);margin-top:2px;}
 .mc-exp ul{margin:0;padding:0;}
+.mc-exp-places{display:grid;gap:9px;margin:0;padding:0;border:0;}
+.mc-exp-places legend{padding:0;margin:0 0 4px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-dim);}
+.mc-exp-place{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text);cursor:pointer;}
+.mc-exp-place input{width:18px;height:18px;flex:none;accent-color:var(--accent);cursor:pointer;}
 
 @keyframes pindrop{0%{opacity:0;transform:translateY(-16px) scale(.86);}100%{opacity:1;transform:translateY(0) scale(1);}}
 @keyframes halo{0%{transform:translate(-50%,-50%) scale(.6);opacity:.55;}70%{opacity:0;}100%{transform:translate(-50%,-50%) scale(2.4);opacity:0;}}

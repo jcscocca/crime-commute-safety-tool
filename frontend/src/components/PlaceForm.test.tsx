@@ -47,18 +47,19 @@ describe("PlaceForm", () => {
     });
   });
 
-  it("sends the chosen sensitivity class so the place can be hidden from exports", async () => {
+  it("has no sensitivity control and always submits a normal place (export exclusion moved to Export)", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
 
     render(<PlaceForm onSubmit={onSubmit} />);
 
+    expect(screen.queryByLabelText(/sensitivity/i)).not.toBeInTheDocument();
+
     fireEvent.change(screen.getByLabelText("Latitude"), { target: { value: "47.621" } });
     fireEvent.change(screen.getByLabelText("Longitude"), { target: { value: "-122.321" } });
-    fireEvent.change(screen.getByLabelText("Sensitivity"), { target: { value: "home_candidate" } });
     fireEvent.click(screen.getByRole("button", { name: /add place/i }));
 
     expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({ sensitivity_class: "home_candidate" }),
+      expect.objectContaining({ sensitivity_class: "normal" }),
     );
   });
 });

@@ -1,4 +1,11 @@
-type Props = { href: string };
+import { isSensitive } from "../lib/sensitivity";
+import type { Place } from "../types";
+
+type Props = {
+  href: string;
+  places: Place[];
+  onToggleExport: (placeId: string, include: boolean) => void;
+};
 
 const NOTES = [
   "Counts reflect reported incidents only, within the chosen radius and date range.",
@@ -12,23 +19,34 @@ function DownloadIcon() {
   );
 }
 
-export function ExportTab({ href }: Props) {
-  const links = [{ label: "Place summary CSV", href }];
+export function ExportTab({ href, places, onToggleExport }: Props) {
   return (
     <div className="mc-panel is-active" role="tabpanel" aria-label="Export">
       <div className="mc-panel-head"><h4>Export session</h4></div>
       <div className="mc-exp">
-        {links.map((link) => (
-          <a
-            key={link.href}
-            className="mc-cta"
-            href={link.href}
-            style={{ alignSelf: "flex-start", textDecoration: "none" }}
-          >
-            <DownloadIcon />
-            {link.label}
-          </a>
-        ))}
+        {places.length > 0 ? (
+          <fieldset className="mc-exp-places">
+            <legend>Include in export</legend>
+            {places.map((place) => (
+              <label key={place.id} className="mc-exp-place">
+                <input
+                  type="checkbox"
+                  checked={!isSensitive(place.sensitivity_class)}
+                  onChange={(event) => onToggleExport(place.id, event.target.checked)}
+                />
+                <span>{place.display_label}</span>
+              </label>
+            ))}
+          </fieldset>
+        ) : null}
+        <a
+          className="mc-cta"
+          href={href}
+          style={{ alignSelf: "flex-start", textDecoration: "none" }}
+        >
+          <DownloadIcon />
+          Place summary CSV
+        </a>
         <ul className="mc-explist">
           {NOTES.map((note) => (
             <li key={note}>

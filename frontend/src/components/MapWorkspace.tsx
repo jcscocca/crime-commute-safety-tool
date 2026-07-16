@@ -528,7 +528,21 @@ export function MapWorkspace() {
               onCopyLink={() => buildShareUrl("compare")}
             />
           ) : null}
-          {activeTab === "export" ? <ExportTab href={data.exportHref} /> : null}
+          {activeTab === "export" ? (
+            <ExportTab
+              href={data.exportHref}
+              places={data.places}
+              onToggleExport={async (id, include) => {
+                data.setError("");
+                try {
+                  await updatePlace(id, { sensitivity_class: include ? "normal" : "suppress_from_public_export" });
+                  await data.refreshWithFallback("Updated export setting, but dashboard totals could not refresh.");
+                } catch {
+                  data.setError("Unable to update export setting. Try again.");
+                }
+              }}
+            />
+          ) : null}
             </>
           )}
         </BottomSheet>
