@@ -85,7 +85,8 @@ describe("PlaceContextCard", () => {
 
   it("never emits safety-ranking vocabulary", () => {
     const { container } = renderCard();
-    const text = (container.textContent ?? "").toLowerCase();
+    const noBaseline = renderCard({ ...homePlace, baseline_available: false, baselines: [] });
+    const text = `${container.textContent ?? ""} ${noBaseline.container.textContent ?? ""}`.toLowerCase();
     for (const banned of ["safe", "unsafe", "safety", "danger", "dangerous", "risk", "risky"]) {
       expect(text).not.toContain(banned);
     }
