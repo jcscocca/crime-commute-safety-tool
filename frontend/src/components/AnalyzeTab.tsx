@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type {
   AnalysisSettings,
@@ -461,6 +461,17 @@ function IncidentDetailsCards({ details, noun, showCategory }: { details: Incide
 export function AnalyzeTab({ selected, analysis, availableRadii, running, incidentDetails, neighborhood, error, panelWidthPx, onChange, onRun, onCopyLink, onCompareWith, onSave, onHoverPlace, mcppPolygons, onFlyTo, topSlot }: Props) {
   const radii = availableRadii.length > 0 ? availableRadii : [250, 500, 1000];
 
+  const resultsAnchorRef = useRef<HTMLDivElement>(null);
+  const wasRunningRef = useRef(false);
+  useEffect(() => {
+    // When a run finishes, scroll the results into view — on the mobile bottom sheet they
+    // otherwise render below the controls, off the visible fold.
+    if (wasRunningRef.current && !running) {
+      resultsAnchorRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    }
+    wasRunningRef.current = running;
+  }, [running]);
+
   function coordsFor(place: NeighborhoodPlace, index: number): { latitude: number; longitude: number } | null {
     const match = selected.find((p) => p.id === place.place_id) ?? selected[index];
     return match && match.latitude != null && match.longitude != null
@@ -527,6 +538,8 @@ export function AnalyzeTab({ selected, analysis, availableRadii, running, incide
           <button type="button" className="mc-cta" disabled={!canRun} onClick={onRun}>{running ? "Running…" : "Run analysis"}</button>
         </div>
       </div>
+
+      <div ref={resultsAnchorRef} aria-hidden="true" />
 
       {isCallsLayer ? (
         <p className="mc-layer-note" role="note">
