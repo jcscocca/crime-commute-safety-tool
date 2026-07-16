@@ -59,6 +59,17 @@ describe("useAddressList", () => {
     expect(result.current.entries).toHaveLength(0);
   });
 
+  it("toggleSaved upgrades a colliding ad-hoc entry in place instead of dropping the stamp", () => {
+    const { result } = renderHook(() => useAddressList({ seed: [], onSavedIdsChange: persistSpy }));
+    act(() => result.current.add({ latitude: 47.61, longitude: -122.33, label: "Typed address" }));
+    act(() => result.current.toggleSaved(home));
+    expect(result.current.entries).toHaveLength(1);
+    expect(result.current.entries[0]).toMatchObject({ savedPlaceId: "p1", label: "Home" });
+    expect(result.current.savedIds()).toEqual(["p1"]);
+    act(() => result.current.toggleSaved(home));
+    expect(result.current.entries).toHaveLength(0);
+  });
+
   it("replaceAll swaps the whole list and counts as an edit", () => {
     const { result, rerender } = renderHook(({ seed }) => useAddressList({ seed, onSavedIdsChange: persistSpy }), {
       initialProps: { seed: [home] },
@@ -76,6 +87,13 @@ describe("useAddressList", () => {
     expect(persistSpy).toHaveBeenLastCalledWith(["p1", "p2"]);
     act(() => result.current.removeAt(0));
     expect(persistSpy).toHaveBeenLastCalledWith(["p2"]);
+  });
+
+  it("seeding never notifies onSavedIdsChange; the first edit does", () => {
+    const { result } = renderHook(() => useAddressList({ seed: [home, work], onSavedIdsChange: persistSpy }));
+    expect(persistSpy).not.toHaveBeenCalled();
+    act(() => result.current.add({ latitude: 47.7, longitude: -122.3, label: "Adhoc" }));
+    expect(persistSpy).toHaveBeenCalledWith(["p1", "p2"]);
   });
 
   it("markSaved upgrades a matching ad-hoc entry in place (opt-in Save flow)", () => {

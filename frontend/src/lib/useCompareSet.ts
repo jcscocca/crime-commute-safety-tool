@@ -58,7 +58,7 @@ export function entriesFromPlaces(places: Place[]): AddressEntry[] {
   const entries: AddressEntry[] = [];
   for (const place of places) {
     if (place.latitude == null || place.longitude == null) continue;
-    entries.push({ latitude: place.latitude, longitude: place.longitude, label: place.display_label, savedPlaceId: place.id });
+    entries.push(normalize({ latitude: place.latitude, longitude: place.longitude, label: place.display_label, savedPlaceId: place.id }));
   }
   return dedupeCap(entries);
 }
@@ -73,16 +73,16 @@ interface AddressListDeps {
   onSavedIdsChange?: (ids: string[]) => void;
 }
 
+function sameEntries(a: AddressEntry[], b: AddressEntry[]): boolean {
+  return a.length === b.length && a.every((e, i) => keyOf(e) === keyOf(b[i]) && e.label === b[i].label && e.savedPlaceId === b[i].savedPlaceId);
+}
+
 /**
  * The workspace's single address list (1–MAX_ADDRESSES entries, saved or ad-hoc). Seeds
  * synchronously from the restored saved selection and re-seeds on seed changes until the
  * user's first manual edit — after that the list is theirs. Saved ids are reported
  * outward on every change so the returning-session selection stays persisted.
  */
-function sameEntries(a: AddressEntry[], b: AddressEntry[]): boolean {
-  return a.length === b.length && a.every((e, i) => keyOf(e) === keyOf(b[i]) && e.label === b[i].label && e.savedPlaceId === b[i].savedPlaceId);
-}
-
 export function useAddressList({ seed, onSavedIdsChange }: AddressListDeps): AddressList {
   const editedRef = useRef(false);
   const [entries, setEntries] = useState<AddressEntry[]>(() => entriesFromPlaces(seed));
@@ -102,6 +102,9 @@ export function useAddressList({ seed, onSavedIdsChange }: AddressListDeps): Add
   onSavedIdsChangeRef.current = onSavedIdsChange;
   const lastSavedKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    // Seeding must not write back: a pre-restore notify would mark the persisted
+    // selection dirty and skip the returning-session restore entirely.
+    if (!editedRef.current) return;
     const ids = entries.map((e) => e.savedPlaceId).filter((id): id is string => Boolean(id));
     const key = ids.join("|");
     if (key === lastSavedKeyRef.current) return;
@@ -127,7 +130,13 @@ export function useAddressList({ seed, onSavedIdsChange }: AddressListDeps): Add
     setEntries((cur) => {
       const existing = cur.findIndex((e) => e.savedPlaceId === place.id);
       if (existing >= 0) return cur.filter((_, i) => i !== existing);
-      return dedupeCap([...cur, { latitude: place.latitude as number, longitude: place.longitude as number, label: place.display_label, savedPlaceId: place.id }]);
+      const entry = normalize({ latitude: place.latitude as number, longitude: place.longitude as number, label: place.display_label, savedPlaceId: place.id });
+      const collision = cur.findIndex((e) => keyOf(e) === keyOf(entry));
+      if (collision >= 0) {
+        // Address already in the list ad-hoc: stamp it saved in place (toggle-off then removes it whole).
+        return cur.map((e, i) => (i === collision ? { ...e, label: entry.label, savedPlaceId: entry.savedPlaceId } : e));
+      }
+      return dedupeCap([...cur, entry]);
     });
   }
 
@@ -136,6 +145,7 @@ export function useAddressList({ seed, onSavedIdsChange }: AddressListDeps): Add
     setEntries(dedupeCap(next.map(normalize)));
   }
 
+  // Deliberately not an edit: stamping an id must not stop re-seeding.
   function markSaved(key: string, savedPlaceId: string) {
     setEntries((cur) => cur.map((e) => (keyOf(e) === key ? { ...e, savedPlaceId } : e)));
   }
