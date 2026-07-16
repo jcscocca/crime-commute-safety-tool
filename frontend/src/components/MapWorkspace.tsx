@@ -486,7 +486,7 @@ export function MapWorkspace() {
           isMobile={isMobile}
           peekHeader={isMobile ? layerControls : undefined}
           tabBadges={{ compare: compareSet.points.length }}
-          dock={<AssistantPanel dashboardState={assistantState} onToolResult={applyAssistantToolResult} />}
+          dock={<AssistantPanel dashboardState={assistantState} onToolResult={applyAssistantToolResult} defaultCollapsed={isMobile} />}
         >
           {showLanding ? (
             <AddressLookup provider={geocodingProvider} onSelect={handleLookup} onManual={() => setManagePlaces("manual")} />

@@ -8,6 +8,7 @@ import { TabbyAvatar } from "./TabbyAvatar";
 type Props = {
   dashboardState: AssistantDashboardState;
   onToolResult?: (data: { tool_name?: string; result?: unknown }) => void;
+  defaultCollapsed?: boolean;
 };
 
 type ToolActivity = {
@@ -25,7 +26,7 @@ const SUGGESTED_PROMPTS = [
 
 const GREETED_KEY = "wp-copper-greeted";
 
-export function AssistantPanel({ dashboardState, onToolResult }: Props) {
+export function AssistantPanel({ dashboardState, onToolResult, defaultCollapsed = false }: Props) {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [statusLine, setStatusLine] = useState("");
@@ -33,7 +34,7 @@ export function AssistantPanel({ dashboardState, onToolResult }: Props) {
   const [toolActivity, setToolActivity] = useState<ToolActivity[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [sending, setSending] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => defaultCollapsed && localStorage.getItem(GREETED_KEY) === "1");
   const [greeted, setGreeted] = useState(() => localStorage.getItem(GREETED_KEY) === "1");
 
   async function sendTurn(turnMessages: AssistantMessage[]) {
