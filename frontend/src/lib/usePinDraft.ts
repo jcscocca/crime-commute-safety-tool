@@ -22,7 +22,7 @@ export interface PinDraftController {
 interface PinDraftDeps {
   selectPlaceIds: (ids: string[]) => void;
   refreshWithFallback: (fallbackMessage: string) => Promise<void>;
-  setActiveTab: (tab: "analyze") => void;
+  setActiveTab: (tab: "compare") => void;
   setDrawerCollapsed: (collapsed: boolean) => void;
 }
 
@@ -56,7 +56,7 @@ export function usePinDraft({
 
   function startAddPin() {
     setAddPinMode(true);
-    setActiveTab("analyze");
+    setActiveTab("compare");
     setDrawerCollapsed(true);
   }
 
@@ -72,7 +72,7 @@ export function usePinDraft({
     });
     setDraftError("");
     setAddPinMode(false);
-    setActiveTab("analyze");
+    setActiveTab("compare");
     setDrawerCollapsed(false);
   }
 
@@ -94,7 +94,7 @@ export function usePinDraft({
 
   function handleSearchSelect(result: GeocodeResult) {
     previewSearch(result);
-    setActiveTab("analyze");
+    setActiveTab("compare");
   }
 
   async function saveDraft() {
