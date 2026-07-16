@@ -1693,6 +1693,8 @@ git commit -m "feat(compare): one address list drives the workspace; tabs collap
 
 (Committing with red tests is deliberate here — Task 6 lands the test migration in the very next commit; the PR is reviewed as a unit and the gate runs before push.)
 
+**Second-round review amendments (applied):** `useAddressList` exposes `edited`; the workspace gates `onSavedIdsChange` on `restored` (an early share-link/lookup edit must not trip `usePersistedSelection`'s pre-restore guard and skip the restore); the restore-arm effect also skips when `list.edited`; `assistantState` derives from `savedIdSet` with correct deps (was stale after restore-seeding).
+
 **Review amendments (applied post-commit):** `handleDelete` also removes the deleted place's list entry (a dangling `savedPlaceId` would poison the next run's `place_ids` refresh — the backend rejects unknown ids). Task 6 adds the regression test. `usePinDraft` had THREE `setActiveTab("analyze")` calls (startAddPin, handleMapClick, handleSearchSelect — not saveDraft); all three retargeted.
 
 ---
@@ -1760,6 +1762,14 @@ For the second test, follow the file's existing assistant-result pattern exactly
 - `BottomSheet.test.tsx`: remove/retarget any Analyze-tab expectations (tab count drops to 2 + dock).
 - `App.test.tsx`: update only if red (it mounts the workspace; landing copy is unchanged).
 - If `frontend/src/lib/assistantBridge.test.ts` exists: update `analyze_places` expectations to `tab: "compare"`.
+
+- [ ] **Step 3b: Accumulated regression tests (all from earlier task reviews — add to `MapWorkspace.test.tsx` unless noted)**
+
+1. Deleting a saved place removes its address-list row (the `handleDelete` fix): delete via the manage modal; assert the row disappears from "Addresses to compare".
+2. Banner Exit after a share link restores the saved-place list (the restore-guard fix): load a legacy 2-point link with a saved place in localStorage selection; click Exit; assert the saved place's row appears and `getNeighborhoodAnalysis` re-fires.
+3. No double run after a pre-load lookup: mock a slow `getDashboardSummary`; fire a search-pill lookup immediately; assert `getNeighborhoodAnalysis` is called exactly once after places resolve.
+4. Assistant state freshness: after restore-seeding (no user edits), capture `AssistantPanel`'s `dashboardState` prop; assert `selected_place_ids` equals the restored ids, not `[]`.
+5. (savedView.test.ts) decode accepts a hand-built wire object with NO `t` key (symmetry lock for the tab-free format).
 
 - [ ] **Step 4: Full frontend suite green**
 
