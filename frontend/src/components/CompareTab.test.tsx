@@ -115,6 +115,30 @@ describe("CompareTab (editable set)", () => {
     expect(within(ranked).getAllByText(/When reported incidents occurred/i)).toHaveLength(2);
   });
 
+  it("keeps each address's context under its own row when input order differs from rank order", () => {
+    const scrambledOptions = [opt("y", "Yesler", 44, 14.3), opt("a", "Pike", 12, 3.9)];
+    const scrambled: SiteComparison = {
+      ...clearSweep,
+      overview: { ...clearSweep.overview, options: scrambledOptions },
+      analytical: { ...clearSweep.analytical, options: scrambledOptions, pairwise_results: [pair("a", "y", "statistically_lower", "a")] },
+    };
+    const scrambledNeighborhood: NeighborhoodAnalysis = {
+      ...contextNeighborhood,
+      places: [contextPlace("ny", "Yesler", 44), contextPlace("na", "Pike", 12)],
+    };
+    const { container } = render(<CompareTab {...base} set={setOf("Yesler", "Pike")} comparison={scrambled} neighborhood={scrambledNeighborhood} />);
+    const rows = container.querySelectorAll(".mc-ranked-row");
+    expect(rows).toHaveLength(2);
+    const row0 = rows[0] as HTMLElement;
+    const row1 = rows[1] as HTMLElement;
+    expect(within(row0).getByText("Pike", { selector: "strong" })).toBeInTheDocument();
+    expect(within(row0).getByText(/12 reported incidents within 250 m/)).toBeInTheDocument();
+    expect(within(row0).queryByText(/44 reported incidents within 250 m/)).not.toBeInTheDocument();
+    expect(within(row1).getByText("Yesler", { selector: "strong" })).toBeInTheDocument();
+    expect(within(row1).getByText(/44 reported incidents within 250 m/)).toBeInTheDocument();
+    expect(within(row1).queryByText(/12 reported incidents within 250 m/)).not.toBeInTheDocument();
+  });
+
   it("notes missing per-address context when the neighborhood payload is unavailable", () => {
     render(<CompareTab {...base} set={setOf("Pike", "Bell")} comparison={clearSweep} neighborhood={null} />);
     expect(screen.getByText(/per-address context unavailable for this run/i)).toBeInTheDocument();
