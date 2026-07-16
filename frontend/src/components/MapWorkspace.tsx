@@ -526,26 +526,36 @@ export function MapWorkspace() {
           {activeTab === "compare" ? (
             <CompareTab
               topSlot={drawerTopSlot}
-              set={compareSet.points}
+              entries={compareSet.points}
               provider={geocodingProvider}
-              onAddPoint={compareSet.add}
-              onRemovePoint={compareSet.removeAt}
+              onAddEntry={compareSet.add}
+              onRemoveEntry={compareSet.removeAt}
               savedKeys={savedPlaceKeys}
-              onSavePoint={async (point) => {
+              onSaveEntry={async (entry) => {
                 data.setError("");
                 try {
-                  await createPlace({ display_label: point.label, latitude: point.latitude, longitude: point.longitude, visit_count: 1, sensitivity_class: "normal" });
+                  await createPlace({ display_label: entry.label, latitude: entry.latitude, longitude: entry.longitude, visit_count: 1, sensitivity_class: "normal" });
                   await data.refreshWithFallback("Saved, but your places list could not refresh.");
                 } catch {
                   data.setError("Unable to save this address. Try again.");
                 }
               }}
               analysis={analysis}
+              availableRadii={data.availableRadii}
               comparison={compare.comparison}
               neighborhood={compare.neighborhood}
+              incidents={compare.incidents}
+              runPoints={compare.runPoints}
               running={compare.running}
+              error={data.error}
+              panelWidthPx={drawer.widthPx}
+              isMobile={isMobile}
+              onChange={handleAnalysisChange}
               onRun={compare.run}
               onCopyLink={() => buildShareUrl("compare")}
+              onHoverPlace={setHoveredPlaceId}
+              mcppPolygons={mcppPolygons}
+              onFlyTo={({ latitude, longitude }) => setChipFlyTo({ lat: latitude, lng: longitude })}
             />
           ) : null}
           {activeTab === "export" ? (

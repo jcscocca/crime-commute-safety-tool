@@ -163,7 +163,7 @@ describe("AnalyzeTab", () => {
         onHoverPlace={onHoverPlace}
       />,
     );
-    const card = screen.getByLabelText(/Verdict for/);
+    const card = screen.getByLabelText(/Context for/);
     fireEvent.mouseEnter(card);
     expect(onHoverPlace).toHaveBeenCalledWith(expect.any(String));
     fireEvent.mouseLeave(card);
@@ -464,7 +464,7 @@ describe("AnalyzeTab", () => {
     const { container } = render(<AnalyzeTab selected={[home]} analysis={analysis} availableRadii={[250]} running={true} onChange={vi.fn()} onRun={vi.fn()} />);
     expect(screen.getByText("Running analysis…")).toBeInTheDocument();
     expect(container.querySelector(".mc-skeleton")).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Verdict for/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Context for/i)).not.toBeInTheDocument();
   });
 
   it("renders a sparkline bar for each monthly_counts entry", () => {
