@@ -215,9 +215,11 @@ describe("MapWorkspace", () => {
       expect(within(comparePanel).getByRole("checkbox", { name: "Home" })).toHaveAttribute("aria-checked", "true");
     });
 
-    // A manual save is an edit, so it waits for Run (no auto-run). Running sends the saved
-    // place's id on the place_ids summary-refresh pass.
-    fireEvent.click(await screen.findByRole("button", { name: /run analysis/i }));
+    // A manual save is an edit, so it waits for Run — no premature auto-run fires. Running
+    // then sends the saved place's id on the place_ids summary-refresh pass.
+    const runButton = await screen.findByRole("button", { name: /run analysis/i });
+    expect(getNeighborhoodAnalysis).not.toHaveBeenCalled();
+    fireEvent.click(runButton);
 
     await waitFor(() => {
       expect(analyzePlaces).toHaveBeenCalledWith({
@@ -253,8 +255,11 @@ describe("MapWorkspace", () => {
     expect(await screen.findByRole("checkbox", { name: "Select Home" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("checkbox", { name: "Select Work" })).toHaveAttribute("aria-checked", "true");
 
-    // Importing is an edit, so it waits for Run (no auto-run). Two entries → the compare CTA.
-    fireEvent.click(await screen.findByRole("button", { name: /compare 2 addresses/i }));
+    // Importing is an edit, so it waits for Run — no premature auto-run fires. Two
+    // entries → the compare CTA.
+    const runButton = await screen.findByRole("button", { name: /compare 2 addresses/i });
+    expect(getNeighborhoodAnalysis).not.toHaveBeenCalled();
+    fireEvent.click(runButton);
 
     await waitFor(() => {
       expect(analyzePlaces).toHaveBeenCalledWith({
