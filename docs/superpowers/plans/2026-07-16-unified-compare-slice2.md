@@ -165,6 +165,7 @@ The list becomes the app's one selection source: entries are `{ latitude, longit
 **Files:**
 - Modify: `frontend/src/lib/useCompareSet.ts` (full replacement below — same file, richer API; old exports kept as aliases until Task 7)
 - Modify: `frontend/src/lib/useCompareSet.test.ts` (full replacement below)
+- Modify: `frontend/src/components/MapWorkspace.tsx` (one transitional line: `keyOf` narrowed to `{latitude, longitude}`, so the inline literal in the `savedPlaceKeys` memo at line ~130 must drop its `label` property — TS excess-property checking rejects it otherwise)
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -453,7 +454,7 @@ Expected: all green — the deprecated shims keep `MapWorkspace`/`CompareTab` co
 - [ ] **Step 5: Commit**
 
 ```bash
-git add frontend/src/lib/useCompareSet.ts frontend/src/lib/useCompareSet.test.ts
+git add frontend/src/lib/useCompareSet.ts frontend/src/lib/useCompareSet.test.ts frontend/src/components/MapWorkspace.tsx
 git commit -m "feat(compare): single address list hook (saved + ad-hoc entries, persistence callback)"
 ```
 
