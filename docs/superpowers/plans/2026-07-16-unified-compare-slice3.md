@@ -133,6 +133,8 @@ git add frontend/src/components/MapWorkspace.tsx frontend/src/components/MapWork
 git commit -m "fix(compare): queued place-id resolution invalidates stale results"
 ```
 
+**Review amendment (applied post-commit):** the invalidate is gated on `compare.runPoints !== null` — run results are keyed to the list and go stale on a late append, but assistant-applied panes (`runPoints === null`, by-name compares whose created ids resolve via the effect's own refetch) must survive. Locked by an assistant-by-name regression test.
+
 ---
 
 ## Task 3: Clipboard feedback on Copy link
