@@ -62,26 +62,27 @@ The `data.places` effect appends resolved entries without invalidating — the o
 
 - [ ] **Step 1: Write the failing test**
 
-Add to `MapWorkspace.test.tsx` immediately after the existing test named `"drops stale panes when the assistant replaces the selection without new results"` (locate with grep; follow that test's arrangement idioms — it completes a compare run first):
+**(Amended after a BLOCKED report: both `entriesForIds` callers — `selectPlaceIds` and the assistant selection branch — already invalidate at QUEUE time, so "run, then pin-save" can never leave a stale spine. The reachable gap is queue → a FRESH run completes while the id is still pending → the resolve-append lands under those new results. The test must arrange exactly that.)**
+
+Add to `MapWorkspace.test.tsx` immediately after the existing test named `"drops stale panes when the assistant replaces the selection without new results"`:
 
 ```tsx
-  it("invalidates results when a queued place id resolves onto the list", async () => {
-    // Complete a 2-address compare run (same arrangement as the assistant-replace test),
-    // then simulate a pin-save whose place id isn't in data.places yet: selectPlaceIds
-    // queues it, the summary refetch delivers the place, and the append must drop the
-    // stale spine.
-    // Arrange: mock createPlace to return a NEW place id "p9" not present in the current
-    // summary; mock getDashboardSummary's NEXT resolution to include p9's place; drive
-    // the pin-draft save flow exactly as the existing "selects a newly saved pin" test
-    // does (map click → popover save).
-    // Assert after the summary refresh lands:
+  it("invalidates results when a queued place id resolves under fresh results", async () => {
+    // 1. Seed two saved places; let the greet auto-run complete (spine renders).
+    // 2. Pin-save a NEW place ("Pin 9", id "p9"): createPlace resolves, but hold the
+    //    summary refresh open — mock getDashboardSummary's next call to a DEFERRED
+    //    promise you resolve manually later. The id queues as pending.
+    // 3. Click the run CTA ("Compare 2 addresses") and let it complete — a fresh spine
+    //    renders while p9 is still pending.
+    // 4. Resolve the deferred summary WITH p9's place included. The pending-id effect
+    //    appends the entry — and must invalidate the now-stale spine.
     expect(screen.queryByTestId("compare-ranked")).not.toBeInTheDocument();
-    // and the new address row is present:
-    expect(await screen.findByText("Pin 9")).toBeInTheDocument();
+    const rows = screen.getByRole("list", { name: /addresses to compare/i });
+    expect(await within(rows).findByText("Pin 9")).toBeInTheDocument();
   });
 ```
 
-Write the arrangement by copying the existing "selects a newly saved pin so analysis can run without manual selection" test's mock choreography verbatim, changing only: (a) first complete a compare run with two seeded places (copy the run arrangement from the assistant-replace test), (b) the created place's `display_label` is `"Pin 9"`, id `"p9"`.
+Arrangement idioms: reuse the mock choreography of "selects a newly saved pin so analysis can run without manual selection" (pin-draft flow) and "drops stale panes when the assistant replaces the selection without new results" (completed-run arrangement); the deferred summary is a plain manually-resolved promise (`let resolveSummary: (v: DashboardSummaryLike) => void; vi.mocked(getDashboardSummary).mockReturnValueOnce(new Promise((r) => { resolveSummary = r; }))` — adapt naming to the suite's style). Scope the row assertion `within(rows)` — the chip strip also renders the place label once the summary lands.
 
 - [ ] **Step 2: Run to verify it fails**
 
