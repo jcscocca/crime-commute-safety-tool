@@ -1,5 +1,15 @@
 # Statistical Route And Place Comparison Design
 
+> **Superseded (historical design rationale).** The decision procedure described here —
+> an E-test / exact-conditional test as the *decisional* statistic — was superseded
+> 2026-06-26 by the unified **φ-aware Wald** log rate-ratio method (one variance model for
+> the verdict and the per-address interval). See
+> [overdispersion-and-rate-intervals.md](../../analysis/overdispersion-and-rate-intervals.md)
+> and [pairwise-comparison-engine.md](../../analysis/pairwise-comparison-engine.md) for the
+> live methodology. The **routes** feature was removed 2026-07; only the places surface
+> remains. This spec is retained as the original design rationale, not as a description of
+> current behavior.
+
 ## Status
 
 Approved design direction from product discussion. This document is the design handoff for

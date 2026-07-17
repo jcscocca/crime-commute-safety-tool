@@ -246,10 +246,17 @@ share ≥ 10%).
 
 ### 5.4 Geography basis
 
-Area counts are MCPP point-in-polygon counts — the same assignment basis as the
-neighborhood baselines — not radius-buffer counts around the address. The trend is a
-property of the *neighborhood*, not of the 250–1000 m analysis buffer; mixing the two
-bases in one section would invite false precision about the address itself.
+Area counts are bucketed by the source's `mcpp` **attribute** (`CrimeIncident.mcpp`), not
+by a spatial point-in-polygon join — the same attribute bucketing the `_area_incidents`
+service helper uses (`app/services/neighborhood_service.py`), chosen because it is robust to
+SPD's block-level coordinate fuzzing. This is a **neighborhood-level** series, not
+radius-buffer counts around the address. It is close to but not identical with the
+neighborhood-baseline basis: the neighborhood baseline *rates* use polygon-based place
+assignment plus a haversine buffer carve-out to separate the place from its surrounding
+area, while the monthly *count series* backing those baselines are — like this trend
+series — attribute-bucketed on `mcpp`/`beat`. The trend is a property of the
+*neighborhood*, not of the 250–1000 m analysis buffer; mixing the two bases in one section
+would invite false precision about the address itself.
 
 ## 6. The 911-calls layer (rolling 24-month floor)
 

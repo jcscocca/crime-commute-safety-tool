@@ -61,6 +61,13 @@ Use later:
 
 Avoid for v1:
 
+> **Historical (2026-07-17).** The "do not ship formal p-values" guidance below reflects the
+> first self-service release only. The product has since shipped φ-aware p-values and
+> confidence intervals with Benjamini–Hochberg FDR correction (2026-06), documented in
+> `docs/analysis/` (see `overdispersion-and-rate-intervals.md`,
+> `pairwise-comparison-engine.md`, and `exposure-model.md`). The remaining bullets — no TabPy
+> dependency, no safe/unsafe labels, no wholesale Tableau import — still hold.
+
 - Do not require TabPy for the public app.
 - Do not ship formal p-values or forecasting in the first self-service release.
 - Do not label neighborhoods or places as safe/unsafe.

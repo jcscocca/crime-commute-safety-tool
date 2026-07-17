@@ -112,6 +112,45 @@ model as the Compare tab's per-address interval). The former top-level single-be
 slice 2; per-baseline statistics live in baselines[]. Also new: `GET /dashboard/mcpp` —
 slimmed MCPP polygon GeoJSON, session-gated, gzip-negotiated (sibling of `GET /dashboard/beats`).
 
+**Decision vocabularies.** The two surfaces use distinct decision-class enumerations; the
+methodology record is [`docs/analysis/pairwise-comparison-engine.md`](../analysis/pairwise-comparison-engine.md).
+
+`/dashboard/compare` — `decision_class` (per pairwise result and the overall verdict), from
+`app/analysis/schemas.py::DecisionClass`:
+
+| Value | Meaning |
+|---|---|
+| `statistically_lower` | The candidate's rate is below the comparator: BH-adjusted p < 0.05 **and** the effect-size floor holds (rate ratio ≤ 0.80). |
+| `not_statistically_clear` | Tested, but no clear lower-rate verdict (p ≥ 0.05 or the effect is below the floor). |
+| `insufficient_data` | Minimum-data floor not met (see `minimum_data_status`); no test decided. |
+| `model_warning` | Data/geometry limitation (e.g. too few period bins to estimate overdispersion); needs analytical review, no directional claim. |
+
+`/dashboard/neighborhood` — per-baseline `relation` (the `neighborhood_decision` outputs
+mapped to plot words in `app/services/neighborhood_service.py`):
+
+| Value | Meaning |
+|---|---|
+| `below` | Place rate statistically below the baseline (p < 0.05, rate ratio ≤ 0.80). |
+| `above` | Place rate statistically above the baseline (p < 0.05, rate ratio ≥ 1.25). |
+| `similar` | Tested, neither direction is statistically clear. |
+| `insufficient` | Minimum-data floor unmet, **or** overdispersion could not be estimated (`model_warning` reads as `insufficient` — the UI must not claim a direction the model can't support). |
+
+`minimum_data_status` (both surfaces; gates whether a comparison is `met` before any
+directional class is assigned):
+
+| Value | Meaning |
+|---|---|
+| `met` | All floors satisfied; the test is decisional. |
+| `date_range_too_short` | Analysis window < 30 days (`MIN_ANALYSIS_DAYS`). |
+| `non_positive_exposure` | An option/place has zero or negative exposure; not tested. |
+| `option_count_too_low` / `place_count_too_low` | Candidate/place count < 3 (`MIN_PLACE_COUNT`); compare uses `option_`, neighborhood uses `place_`. |
+| `combined_count_too_low` | Candidate + comparator count < 10 (`MIN_COMBINED_COUNT`). |
+
+The neighborhood surface additionally emits place-level `decision` sentinels outside the
+`minimum_data_status` set — `baseline_unavailable` (no beat/area could be resolved for the
+place) and `baseline_too_small` (the rest-of-area baseline is empty or has non-positive
+area) — both surfaced as `baseline_available: false`.
+
 ### Internal tier
 
 Endpoints have `include_in_schema=False` and are absent from `/openapi.json`. All use

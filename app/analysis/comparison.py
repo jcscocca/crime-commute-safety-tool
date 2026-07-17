@@ -46,8 +46,7 @@ def build_statistical_comparison(
     # here because the *decision* is conservative: _overall_decision requires the candidate to
     # be statistically lower than EVERY alternative, and the effect-size floor (rate_ratio
     # <= 0.80) plus the data floors must also hold — so selection alone cannot manufacture a
-    # winner. (Methodology writeup formerly at docs/analysis/statistical-route-place-comparison.md,
-    # removed with the routes feature 2026-07 — see git history.)
+    # winner. (Methodology writeup: docs/analysis/pairwise-comparison-engine.md.)
     candidate = min(options, key=lambda option: option.incident_rate)
     raw_pairwise: list[PairwiseComparisonResult] = []
     p_values: list[float] = []

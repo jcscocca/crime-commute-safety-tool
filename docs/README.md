@@ -18,7 +18,11 @@ update its doc in the same PR.
 
 - **`analysis/`** — durable methodology references for the statistical choices:
   [overdispersion & the per-address rate interval](analysis/overdispersion-and-rate-intervals.md),
-  [anchored indexing for the trend overlay](analysis/trend-indexing-method.md).
+  [anchored indexing for the trend overlay](analysis/trend-indexing-method.md),
+  [the pairwise/verdict comparison engine](analysis/pairwise-comparison-engine.md),
+  [the exposure (denominator) model](analysis/exposure-model.md), and the
+  [statistical-methods audit (2026-07)](analysis/statistical-methods-audit-2026-07.md)
+  that motivated the last two.
 - **`superpowers/specs/` and `superpowers/plans/`** — point-in-time design specs and
   implementation plans, one pair per feature. A historical record of *how* things were built;
   not a description of current state.
