@@ -170,6 +170,58 @@ flooring only ever widens an interval, never mislabels one. The floor is applied
 the pairwise (`compare_incident_rates`) and single-rate (`rate_confidence_interval`) paths, so
 the per-address interval stays consistent with the pairwise verdict.
 
+### 5.1 φ-estimation noise and the t correction (2026-07-17)
+
+The Wald forms above use φ as if it were **known**. It is not — φ is estimated from a handful
+of monthly bins (typically *n* = 12), and that estimate is noisy. A seeded Monte-Carlo
+calibration (`tests/test_rate_calibration.py`) confirmed the consequence: with φ **estimated**
+from a 12-month split and the normal quantile *z*, the single-rate 95% interval **under-covers**
+— down to ~0.83 at true φ = 7, μ ∈ {10, 15} (and ~0.90 at φ = 3). With the *true* φ the same
+Wald interval covers ~0.95, so the interval form is fine; the miss is entirely φ̂ noise. When φ̂
+lands low, the interval is too narrow.
+
+**Fix — the standard quasi-likelihood convention:** when φ is estimated from *n* period bins,
+reference the Wald statistic to **Student-t on ν = n − 1 degrees of freedom** instead of the
+normal (Wedderburn 1974; McCullagh & Nelder 1989, §4.5). Both the CI half-width and the decision
+p-value use the *same* statistic and the *same* t distribution, so the exact duality
+"p < 0.05 ⇔ the 95% CI excludes 1" is preserved:
+
+```
+ν        = n_periods − 1                       # n_periods = bins φ̂ was estimated from
+CI       = exp( log(safe_k / E) ± t_{ν,0.975} · se(log) )   # single rate
+CI(RR)   = exp( log RR          ± t_{ν,0.975} · se(logRR) ) # pairwise
+p(RR)    = two-sided t_{ν} tail of |log RR| / se(logRR)
+```
+
+The engine threads `dispersion_periods` from the same `dispersion_status` call that produced φ̂
+(post-trim, so ν reflects the exact series length used for the estimate). **Fallbacks to z:**
+(a) φ was *assumed*, not estimated (`overdispersion_phi is None` — the plain-Poisson / too-few-bins
+case) — the normal quantile is kept, unchanged; (b) ν ≥ 200, where t and z coincide numerically.
+The φ ≥ 1 floor and continuity conventions are unchanged. The pure-stdlib t (regularized
+incomplete beta via a Lentz continued fraction → CDF; quantile by bisection) lives in
+`rate_tests.py`.
+
+**Measured before → after** (single-rate coverage, estimated φ, t_{11}):
+
+| true φ | μ = 5 | μ = 10 | μ = 15 |
+|---|---|---|---|
+| 3 (before z) | 0.966 | 0.910 | 0.902 |
+| 3 (after t)  | **0.978** | **0.944** | **0.931** |
+| 7 (before z) | 0.966 | 0.827 | 0.846 |
+| 7 (after t)  | **0.978** | **0.891** | **0.886** |
+
+The correction lifts every cell and makes the two-sample test uniformly more conservative
+(type-I ≤ nominal everywhere). It does **not** fully close the gap at heavy overdispersion with
+small monthly counts: at φ = 7, μ ∈ {10, 15} coverage remains ~0.89, short of the 0.92 target,
+because a *fixed*-ν widening cannot absorb a φ̂ that is itself off by 2–3× on 12 tiny bins, and
+the small annual counts also strain the log-normal Wald approximation. This is an accepted,
+pinned residual (not a regression); a count-adaptive or regularized-φ interval would be the next
+step if per-address low-count calibration becomes a priority. Note the residual cell sits outside
+the empirically observed regime for this surface: the per-address interval lives at the
+reporting-area scale, where measured dispersion is mild (φ̂ ≈ 1.5, §4) and coverage is ≥ 0.93;
+φ ≈ 7 was only observed at beat scale, which feeds the pairwise verdict path — where the t
+correction leaves type-I error uniformly below nominal.
+
 ## 6. Product invariant
 
 The interval describes the **reported-incident rate** and its statistical uncertainty. It does
@@ -184,3 +236,7 @@ error attached to each address's rate.
 - Osgood, D. W. (2000). *Poisson-based regression analysis of aggregate crime rates.* Journal of
   Quantitative Criminology 16(1), 21–43.
 - Garwood, F. (1936). *Fiducial limits for the Poisson distribution.* Biometrika 28, 437–442.
+- Wedderburn, R. W. M. (1974). *Quasi-likelihood functions, generalized linear models, and the
+  Gauss–Newton method.* Biometrika 61(3), 439–447. (Estimated dispersion ⇒ t reference.)
+- McCullagh, P., & Nelder, J. A. (1989). *Generalized Linear Models* (2nd ed.), §4.5. Chapman &
+  Hall. (Quasi-likelihood inference with an estimated φ uses the t distribution.)

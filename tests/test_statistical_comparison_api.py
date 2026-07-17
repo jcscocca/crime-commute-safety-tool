@@ -11,37 +11,33 @@ def test_site_comparison_api_returns_overview_and_analytical_payload(tmp_path):
     app = create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
     client = TestClient(app)
     session = get_sessionmaker()()
+    # Spread both sites over six full monthly bins (Site A [2,2,1,1,1,1]=8, Site B
+    # [5,5,5,5,4,4]=28) so the phi-noise t correction uses nu=5, not the near-degenerate nu=1 a
+    # two-month range would give; the 8-vs-28 contrast still reads statistically lower under the
+    # wider t_0.975 quantile.
+    a_months = [1, 1, 2, 2, 3, 4, 5, 6]
+    b_months = [m for m, n in zip(range(1, 7), (5, 5, 5, 5, 4, 4), strict=True) for _ in range(n)]
+
+    def _incidents(prefix, months, latitude, longitude):
+        day_by_month: dict[int, int] = {}
+        rows = []
+        for index, month in enumerate(months):
+            day = day_by_month.get(month, 0) + 1
+            day_by_month[month] = day
+            rows.append(
+                CrimeIncident(
+                    id=f"{prefix}-{index}",
+                    offense_start_utc=datetime(2024, month, day, tzinfo=UTC),
+                    offense_category="PROPERTY",
+                    latitude=latitude,
+                    longitude=longitude,
+                )
+            )
+        return rows
+
     session.add_all(
-        [
-            CrimeIncident(
-                id=f"a-{index}",
-                offense_start_utc=datetime(
-                    2024,
-                    1 + (index // 4),
-                    10 + (index % 4),
-                    tzinfo=UTC,
-                ),
-                offense_category="PROPERTY",
-                latitude=47.6116,
-                longitude=-122.3372,
-            )
-            for index in range(8)
-        ]
-        + [
-            CrimeIncident(
-                id=f"b-{index}",
-                offense_start_utc=datetime(
-                    2024,
-                    1 + (index // 14),
-                    1 + (index % 14),
-                    tzinfo=UTC,
-                ),
-                offense_category="PROPERTY",
-                latitude=47.6205,
-                longitude=-122.3493,
-            )
-            for index in range(28)
-        ],
+        _incidents("a", a_months, 47.6116, -122.3372)
+        + _incidents("b", b_months, 47.6205, -122.3493)
     )
     session.commit()
     session.close()
@@ -50,7 +46,7 @@ def test_site_comparison_api_returns_overview_and_analytical_payload(tmp_path):
         "/internal/analysis/sites/compare",
         json={
             "analysis_start_date": "2024-01-01",
-            "analysis_end_date": "2024-02-29",
+            "analysis_end_date": "2024-06-30",
             "offense_category": "PROPERTY",
             "options": [
                 {

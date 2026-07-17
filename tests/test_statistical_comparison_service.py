@@ -43,15 +43,18 @@ def test_build_statistical_comparison_recommends_candidate_only_when_all_pairs_p
                 option_label="Route B",
                 geometry_type=GeometryType.PLACE_BUFFER,
                 radius_m=500,
-                incident_count=28,
+                incident_count=48,
                 exposure=30.0,
                 exposure_unit="square_km_days",
-                incident_rate=28 / 30.0,
+                incident_rate=48 / 30.0,
             ),
         ],
+        # Only 4 monthly bins -> the phi-noise t correction uses nu=3, whose 0.975 quantile
+        # (3.18) is far wider than z; the winner's margin must clear that, so this fixture is
+        # deliberately decisive (8 vs 48) rather than borderline.
         period_counts_by_option_id={
             "a": [2, 2, 2, 2],
-            "b": [7, 7, 7, 7],
+            "b": [12, 12, 12, 12],
         },
     )
 
@@ -305,10 +308,10 @@ def test_build_statistical_comparison_requires_candidate_to_pass_all_pairwise_te
                 option_label="Route B",
                 geometry_type=GeometryType.PLACE_BUFFER,
                 radius_m=500,
-                incident_count=28,
+                incident_count=48,
                 exposure=30.0,
                 exposure_unit="square_km_days",
-                incident_rate=28 / 30.0,
+                incident_rate=48 / 30.0,
             ),
             AnalysisOptionResult(
                 option_id="c",
@@ -321,9 +324,11 @@ def test_build_statistical_comparison_requires_candidate_to_pass_all_pairwise_te
                 incident_rate=10 / 30.0,
             ),
         ],
+        # a beats b decisively (8 vs 48; survives the nu=3 t correction and BH doubling) but not
+        # c (rate ratio 0.8, above the effect floor) -> candidate a fails to pass ALL pairs.
         period_counts_by_option_id={
             "a": [2, 2, 2, 2],
-            "b": [7, 7, 7, 7],
+            "b": [12, 12, 12, 12],
             "c": [3, 3, 2, 2],
         },
     )
@@ -450,37 +455,33 @@ def test_build_statistical_comparison_handles_non_positive_exposure_without_rais
 def test_compare_site_options_counts_incidents_persists_and_returns_payload(tmp_path):
     create_app(database_url=f"sqlite+pysqlite:///{tmp_path / 'mca.sqlite3'}")
     session = get_sessionmaker()()
+    # Spread both sites across six full monthly bins so the phi-noise t correction uses nu=5
+    # (t_0.975 = 2.57), not the near-degenerate nu=1 a two-month range would give. Site A has 8
+    # incidents ([2,2,1,1,1,1] by month) and Site B has 28 ([5,5,5,5,4,4]); the 8-vs-28 contrast
+    # then still reads statistically lower under the wider quantile.
+    a_months = [1, 1, 2, 2, 3, 4, 5, 6]
+    b_months = [m for m, n in zip(range(1, 7), (5, 5, 5, 5, 4, 4), strict=True) for _ in range(n)]
+
+    def _incidents(prefix: str, months: list[int], latitude: float, longitude: float):
+        day_by_month: dict[int, int] = {}
+        rows = []
+        for index, month in enumerate(months):
+            day = day_by_month.get(month, 0) + 1
+            day_by_month[month] = day
+            rows.append(
+                CrimeIncident(
+                    id=f"{prefix}-{index}",
+                    offense_start_utc=datetime(2024, month, day, tzinfo=UTC),
+                    offense_category="PROPERTY",
+                    latitude=latitude,
+                    longitude=longitude,
+                )
+            )
+        return rows
+
     session.add_all(
-        [
-            CrimeIncident(
-                id=f"a-{index}",
-                offense_start_utc=datetime(
-                    2024,
-                    1 + (index // 4),
-                    10 + (index % 4),
-                    tzinfo=UTC,
-                ),
-                offense_category="PROPERTY",
-                latitude=47.6116,
-                longitude=-122.3372,
-            )
-            for index in range(8)
-        ]
-        + [
-            CrimeIncident(
-                id=f"b-{index}",
-                offense_start_utc=datetime(
-                    2024,
-                    1 + (index // 14),
-                    1 + (index % 14),
-                    tzinfo=UTC,
-                ),
-                offense_category="PROPERTY",
-                latitude=47.6205,
-                longitude=-122.3493,
-            )
-            for index in range(28)
-        ],
+        _incidents("a", a_months, 47.6116, -122.3372)
+        + _incidents("b", b_months, 47.6205, -122.3493)
     )
     session.commit()
 
@@ -504,7 +505,7 @@ def test_compare_site_options_counts_incidents_persists_and_returns_payload(tmp_
             },
         ],
         analysis_start_date=date(2024, 1, 1),
-        analysis_end_date=date(2024, 2, 29),
+        analysis_end_date=date(2024, 6, 30),
         offense_category="PROPERTY",
         offense_subcategory=None,
         nibrs_group=None,

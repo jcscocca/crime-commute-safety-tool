@@ -24,6 +24,7 @@ class DecisionClass(StrEnum):
 class DispersionResult:
     phi: float | None
     status: str
+    n_periods: int | None = None
 
 
 @dataclass(frozen=True)

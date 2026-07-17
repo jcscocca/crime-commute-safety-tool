@@ -235,9 +235,13 @@ def test_pairwise_decides_on_combined_overdispersion_phi():
     assert len(pairs) == 1
     pair = pairs[0]
     exposure = _place_exposure_km2_days(250, days)
-    phi = dispersion_status([24, 0, 0, 0]).phi  # each place [12,0,0,0]; combined = 24 in Jan
+    combined_dispersion = dispersion_status([24, 0, 0, 0])  # each place [12,0,0,0]; 24 in Jan
     expected = compare_incident_rates(
-        count_a=12, exposure_a=exposure, count_b=12, exposure_b=exposure, overdispersion_phi=phi
+        count_a=12, exposure_a=exposure, count_b=12, exposure_b=exposure,
+        overdispersion_phi=combined_dispersion.phi,
+        # Production threads the bin count so the phi-noise t correction (nu = n-1) applies;
+        # the recompute must mirror it or the CI endpoints won't match.
+        dispersion_periods=combined_dispersion.n_periods,
     )
     poisson = compare_incident_rates(
         count_a=12, exposure_a=exposure, count_b=12, exposure_b=exposure

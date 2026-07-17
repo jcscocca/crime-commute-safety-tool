@@ -4,13 +4,123 @@ import pytest
 
 from app.analysis.rate_tests import (
     ALPHA,
+    Z_975,
     DecisionClass,
+    _student_t_cdf,
+    _student_t_quantile_975,
+    _student_t_two_sided_p,
     benjamini_hochberg,
     classify_pairwise_result,
     compare_incident_rates,
     dispersion_status,
     rate_confidence_interval,
 )
+
+# ======================================================================================
+# Student-t machinery (pure-stdlib incomplete beta -> t CDF/quantile) for the
+# quasi-likelihood phi-noise correction. References are R's qt()/pt() (= scipy.stats.t),
+# cross-checked independently: the two-sided tail below was reproduced to ~2e-13 by direct
+# Simpson integration of the t density, and every quantile is a mutual inverse of the CDF.
+# ======================================================================================
+
+
+@pytest.mark.parametrize(
+    ("df", "expected"),
+    [
+        (5, 2.5705818366),
+        (11, 2.2009851601),
+        (30, 2.0422724563),
+    ],
+)
+def test_student_t_0975_quantile_matches_known_values(df, expected):
+    # Achieved accuracy is ~1e-9 (dominated by the incomplete-beta evaluation, not the
+    # bisection); assert to 1e-8, comfortably inside that.
+    assert abs(_student_t_quantile_975(df) - expected) < 1e-8
+
+
+def test_student_t_two_sided_tail_at_two_df_eleven():
+    # P(|T_11| > 2.0). R: 2*pt(2, 11, lower.tail=FALSE) = 0.07080395506783...; scipy
+    # stats.t.sf(2,11)*2 agrees. Reproduced here to ~2e-13 by Simpson integration of the
+    # t density (see slice report). Pin to 1e-9.
+    assert abs(_student_t_two_sided_p(2.0, 11) - 0.0708039550678) < 1e-9
+    # t = 0 is the whole mass on both sides.
+    assert _student_t_two_sided_p(0.0, 11) == 1.0
+
+
+@pytest.mark.parametrize("df", [1, 5, 11, 30, 150])
+def test_student_t_quantile_and_cdf_are_mutual_inverses(df):
+    quantile = _student_t_quantile_975(df)
+    assert abs(_student_t_cdf(quantile, df) - 0.975) < 1e-9
+    # Heavier tails than the normal: the t quantile always sits at or beyond z_0.975.
+    assert quantile >= Z_975
+
+
+# ======================================================================================
+# dispersion_periods -> Student-t widening in the rate machinery.
+# ======================================================================================
+
+
+def test_estimated_phi_with_periods_widens_via_t_and_preserves_duality():
+    # Same inputs, once with the normal reference (no period count) and once with the t
+    # reference (phi estimated from 6 bins -> nu = 5). The t interval must be strictly wider
+    # and its p-value strictly larger, and "p < ALPHA" must stay dual to "CI excludes 1".
+    normal = compare_incident_rates(
+        count_a=8, exposure_a=30.0, count_b=28, exposure_b=30.0, overdispersion_phi=2.0
+    )
+    t_ref = compare_incident_rates(
+        count_a=8, exposure_a=30.0, count_b=28, exposure_b=30.0,
+        overdispersion_phi=2.0, dispersion_periods=6,
+    )
+    assert t_ref.ci_lower < normal.ci_lower
+    assert t_ref.ci_upper > normal.ci_upper
+    assert t_ref.p_value > normal.p_value
+    for result in (normal, t_ref):
+        excludes_one = result.ci_lower > 1.0 or result.ci_upper < 1.0
+        assert (result.p_value < ALPHA) == excludes_one
+
+
+def test_dispersion_periods_is_ignored_when_phi_is_assumed():
+    # phi is None (plain Poisson assumption, not estimated) -> the period count must not
+    # trigger the t correction; the z path is used exactly as before.
+    with_periods = compare_incident_rates(
+        count_a=8, exposure_a=30.0, count_b=28, exposure_b=30.0, dispersion_periods=6
+    )
+    without = compare_incident_rates(
+        count_a=8, exposure_a=30.0, count_b=28, exposure_b=30.0
+    )
+    assert with_periods.ci_lower == without.ci_lower
+    assert with_periods.ci_upper == without.ci_upper
+    assert with_periods.p_value == without.p_value
+
+
+def test_large_df_falls_back_to_normal_quantile():
+    # At nu >= 200 the t and normal quantiles coincide numerically, so the engine uses z to
+    # avoid the beta/bisection work: a huge period count reproduces the phi=None numbers.
+    t_ref = compare_incident_rates(
+        count_a=8, exposure_a=30.0, count_b=28, exposure_b=30.0,
+        overdispersion_phi=2.0, dispersion_periods=1000,
+    )
+    normal = compare_incident_rates(
+        count_a=8, exposure_a=30.0, count_b=28, exposure_b=30.0, overdispersion_phi=2.0
+    )
+    assert t_ref.ci_lower == normal.ci_lower
+    assert t_ref.ci_upper == normal.ci_upper
+    assert t_ref.p_value == normal.p_value
+
+
+def test_rate_confidence_interval_widens_with_estimated_phi_periods():
+    normal = rate_confidence_interval(count=10, exposure=100.0, overdispersion_phi=2.0)
+    t_ref = rate_confidence_interval(
+        count=10, exposure=100.0, overdispersion_phi=2.0, dispersion_periods=4
+    )
+    assert t_ref.ci_lower < normal.ci_lower
+    assert t_ref.ci_upper > normal.ci_upper
+
+
+def test_dispersion_status_reports_bin_count():
+    assert dispersion_status([1, 2, 3, 4]).n_periods == 4
+    assert dispersion_status([5]).n_periods == 1  # insufficient, but the true length
+    assert dispersion_status([0, 0, 0]).n_periods == 3  # all-zero mean, still reports bins
 
 
 def test_ci_and_p_value_are_dual_in_non_overdispersed_branch():

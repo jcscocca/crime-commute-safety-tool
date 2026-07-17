@@ -78,9 +78,20 @@ rate_a, rate_b  = kₐ/Eₐ , k_b/E_b
 rate_ratio      = (safe_kₐ/Eₐ) / (safe_k_b/E_b)
 se(log RR)      = sqrt( φ · (1/safe_kₐ + 1/safe_k_b) )        # Poisson delta method, φ-scaled
 z               = |log(rate_ratio)| / se
-p_value         = erfc( z / √2 )                              # two-sided normal tail
-CI (95%)        = exp( log(rate_ratio) ± 1.959963984540054 · se )
+ν               = n_periods − 1        # bins φ was estimated from; else use the normal
+p_value         = two-sided t_{ν} tail of z          # erfc(z/√2) when φ is assumed (see below)
+CI (95%)        = exp( log(rate_ratio) ± q · se ),   q = t_{ν,0.975}  (else 1.959963984540054)
 ```
+
+- **φ-estimation noise ⇒ Student-t.** φ is *estimated* from `n_periods` monthly bins, so both
+  the p-value and the CI reference **Student-t on ν = n_periods − 1 df** (quasi-likelihood
+  convention; Wedderburn 1974). The engine threads `dispersion_periods` from the same
+  `dispersion_status` result that produced φ, so ν matches the exact (post-trim) series φ came
+  from. **Fallback to the normal quantile** (`erfc`, `Z_975`) in two cases: (a) φ was *assumed*,
+  not estimated (`overdispersion_phi is None` — plain Poisson / too few bins); (b) ν ≥ 200,
+  where t and z coincide. The *same* ν and *same* distribution feed the p-value and the CI, so
+  duality is exact. Rationale and before/after coverage: [overdispersion-and-rate-intervals.md
+  §5.1](overdispersion-and-rate-intervals.md).
 
 - **Continuity correction.** When either count is zero, both counts are bumped by 0.5
   (`safe_k = k + 0.5`) so the log ratio and SE stay finite; `used_continuity_correction` and a
@@ -183,7 +194,8 @@ From `app/analysis/rate_tests.py` (and `HIGH_RATE_RATIO` derived in
 | `MIN_COMBINED_COUNT` | **10** | Candidate + comparator counts must sum to ≥ 10. |
 | `MIN_PLACE_COUNT` | **3** | The candidate/place (the only option that can win) must have ≥ 3 incidents on its own. |
 | `MIN_ANALYSIS_DAYS` | **30** | Analysis window must span ≥ 30 days. |
-| `Z_975` | 1.959963984540054 | 97.5th normal quantile for the 95% CI. |
+| `Z_975` | 1.959963984540054 | 97.5th normal quantile; the 95% CI multiplier when φ is *assumed* (φ=None) or ν ≥ 200. When φ is estimated the multiplier is `t_{ν,0.975}` (§2). |
+| `MAX_T_DF` | **200** | At ν ≥ this the t and normal 0.975 quantiles coincide numerically, so the z path is used. |
 
 **Why an effect-size floor at all.** With enough exposure a statistically significant but
 trivially small rate difference (say a 3% lower rate) would clear a bare p < α test. The floor

@@ -121,6 +121,13 @@ Ratcliffe & McCullagh (1998), Spiegelhalter et al. (2005, 2017).
    the exact p-value's own numeric correctness is untested (only its presence/absence is
    asserted). A small Monte-Carlo coverage test at k ∈ {3..15} would either validate the
    floors or motivate raising them / switching the low-count branch to mid-p.
+   **Resolved 2026-07-17:** `tests/test_rate_calibration.py` now pins both the exact p-value
+   and seeded coverage/type-I at the floors. The simulation found the estimated-φ single-rate
+   interval under-covers (φ̂ noise, not the Wald form); fixed with the quasi-likelihood
+   Student-t correction (ν = n_periods − 1) — see
+   [overdispersion-and-rate-intervals.md §5.1](overdispersion-and-rate-intervals.md). One
+   residual remains pinned: heavy overdispersion with small monthly counts (φ = 7, μ ∈ {10, 15})
+   still covers ~0.89.
 2. **No aoristic handling of interval-censored offense times.** Burglary/vehicle-theft-style
    offenses have a start/end window, not a moment; assigning `offense_start_utc` alone
    biases the hour-of-day/day-of-week profile toward window-opening times (Ratcliffe &

@@ -82,6 +82,7 @@ def build_statistical_comparison(
             count_b=other.incident_count,
             exposure_b=other.exposure,
             overdispersion_phi=dispersion.phi,
+            dispersion_periods=dispersion.n_periods,
         )
         pairwise = PairwiseComparisonResult(
             option_a_id=candidate.option_id,
@@ -193,6 +194,7 @@ def _option_with_rate_interval(
         count=option.incident_count,
         exposure=option.exposure,
         overdispersion_phi=dispersion.phi,
+        dispersion_periods=dispersion.n_periods,
     )
     return option.model_copy(
         update={

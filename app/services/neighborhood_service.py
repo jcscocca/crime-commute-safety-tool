@@ -460,6 +460,7 @@ def _baselines_for_place(
             count_b=baseline_count,
             exposure_b=max(exposure, 1e-9),
             overdispersion_phi=dispersion.phi,
+            dispersion_periods=dispersion.n_periods,
         )
         p_values.append(test.p_value)
         prepared.append((cand, baseline_count, combined_monthly, exposure))
@@ -511,7 +512,8 @@ def _place_rate_fields(
     )
     dispersion = dispersion_status(monthly)
     interval = rate_confidence_interval(
-        count=len(place_incidents), exposure=exposure, overdispersion_phi=dispersion.phi
+        count=len(place_incidents), exposure=exposure, overdispersion_phi=dispersion.phi,
+        dispersion_periods=dispersion.n_periods,
     )
     return {
         "place_rate": len(place_incidents) / exposure,
@@ -646,6 +648,7 @@ def neighborhood_analysis_for_places(
             count_b=len(rest_incidents),
             exposure_b=max(beat_exposure, 1e-9),
             overdispersion_phi=dispersion.phi,
+            dispersion_periods=dispersion.n_periods,
         )
         p_values.append(place_test.p_value)
         raw.append(
@@ -847,6 +850,7 @@ def _pairwise(clusters, buffered, radius_m, days, start, end):
                 count_b=counts[b.id],
                 exposure_b=max(exposure, 1e-9),
                 overdispersion_phi=dispersion.phi,
+                dispersion_periods=dispersion.n_periods,
             )
             p_values.append(test.p_value)
             pairs.append(

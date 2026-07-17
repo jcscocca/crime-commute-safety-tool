@@ -12,10 +12,11 @@ Two deliverables, both pure stdlib + pytest (numpy is NOT in the venv):
      regression pins are one-sided bounds in the *protective* direction
      (coverage floors, type-I ceilings) set at roughly measured -/+ 2*MC-SE.
 
-This file MEASURES the machinery; it deliberately does NOT change rate_tests.py.
-The full measured table and the seed live in the comment block above the MC
-section. See the final report for the flagged under-coverage of the
-ESTIMATED-phi ("practice") arm.
+This file MEASURES the machinery. As of 2026-07-17 the estimated-phi paths carry the
+quasi-likelihood Student-t correction (nu = n_periods - 1; Wedderburn 1974, McCullagh &
+Nelder 1989), so the "practice" arm below is invoked exactly as production invokes it
+(dispersion_periods threaded from the same monthly series phi is estimated from). The full
+BEFORE/AFTER measured table and the seed live in the comment block above the MC section.
 """
 
 from __future__ import annotations
@@ -133,24 +134,42 @@ def test_exact_p_clamps_to_one_at_the_mode():
 #
 # MEASURED TABLE (this file, seeds as coded):
 #
-#   Single-rate 95% interval, Poisson (phi=None), reps=20000, seed=12345:
-#       mu= 3 -> 0.9677    mu= 5 -> 0.9663    mu=10 -> 0.9629    mu=15 -> 0.9486
-#   Single-rate 95% interval, NB1 overdispersed, TRUE phi passed, reps=20000, seed=4242:
-#       phi=3: mu=3 0.9588  mu=5 0.9510  mu=10 0.9515  mu=15 0.9598
-#       phi=7: mu=3 0.9529  mu=5 0.9554  mu=10 0.9574  mu=15 0.9519
+# --- BEFORE the t correction (phi estimated, but z quantile used everywhere) ------------
 #   Single-rate 95% interval, ESTIMATED phi from a 12-month split, reps=10000, seed=2024:
 #       phi=3: mu=5 0.9661  mu=10 0.9097  mu=15 0.9016     <-- degrades
 #       phi=7: mu=5 0.9662  mu=10 0.8269  mu=15 0.8459     <-- MATERIALLY UNDER 0.90
-#   Two-sample type-I ("p<0.05"), null equal rates, reps=20000, seed=77:
-#       phi=1: mu=5 ungated 0.0204 gated 0.0095 | mu=10 0.0412/0.0383 | mu=20 0.0435/0.0435
-#       phi=3: mu=5 ungated 0.0008 gated 0.0016 | mu=10 0.0091/0.0089 | mu=20 0.0270/0.0268
-#   Two-sample power ("p<0.05"), alt RR=0.5, reps=20000, seed=55:
-#       mu_a/mu_b = 5/10 ungated 0.2087 gated 0.1565 | 10/20 0.4309/0.4296 | 20/40 0.7369/0.7369
+#   Two-sample type-I, phi=3 (TRUE phi, z), reps=20000, seed=77:
+#       mu=5 0.0008/0.0016 | mu=10 0.0091/0.0089 | mu=20 0.0270/0.0268   (ungated/gated)
 #
-# The engine is CONSERVATIVE on two-sample type-I in every cell (never above nominal 0.05)
-# and well-calibrated on the single-rate interval when phi is Poisson or the TRUE phi is
-# known. The ESTIMATED-phi arm under-covers (down to ~0.83) because a 12-bin dispersion
-# estimate is noisy and, after the phi>=1 floor, biases the interval too narrow. See report.
+# --- AFTER the t correction (2026-07-17; estimated-phi paths use t_{nu}, nu=n_periods-1) -
+#   Single-rate 95% interval, Poisson (phi=None -> z, UNCHANGED), reps=20000, seed=12345:
+#       mu= 3 -> 0.9677    mu= 5 -> 0.9663    mu=10 -> 0.9629    mu=15 -> 0.9486
+#   Single-rate 95% interval, NB1 TRUE phi (invoked WITHOUT periods -> z, UNCHANGED),
+#       reps=20000, seed=4242:   (this is the method ceiling when phi is known exactly)
+#       phi=3: mu=3 0.9588  mu=5 0.9510  mu=10 0.9515  mu=15 0.9598
+#       phi=7: mu=3 0.9529  mu=5 0.9554  mu=10 0.9574  mu=15 0.9519
+#   Single-rate 95% interval, ESTIMATED phi from a 12-month split, periods=12 -> t_{11},
+#       reps=10000, seed=2024   (the 'practice' arm, invoked exactly as production):
+#       phi=3: mu=5 0.9776  mu=10 0.9441  mu=15 0.9313
+#       phi=7: mu=5 0.9777  mu=10 0.8907  mu=15 0.8864     <-- STILL UNDER 0.92
+#   Two-sample type-I ("p<0.05"), null equal rates, reps=20000, seed=77:
+#       phi=1 (None -> z, UNCHANGED):
+#           mu=5 0.0204/0.0095 | mu=10 0.0412/0.0383 | mu=20 0.0435/0.0435
+#       phi=3 (true phi + periods=12 -> t_{11}, MORE CONSERVATIVE than the z 'before'):
+#           mu=5 0.0001/0.0003 | mu=10 0.0019/0.0020 | mu=20 0.0104/0.0105
+#   Two-sample power ("p<0.05"), alt RR=0.5, phi=1 -> z, reps=20000, seed=55 (UNCHANGED):
+#       mu_a/mu_b = 5/10 0.2087/0.1565 | 10/20 0.4309/0.4296 | 20/40 0.7369/0.7369
+#
+# The t_{nu} correction lifts the estimated-phi single-rate coverage from ~0.83-0.91 to
+# ~0.89-0.98, and makes the two-sample test uniformly more conservative (type-I <= nominal
+# everywhere). It does NOT fully close the gap at HEAVY overdispersion with small monthly
+# counts: phi=7, mu in {10,15} stay at ~0.89 (STILL BELOW the 0.92 acceptance target). At
+# those cells the 12-bin phi-hat is so noisy that a fixed-df widening cannot absorb it, and
+# the small annual counts also strain the log-normal Wald approximation. This is a documented
+# residual, not a regression -- see docs/analysis/overdispersion-and-rate-intervals.md sec 5.
+# The two-sample arm passes the TRUE phi with periods=12 so the exact t_{11} quantile applies
+# as in production; production additionally estimates phi (adding noise), making it even more
+# conservative under the null than the numbers above.
 # ======================================================================================
 
 _UNIT_EXPOSURE = 1.0  # coverage of the rate is exposure-invariant, so fix E=1 (rate == mean)
@@ -212,28 +231,44 @@ def _single_rate_coverage_estimated_phi(
 
     Each replicate draws 12 monthly NB1 counts (per-month mean mu/12, same true phi),
     sums them for the annual count, and estimates phi via dispersion_status (the same
-    Pearson variance/mean the engine uses). That estimate is fed back as overdispersion_phi.
+    Pearson variance/mean the engine uses). Both phi_hat AND the bin count are threaded into
+    rate_confidence_interval exactly as production does (comparison.py / neighborhood_service),
+    so the interval carries the t_{n_periods-1} phi-noise correction (here nu = 11).
     """
     rng = random.Random(seed)
     covered = 0
     for _ in range(reps):
         months = [_nb1(rng, mu / 12.0, true_phi) for _ in range(12)]
         count = sum(months)
-        phi_hat = dispersion_status(months).phi
-        if _rate_interval_covers(count, mu, phi_hat):
+        dispersion = dispersion_status(months)
+        interval = rate_confidence_interval(
+            count=count,
+            exposure=_UNIT_EXPOSURE,
+            overdispersion_phi=dispersion.phi,
+            dispersion_periods=dispersion.n_periods,
+        )
+        if interval.ci_lower <= mu <= interval.ci_upper:
             covered += 1
     return covered / reps
 
 
 def _two_sample_rejection(
-    mu_a: float, mu_b: float, phi: float, reps: int, seed: int
+    mu_a: float, mu_b: float, phi: float, reps: int, seed: int, dispersion_periods: int = 12
 ) -> tuple[float, float, int]:
-    """Return (ungated_reject_rate, gated_reject_rate, gated_n) for 'p < 0.05'."""
+    """Return (ungated_reject_rate, gated_reject_rate, gated_n) for 'p < 0.05'.
+
+    When phi > 1 the true phi is passed together with dispersion_periods (default 12, one
+    year of monthly bins) so the engine applies the exact t_{periods-1} quantile production
+    uses; when phi == 1 the plain-Poisson (None) path is exercised -> z, as before. Passing
+    the TRUE phi isolates the t-widening; production additionally ESTIMATES phi from the bins,
+    which only adds noise and makes it strictly more conservative under the null.
+    """
     rng = random.Random(seed)
     reject_all = 0
     reject_gated = 0
     gated_n = 0
     overdispersion = None if phi == 1.0 else phi
+    periods = None if phi == 1.0 else dispersion_periods
     for _ in range(reps):
         if phi == 1.0:
             count_a, count_b = _poisson(rng, mu_a), _poisson(rng, mu_b)
@@ -245,6 +280,7 @@ def _two_sample_rejection(
             count_b=count_b,
             exposure_b=_UNIT_EXPOSURE,
             overdispersion_phi=overdispersion,
+            dispersion_periods=periods,
         )
         reject = result.p_value < 0.05
         reject_all += reject
@@ -288,30 +324,35 @@ def test_single_rate_nb1_true_phi_coverage_is_near_nominal():
 # --- 2c. Single-rate interval coverage, ESTIMATED phi (the 'practice' arm) -------------
 
 
-def test_single_rate_estimated_phi_coverage_degrades_and_is_pinned():
-    # KEY AUDIT FINDING: estimating phi from only 12 monthly bins under-covers materially,
-    # because the estimate is noisy and (after the phi>=1 floor) biases the interval narrow.
-    # We PIN WHAT IS TRUE (down to ~0.83), not a nominal target. See report for the flag.
-    # floors set at ~ measured - 2*MC-SE (reps=10000 -> 2*MC-SE ~= 0.007-0.009).
+def test_single_rate_estimated_phi_coverage_with_t_correction_is_pinned():
+    # The estimated-phi interval now carries the quasi-likelihood t_{11} correction (12 bins ->
+    # nu = 11), invoked exactly as production. That lifts coverage from the pre-fix ~0.83-0.91
+    # to the values below; we PIN WHAT IS TRUE. floors ~ measured - 2*MC-SE (reps=10000 ->
+    # 2*MC-SE ~= 0.006 near 0.89, ~0.003 near 0.98).
     floors = {
-        (3, 5): 0.958,
-        (3, 10): 0.902,
-        (3, 15): 0.891,
-        (7, 5): 0.958,
-        (7, 10): 0.818,  # materially below nominal
-        (7, 15): 0.836,  # materially below nominal
+        (3, 5): 0.974,
+        (3, 10): 0.939,
+        (3, 15): 0.926,
+        (7, 5): 0.974,
+        (7, 10): 0.884,  # heavy overdispersion + small counts: still short of the 0.92 target
+        (7, 15): 0.880,  # heavy overdispersion + small counts: still short of the 0.92 target
     }
-    worst = 1.0
-    for (phi, mu), floor in floors.items():
-        coverage = _single_rate_coverage_estimated_phi(
+    coverage = {
+        (phi, mu): _single_rate_coverage_estimated_phi(
             mu, reps=10000, seed=2024, true_phi=float(phi)
         )
-        worst = min(worst, coverage)
-        assert coverage >= floor, (
-            f"estimated-phi phi={phi} mu={mu} coverage {coverage:.4f} < {floor}"
-        )
-    # Regression guard on the documented under-coverage: the worst cell is well under 0.90.
-    assert worst < 0.90
+        for (phi, mu) in floors
+    }
+    for cell, floor in floors.items():
+        assert coverage[cell] >= floor, f"estimated-phi {cell} {coverage[cell]:.4f} < {floor}"
+    # ACCEPTANCE-GATE STATE (0.92 target). Four cells clear it; the two heavy-overdispersion
+    # cells (phi=7, mu in {10,15}) remain below -- a documented residual of a fixed-df widening
+    # against a very noisy 12-bin phi-hat. Pin that exact partition so it can't silently drift.
+    clears_gate = {cell for cell, c in coverage.items() if c >= 0.92}
+    assert clears_gate == {(3, 5), (3, 10), (3, 15), (7, 5)}
+    assert coverage[(7, 10)] < 0.92 and coverage[(7, 15)] < 0.92
+    # But the t correction is a real improvement over the z 'before' (0.8269 / 0.8459 there).
+    assert coverage[(7, 10)] > 0.87 and coverage[(7, 15)] > 0.87
 
 
 # --- 2d. Two-sample type-I under the null (must stay at or below nominal) --------------
@@ -321,14 +362,16 @@ def test_two_sample_type_i_is_conservative_under_null():
     # Equal true rates. In every cell the false-positive rate stays at or below nominal
     # 0.05 (ceiling pinned at ~ measured + 2*MC-SE, never exceeding ~0.05). Poisson tests
     # are mildly conservative at low counts; passing a true phi>1 is strongly conservative.
-    # ceilings keyed by (mu, phi) -> (ungated_ceiling, gated_ceiling)
+    # ceilings keyed by (mu, phi) -> (ungated_ceiling, gated_ceiling). The phi=1 cells use the
+    # plain-Poisson (None) path -> z, so they are UNCHANGED by the t correction; the phi=3 cells
+    # now apply t_{11} (periods=12) and are markedly MORE conservative than the z-'before'.
     ceilings = {
         (5, 1.0): (0.024, 0.013),
         (10, 1.0): (0.045, 0.042),
         (20, 1.0): (0.048, 0.048),
-        (5, 3.0): (0.002, 0.004),
-        (10, 3.0): (0.012, 0.012),
-        (20, 3.0): (0.031, 0.031),
+        (5, 3.0): (0.001, 0.001),
+        (10, 3.0): (0.004, 0.004),
+        (20, 3.0): (0.014, 0.014),
     }
     for (mu, phi), (ungated_ceiling, gated_ceiling) in ceilings.items():
         ungated, gated, gated_n = _two_sample_rejection(

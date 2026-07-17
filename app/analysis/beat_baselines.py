@@ -294,6 +294,7 @@ def place_vs_beat(
         count_b=beat_count,
         exposure_b=max(beat_exposure, 1e-9),
         overdispersion_phi=dispersion.phi,
+        dispersion_periods=dispersion.n_periods,
     )
     p_adjusted = test.p_value if adjusted_p_value is None else adjusted_p_value
     decision = neighborhood_decision(
