@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CompareTab } from "./CompareTab";
 import type { GeocodingProvider } from "../lib/geocoding";
-import type { AddressEntry } from "../lib/useCompareSet";
-import { keyOf } from "../lib/useCompareSet";
+import type { AddressEntry } from "../lib/useAddressList";
+import { keyOf } from "../lib/useAddressList";
 import type { AnalysisSettings, IncidentDetailsResponse, NeighborhoodAnalysis, NeighborhoodPlace, SiteComparison, SiteComparisonOption, SitePairwiseResult, SiteDecisionClass } from "../types";
 
 const provider: GeocodingProvider = { search: vi.fn().mockResolvedValue([]) };

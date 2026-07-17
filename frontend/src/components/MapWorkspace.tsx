@@ -10,7 +10,7 @@ import { placeIdentity, type PlaceIdentity } from "../lib/placeIdentity";
 import { decodeView, encodeView } from "../lib/savedView";
 import { useIncidentPoints } from "../lib/useIncidentPoints";
 import { useCompare } from "../lib/useCompare";
-import { entriesFromPlaces, keyOf, useAddressList, type AddressEntry } from "../lib/useCompareSet";
+import { entriesFromPlaces, keyOf, useAddressList, type AddressEntry } from "../lib/useAddressList";
 import { useDashboardData } from "../lib/useDashboardData";
 import { useDrawer } from "../lib/useDrawer";
 import { usePersistedSelection } from "../lib/usePersistedSelection";

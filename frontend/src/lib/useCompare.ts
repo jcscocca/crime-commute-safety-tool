@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 
 import { analyzePlaces, comparePlaces, getIncidentDetails, getNeighborhoodAnalysis } from "../api/client";
 import type { AnalysisSettings, IncidentDetailsResponse, NeighborhoodAnalysis, SiteComparison } from "../types";
-import type { AddressEntry } from "./useCompareSet";
+import type { AddressEntry } from "./useAddressList";
 
 export interface CompareController {
   running: boolean;

@@ -2,7 +2,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useAddressList, keyOf, MAX_ADDRESSES, entriesFromPlaces } from "./useCompareSet";
+import { useAddressList, keyOf, MAX_ADDRESSES, entriesFromPlaces } from "./useAddressList";
 import type { Place } from "../types";
 
 const place = (id: string, label: string, lat: number, lng: number): Place => ({
