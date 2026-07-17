@@ -483,6 +483,69 @@ def test_place_rate_interval_present_without_beat_baseline(tmp_path):
     assert place["place_rate_ci_lower"] < place["place_rate_ci_upper"]
 
 
+def test_coordinate_coverage_counts_usable_vs_total(tmp_path):
+    from datetime import UTC, datetime
+
+    from app.models import CrimeIncident
+
+    session, user_hash, place_id = session_with_places_and_beat_crime(tmp_path)
+    # The fixture seeds 13 beat-M3 incidents, all with coordinates. Add redacted-coordinate
+    # rows (same beat/window/filters) that drop out of buffer counts but stay in the area.
+    for i in range(3):
+        session.add(
+            CrimeIncident(
+                id=f"nocoord-{i}",
+                offense_start_utc=datetime(2026, 2, 15, tzinfo=UTC),
+                offense_category="PROPERTY",
+                offense_subcategory="Theft",
+                nibrs_group="PROPERTY",
+                beat="M3",
+                mcpp="TEST HILL",
+                latitude=None,
+                longitude=None,
+            )
+        )
+    session.commit()
+
+    place = neighborhood_analysis_for_places(
+        session=session,
+        user_id_hash=user_hash,
+        place_ids=[place_id],
+        radius_m=250,
+        analysis_start_date=date(2026, 1, 1),
+        analysis_end_date=date(2026, 6, 30),
+        offense_category=None,
+        offense_subcategory=None,
+        nibrs_group=None,
+        area_lookup={"M3": 3.0},
+        beat_polygons=_M3_POLYGONS,
+    )["places"][0]
+    assert place["coordinate_coverage"] == {
+        "total": 16,
+        "with_coordinates": 13,
+        "area_kind": "beat",
+    }
+
+
+def test_coordinate_coverage_all_usable_when_no_redacted_rows(tmp_path):
+    session, user_hash, place_id = session_with_places_and_beat_crime(tmp_path)
+    result = neighborhood_analysis_for_places(
+        session=session,
+        user_id_hash=user_hash,
+        place_ids=[place_id],
+        radius_m=250,
+        analysis_start_date=date(2026, 1, 1),
+        analysis_end_date=date(2026, 6, 30),
+        offense_category=None,
+        offense_subcategory=None,
+        nibrs_group=None,
+        area_lookup={"M3": 3.0},
+        beat_polygons=_M3_POLYGONS,
+    )
+    coverage = result["places"][0]["coordinate_coverage"]
+    assert coverage["total"] == coverage["with_coordinates"] == 13
+
+
 def test_area_month_counts_matches_materialized_counts(tmp_path):
     session, user_hash, place_id = session_with_places_and_beat_crime(tmp_path)
     from datetime import UTC, datetime

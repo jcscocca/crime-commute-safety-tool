@@ -262,6 +262,11 @@ export type NeighborhoodPlace = {
   baselines: BaselineEntry[];
   place_rate_ci_lower?: number;
   place_rate_ci_upper?: number;
+  coordinate_coverage?: {
+    total: number;
+    with_coordinates: number;
+    area_kind: "mcpp" | "beat";
+  } | null;
 };
 
 export type NeighborhoodPair = {

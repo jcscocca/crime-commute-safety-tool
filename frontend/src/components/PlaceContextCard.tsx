@@ -193,6 +193,15 @@ function CategoryBreakdown({ rows }: { rows: CategoryShare[] }) {
   );
 }
 
+function CoordinateCoverageNote({ coverage, noun }: { coverage: NeighborhoodPlace["coordinate_coverage"]; noun: IncidentNoun }) {
+  if (!coverage || coverage.with_coordinates >= coverage.total) return null;
+  return (
+    <p className="mc-temporal-note">
+      {coverage.with_coordinates} of {coverage.total} {noun.plural} in this area had usable coordinates; {noun.plural} without coordinates are excluded from the counts and map shown here.
+    </p>
+  );
+}
+
 export function PlaceContextCard({ place, index, windowLabel, noun, domainMax, onHoverPlace, locator, coords, onFlyTo }: PlaceContextCardProps) {
   const identity = placeIdentity(index);
   const headline = aggregateHeadline(place, noun);
@@ -270,6 +279,7 @@ export function PlaceContextCard({ place, index, windowLabel, noun, domainMax, o
           <CategoryBreakdown rows={place.category_breakdown} />
         </>
       )}
+      <CoordinateCoverageNote coverage={place.coordinate_coverage} noun={noun} />
       {place.temporal ? <TemporalSection temporal={place.temporal} windowLabel={windowLabel} noun={noun} /> : null}
     </section>
   );

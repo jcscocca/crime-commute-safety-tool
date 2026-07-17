@@ -7,7 +7,7 @@ from datetime import date
 from math import pi
 from typing import Any
 
-from sqlalchemy import extract, func, select
+from sqlalchemy import and_, case, extract, func, select
 from sqlalchemy.orm import Session
 
 from app.analysis.area_baselines import mcpp_display_label, sector_for_beat
@@ -166,6 +166,52 @@ def area_month_counts(
         stmt = stmt.where(CrimeIncident.nibrs_group == nibrs_group)
     stmt = stmt.group_by(year, month)
     return {(int(y), int(m)): int(n) for y, m, n in session.execute(stmt).all()}
+
+
+def _coordinate_coverage(
+    session: Session,
+    column,
+    values: Sequence[str],
+    start: date,
+    end: date,
+    offense_category,
+    offense_subcategory,
+    nibrs_group,
+    sources: Sequence[str] | None = None,
+) -> tuple[int, int]:
+    """(total, with_coordinates) for an attribute bucket over the window and active filters.
+    Unlike _area_incidents/area_month_counts this does NOT filter on latitude, so ``total``
+    includes redacted-coordinate incidents; ``with_coordinates`` counts only rows carrying
+    both latitude and longitude — the ones that can enter buffer counts and the map. The gap
+    is the per-analysis geocoding-completeness disclosure (informational, not decisional)."""
+    effective_sources = tuple(sources) if sources is not None else (SOURCE_SPD_CRIME,)
+    start_at, end_at = _analysis_datetime_bounds(start, end)
+    observed = func.coalesce(CrimeIncident.offense_start_utc, CrimeIncident.report_utc)
+    has_coords = case(
+        (
+            and_(
+                CrimeIncident.latitude.is_not(None),
+                CrimeIncident.longitude.is_not(None),
+            ),
+            1,
+        ),
+        else_=0,
+    )
+    stmt = (
+        select(func.count(), func.coalesce(func.sum(has_coords), 0))
+        .where(CrimeIncident.source_dataset.in_(effective_sources))
+        .where(column.in_(tuple(values)))
+        .where(observed >= start_at)
+        .where(observed <= end_at)
+    )
+    if offense_category is not None:
+        stmt = stmt.where(CrimeIncident.offense_category == offense_category)
+    if offense_subcategory is not None:
+        stmt = stmt.where(CrimeIncident.offense_subcategory == offense_subcategory)
+    if nibrs_group is not None:
+        stmt = stmt.where(CrimeIncident.nibrs_group == nibrs_group)
+    total, with_coords = session.execute(stmt).one()
+    return int(total), int(with_coords)
 
 
 def _beat_incidents(
@@ -672,6 +718,27 @@ def neighborhood_analysis_for_places(
             "baselines": baselines,
             **place_stats,
         }
+        # Geocoding-completeness disclosure over the place's assigned beat (the primary
+        # attribute-based scope the baselines use): how many matching incidents carry usable
+        # coordinates and so can enter buffer counts / the map. Omitted when no beat resolves.
+        beat = entry.get("beat")
+        if beat is not None:
+            total, with_coords = _coordinate_coverage(
+                session,
+                CrimeIncident.beat,
+                [beat],
+                analysis_start_date,
+                analysis_end_date,
+                offense_category,
+                offense_subcategory,
+                nibrs_group,
+                sources=sources,
+            )
+            base["coordinate_coverage"] = {
+                "total": total,
+                "with_coordinates": with_coords,
+                "area_kind": "beat",
+            }
         if entry.get("beat") is None or entry.get("area") is None:
             places.append(
                 {

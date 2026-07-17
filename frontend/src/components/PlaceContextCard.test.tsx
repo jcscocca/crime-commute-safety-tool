@@ -90,6 +90,24 @@ describe("PlaceContextCard", () => {
     expect(screen.getByText(/12 reported incidents in range; no beat baseline/)).toBeInTheDocument();
   });
 
+  it("discloses coordinate coverage when some incidents lack usable coordinates", () => {
+    renderCard({
+      ...homePlace,
+      coordinate_coverage: { total: 20, with_coordinates: 17, area_kind: "beat" },
+    });
+    expect(
+      screen.getByText(/17 of 20 reported incidents in this area had usable coordinates/),
+    ).toBeInTheDocument();
+  });
+
+  it("omits the coordinate-coverage note when all incidents have coordinates", () => {
+    renderCard({
+      ...homePlace,
+      coordinate_coverage: { total: 20, with_coordinates: 20, area_kind: "beat" },
+    });
+    expect(screen.queryByText(/had usable coordinates/)).not.toBeInTheDocument();
+  });
+
   it("never emits safety-ranking vocabulary", () => {
     const { container } = renderCard();
     const noBaseline = renderCard({ ...homePlace, baseline_available: false, baselines: [] });
