@@ -182,7 +182,9 @@ slices.
   the pre-load banner-Exit guard. Mobile pass verified. Plan:
   `docs/superpowers/plans/2026-07-16-unified-compare-slice3.md`.
 - [ ] **Compare backlog (optional):** pin-to-compare side-by-side columns (Shape A for
-  2–3 candidates), progressive spine-first rendering.
+  2–3 candidates), progressive spine-first rendering, ephemeral-flag refactor for ad-hoc
+  pin synthetics, post-save hover re-key (pulse resumes only after the next run), and
+  `expansionByOptionId` entries-dep for the assistant created-id tail.
 
 - [x] **Per-address rate interval (backend)** — every compared address now carries its own
   quasi-Poisson rate confidence interval (`rate_confidence_interval`), surfaced on the
