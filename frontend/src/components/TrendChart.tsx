@@ -52,8 +52,9 @@ export function TrendChart({ months, area, rolling, citywide, label }: TrendChar
   function onMove(event: React.PointerEvent<SVGSVGElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
     if (rect.width <= 0 || n === 0) return;
-    const ratio = (event.clientX - rect.left) / rect.width;
-    setHover(Math.max(0, Math.min(n - 1, Math.round(ratio * (n - 1)))));
+    const xInView = ((event.clientX - rect.left) / rect.width) * W;
+    const t = (xInView - PAD_L) / (W - PAD_L - PAD_R);
+    setHover(Math.max(0, Math.min(n - 1, Math.round(t * (n - 1)))));
   }
 
   const window = n ? `${months[0]}–${months[n - 1]}` : "";
