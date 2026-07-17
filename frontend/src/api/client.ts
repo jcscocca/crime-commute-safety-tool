@@ -13,6 +13,7 @@ import type {
   Place,
   PlaceCreate,
   SiteComparison,
+  TrendsResponse,
 } from "../types";
 
 type AnalysisPointPayload = { latitude: number; longitude: number; label: string };
@@ -167,6 +168,15 @@ export function getIncidentPoints(
     body: JSON.stringify(payload),
     signal,
   });
+}
+
+export function getTrends(
+  params: { mcpp: string; layer: string; category?: string | null },
+  signal?: AbortSignal,
+): Promise<TrendsResponse> {
+  const search = new URLSearchParams({ mcpp: params.mcpp, layer: params.layer });
+  if (params.category) search.set("category", params.category);
+  return request<TrendsResponse>(`/dashboard/trends?${search.toString()}`, { signal });
 }
 
 export function comparePlaces(
