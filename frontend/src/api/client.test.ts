@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createPlace, deletePlace, getDashboardFreshness, getDashboardSummary, streamAssistantChat } from "./client";
+import { createPlace, deletePlace, getDashboardFreshness, getDashboardSummary, getTrends, streamAssistantChat } from "./client";
 import type { AssistantDashboardState } from "../types";
 
 afterEach(() => {
@@ -97,6 +97,38 @@ describe("api client", () => {
     await expect(getDashboardFreshness()).resolves.toEqual(payload);
     expect(fetchMock).toHaveBeenCalledWith(
       "/dashboard/freshness",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("builds the trends querystring and sends cookie credentials", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ months: [], area_counts: [], citywide_counts: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await getTrends({ mcpp: "TEST HILL", layer: "reported", category: "PROPERTY" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/dashboard/trends?mcpp=TEST+HILL&layer=reported&category=PROPERTY",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("omits the category param when none is given", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ months: [], area_counts: [], citywide_counts: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await getTrends({ mcpp: "BALLARD", layer: "calls" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/dashboard/trends?mcpp=BALLARD&layer=calls",
       expect.objectContaining({ credentials: "include" }),
     );
   });

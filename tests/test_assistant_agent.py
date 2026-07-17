@@ -2203,3 +2203,56 @@ def test_kill_switch_preserves_todays_exact_sequence(tmp_path):
 
     assert [event.event for event in events] == ["meta", "tool", "token", "done"]
     assert client.stream_calls == []
+
+
+def test_agent_redirects_trend_flavored_safety_asks(tmp_path):
+    # H4 follow-up: trend-flavored safety asks ("getting worse?" / "empeorando" + place
+    # context) are ambiguous terms that must trip the deterministic guard before any model call.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    phrasings = [
+        "is this neighborhood getting worse?",
+        "¿este barrio está empeorando?",
+    ]
+    try:
+        for phrasing in phrasings:
+            client = FakeClient(['{"type":"final","message":"OK."}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=phrasing)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert [event.event for event in events] == ["meta", "token", "done"], phrasing
+            assert "reported incident" in events[1].data["delta"], phrasing
+            assert client.calls == [], phrasing
+    finally:
+        session.close()
+
+
+def test_agent_does_not_redirect_worse_without_place_context(tmp_path):
+    # H4 follow-up allow-list: "worse" without a place-context word (chess rating, compile
+    # times) is benign and must reach the model — the ambiguous arm is context-required.
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    phrasings = [
+        "my chess rating is getting worse",
+        "the compile times got worse after the upgrade",
+    ]
+    try:
+        for phrasing in phrasings:
+            client = FakeClient(['{"type":"final","message":"Here is the reported context."}'])
+            events = asyncio.run(
+                _collect(
+                    session,
+                    user_hash,
+                    [AssistantChatMessage(role="user", content=phrasing)],
+                    AssistantDashboardState(selected_place_ids=["place-1"]),
+                    client,
+                )
+            )
+            assert len(client.calls) == 1, phrasing
+            assert events[1].data["delta"] == "Here is the reported context.", phrasing
+    finally:
+        session.close()

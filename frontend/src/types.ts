@@ -175,6 +175,16 @@ export type AnalysisSettings = {
   layer: LayerKey;
 };
 
+export type TrendsResponse = {
+  layer: LayerKey;
+  mcpp: string;
+  mcpp_label: string;
+  category: string | null;
+  months: string[];
+  area_counts: number[];
+  citywide_counts: number[];
+};
+
 export type AssistantToolEffect = {
   selection?: { mode: "replace" | "add" | "clear"; ids: string[] };
   settings?: Partial<AnalysisSettings>;

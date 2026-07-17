@@ -53,7 +53,7 @@ def _month_key(incident: CrimeIncidentData) -> tuple[int, int]:
     return (observed.year, observed.month)
 
 
-def _months(start: date, end: date) -> list[tuple[int, int]]:
+def months_between(start: date, end: date) -> list[tuple[int, int]]:
     months, year, month = [], start.year, start.month
     while (year, month) <= (end.year, end.month):
         months.append((year, month))
@@ -63,7 +63,7 @@ def _months(start: date, end: date) -> list[tuple[int, int]]:
 
 def _monthly_counts(incidents: list[CrimeIncidentData], start: date, end: date) -> list[int]:
     keys = [_month_key(i) for i in incidents]
-    return [keys.count(m) for m in _months(start, end)]
+    return [keys.count(m) for m in months_between(start, end)]
 
 
 def _incidents_in_radius(
@@ -123,7 +123,7 @@ def _area_incidents(
     return [_incident_data(r) for r in session.scalars(stmt).all()]
 
 
-def _area_month_counts(
+def area_month_counts(
     session: Session,
     column,
     values: Sequence[str],
@@ -352,7 +352,7 @@ def _baselines_for_place(
              "area_km2": beat_rest_area}
         )
 
-    month_keys = _months(start, end)
+    month_keys = months_between(start, end)
 
     sector = sector_for_beat(beat)
     if sector:
@@ -361,7 +361,7 @@ def _baselines_for_place(
             cache_key = ("sector", sector)
             counts = query_cache.get(cache_key)
             if counts is None:
-                counts = _area_month_counts(
+                counts = area_month_counts(
                     session, CrimeIncident.beat, members, start, end,
                     offense_category, offense_subcategory, nibrs_group, sources=sources,
                 )
@@ -376,7 +376,7 @@ def _baselines_for_place(
         cache_key = ("city",)
         counts = query_cache.get(cache_key)
         if counts is None:
-            counts = _area_month_counts(
+            counts = area_month_counts(
                 session, CrimeIncident.beat, sorted(area_lookup), start, end,
                 offense_category, offense_subcategory, nibrs_group, sources=sources,
             )

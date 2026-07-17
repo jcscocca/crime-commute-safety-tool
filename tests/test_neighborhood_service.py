@@ -490,13 +490,13 @@ def test_area_month_counts_matches_materialized_counts(tmp_path):
     from app.models import CrimeIncident
     from app.services.neighborhood_service import (
         _area_incidents,
-        _area_month_counts,
         _monthly_counts,
-        _months,
+        area_month_counts,
+        months_between,
     )
 
     # A row whose offense_start_utc is NULL falls back to report_utc in both paths —
-    # _monthly_counts (Python coalesce) and _area_month_counts (SQL coalesce) must bucket
+    # _monthly_counts (Python coalesce) and area_month_counts (SQL coalesce) must bucket
     # it identically. Insert one via the fixture's established pattern.
     session.add(
         CrimeIncident(
@@ -518,10 +518,10 @@ def test_area_month_counts_matches_materialized_counts(tmp_path):
     incidents = _area_incidents(
         session, CrimeIncident.beat, ["M3"], start, end, None, None, None
     )
-    counts = _area_month_counts(
+    counts = area_month_counts(
         session, CrimeIncident.beat, ["M3"], start, end, None, None, None
     )
-    assert [counts.get(m, 0) for m in _months(start, end)] == _monthly_counts(
+    assert [counts.get(m, 0) for m in months_between(start, end)] == _monthly_counts(
         incidents, start, end
     )
     assert sum(counts.values()) == len(incidents)

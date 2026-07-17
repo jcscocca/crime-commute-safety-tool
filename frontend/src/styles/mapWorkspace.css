@@ -595,6 +595,26 @@ input.mc-inp:focus{outline:2px solid var(--accent);outline-offset:1px;}
 .mc-bplot-foot .axis span{position:absolute;transform:translateX(-50%);}
 .mc-bplot-foot .axis span:first-child{transform:none;}
 .mc-bplot-foot .axis span:last-child{transform:translateX(-100%);}
+.mc-trend{border-top:1px solid var(--border);padding-top:10px;margin-top:10px;display:grid;gap:8px;}
+.mc-trend-title{margin:0;font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-dim);}
+.mc-trend-sub{margin:0;font-size:10.5px;color:var(--text-dim);}
+.mc-trend svg{width:100%;height:auto;display:block;}
+/* Neutral data marks — identical in both themes (product invariant, see below). */
+.mc-trend-raw,.mc-trend-rolling,.mc-trend-city{stroke-linejoin:round;stroke-linecap:round;}
+.mc-trend-raw{stroke:var(--slate-soft);stroke-width:1.5;}
+.mc-trend-rolling{stroke:var(--graphite);stroke-width:2.5;}
+.mc-trend-city{stroke:var(--text-dim);stroke-width:2;stroke-dasharray:6 4;}
+.mc-trend-grid{stroke:var(--border);stroke-width:1;}
+.mc-trend-cursor{stroke:var(--text-dim);stroke-width:1;}
+.mc-trend-tick{font-size:9px;fill:var(--text-dim);}
+.mc-trend-legend{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:11px;color:var(--text-dim);}
+.mc-trend-legend span{display:inline-flex;align-items:center;gap:5px;}
+.mc-trend-sw{display:inline-block;width:18px;height:0;}
+.mc-trend-sw.raw{border-top:1.5px solid var(--slate);}
+.mc-trend-sw.rolling{border-top:2.5px solid var(--graphite);}
+.mc-trend-sw.city{border-top:2px dashed var(--text-dim);}
+.mc-trend-readout{margin:0;font-size:11px;color:var(--text-dim);font-family:var(--f-mono,ui-monospace);min-height:15px;}
+.mc-trend-note{margin:0;font-size:10.5px;color:var(--text-dim);}
 .mc-lookup-head{padding:2px 2px 12px;}
 .mc-lookup-head h4{margin:0 0 5px;font-size:15px;color:var(--text-strong);}
 .mc-lookup-head p{margin:0;font-size:13px;color:var(--text);line-height:1.5;}
