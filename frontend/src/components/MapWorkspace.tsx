@@ -253,16 +253,20 @@ export function MapWorkspace() {
   }
 
   function handleToggleSelect(id: string) {
-    invalidateAnalysisContext();
-    pinDraft.setDraft(null);
-    setSharedBanner(false);
     const place = data.places.find((p) => p.id === id);
     if (place) {
+      invalidateAnalysisContext();
+      pinDraft.setDraft(null);
+      setSharedBanner(false);
       list.toggleSaved(place);
       return;
     }
     const adhocIndex = list.entries.findIndex((e) => !e.savedPlaceId && keyOf(e) === id);
-    if (adhocIndex >= 0) list.removeAt(adhocIndex);
+    if (adhocIndex >= 0) {
+      // Focus, not destroy: the row's labeled ✕ owns removal for ad-hoc entries.
+      const entry = list.entries[adhocIndex];
+      setChipFlyTo({ lat: entry.latitude, lng: entry.longitude });
+    }
   }
 
   function handleAnalysisChange(patch: Partial<AnalysisSettings>) {

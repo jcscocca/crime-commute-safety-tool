@@ -56,6 +56,7 @@ import { MapWorkspace } from "./MapWorkspace";
 import { analyzePlaces, comparePlaces, createBulkPlaces, createPlace, createSession, deletePlace, getDashboardSummary, getIncidentDetails, getMcppPolygons, getNeighborhoodAnalysis, streamAssistantChat, updatePlace } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
 import { encodeView } from "../lib/savedView";
+import { keyOf } from "../lib/useAddressList";
 import type { DashboardSummary, IncidentDetailsResponse, NeighborhoodAnalysis, Place, SiteComparison } from "../types";
 
 const home: Place = {
@@ -983,6 +984,30 @@ describe("MapWorkspace", () => {
       expect(synthetic).toBeDefined();
       expect(last.selectedIds.has(synthetic!.id)).toBe(true);
     });
+  });
+
+  it("clicking an ad-hoc pin flies to it instead of removing the entry", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home]));
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 1 });
+    geocodeSearch.mockResolvedValue([{ label: "500 Pine St", latitude: 47.63, longitude: -122.35, source: "test" }]);
+
+    render(<MapWorkspace />);
+    await screen.findByText("Home");
+
+    fireEvent.change(screen.getByLabelText("Add an address to compare"), { target: { value: "500 Pine" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    fireEvent.click(await screen.findByText("500 Pine St"));
+
+    // The synthetic's marker uses the entry's coordinate key as its id.
+    const adhocId = keyOf({ latitude: 47.63, longitude: -122.35 });
+    fireEvent.click(await screen.findByTestId(`marker-${adhocId}`));
+
+    // Focus, not destroy: the entry stays listed (the row's labeled ✕ owns removal) and
+    // the map flies to the entry's coordinates.
+    const rows = screen.getByRole("list", { name: /addresses to compare/i });
+    expect(within(rows).getByText("500 Pine St")).toBeInTheDocument();
+    expect(flyToCaptures[flyToCaptures.length - 1]).toEqual({ lat: 47.63, lng: -122.35 });
   });
 
   it("exits a shared banner back to the restored saved-place list", async () => {

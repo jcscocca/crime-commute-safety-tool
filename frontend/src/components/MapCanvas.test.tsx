@@ -148,6 +148,17 @@ const place: Place = {
   sensitivity_class: "normal",
 };
 
+// MapWorkspace's ad-hoc synthetic shape: coordinate-key id, adhoc_entry type, always
+// in selectedIds — never present in crime_summaries.
+const adhoc: Place = {
+  ...place,
+  id: "47.6300,-122.3500",
+  display_label: "500 Pine St",
+  latitude: 47.63,
+  longitude: -122.35,
+  inferred_place_type: "adhoc_entry",
+};
+
 function summaryWithCount(): DashboardSummary {
   return {
     totals: { place_count: 1, visit_count: 5, incident_count: 9 },
@@ -204,6 +215,14 @@ describe("markerKindFor", () => {
     expect(markerKindFor(other, new Set(["p2"]), null, 250)).toBe("selected");
     expect(markerKindFor(other, new Set(), null, 250)).toBe("default");
   });
+
+  it("never marks ad-hoc synthetics low, even when the radius has analyzed summaries", () => {
+    // summaryWithCount analyzes p1 at 250 m, so the global analyzedAtRadius flag is true —
+    // the trap that would otherwise classify a selected-but-unanalyzable synthetic as "low".
+    const s = summaryWithCount();
+    expect(markerKindFor(adhoc, new Set([adhoc.id]), s, 250)).toBe("selected");
+    expect(markerKindFor(adhoc, new Set(), s, 250)).toBe("default");
+  });
 });
 
 describe("iconHtml", () => {
@@ -246,6 +265,14 @@ describe("ringsGeoJSON", () => {
   it("emits nothing for unanalyzed places", () => {
     const fc = ringsGeoJSON([place], new Set(), null, 250);
     expect(fc.features).toHaveLength(0);
+  });
+
+  it("never rings ad-hoc synthetics in a mixed session", () => {
+    // Saved analyzed place + selected ad-hoc synthetic under the same summary: only the
+    // saved place rings — synthetics have no persisted summary to ring around.
+    const fc = ringsGeoJSON([place, adhoc], new Set([adhoc.id]), summaryWithCount(), 250);
+    expect(fc.features).toHaveLength(1);
+    expect(fc.features[0].properties.kind).toBe("analyzed");
   });
 });
 
