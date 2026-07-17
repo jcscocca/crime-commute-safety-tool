@@ -465,6 +465,9 @@ export function MapWorkspace() {
               type="button"
               onClick={() => {
                 setSharedBanner(false);
+                // Before the restore lands there is no saved selection to rebuild from —
+                // keep the shared list; the user can edit it from here.
+                if (!restored) return;
                 invalidateAnalysisContext();
                 list.replaceAll(entriesFromPlaces(data.places.filter((p) => selectedIds.has(p.id))));
                 setPendingAutoRun(true);

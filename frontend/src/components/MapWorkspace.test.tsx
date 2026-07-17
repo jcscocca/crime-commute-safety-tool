@@ -1039,6 +1039,32 @@ describe("MapWorkspace", () => {
     await waitFor(() => expect(getNeighborhoodAnalysis).toHaveBeenCalledTimes(2));
   });
 
+  it("banner Exit before the data load keeps the shared list instead of clearing it", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    // getDashboardSummary never resolves during this test: data.places stays empty and
+    // the persisted selection is never restored — the state Exit must guard against.
+    vi.mocked(getDashboardSummary).mockReturnValue(new Promise<DashboardSummary>(() => {}));
+    vi.mocked(comparePlaces).mockResolvedValue(makeSiteComparison("Downtown test point", "North test point"));
+
+    const view = encodeView({
+      points: [
+        { latitude: 47.6005, longitude: -122.3315, label: "Downtown test point" },
+        { latitude: 47.6595, longitude: -122.3125, label: "North test point" },
+      ],
+      radiusM: 250, startDate: "2026-01-01", endDate: "2026-06-24",
+      layer: "reported", offenseCategory: "",
+    });
+    window.history.replaceState({}, "", `/?view=${view}`);
+    render(<MapWorkspace />);
+
+    // Click Exit as soon as the banner renders — before any load has landed.
+    fireEvent.click(screen.getByRole("button", { name: "Exit" }));
+
+    expect(screen.getByText("Downtown test point")).toBeInTheDocument();
+    expect(screen.getByText("North test point")).toBeInTheDocument();
+    expect(screen.queryByText(/shared view/i)).not.toBeInTheDocument();
+  });
+
   it("does not double-run when a lookup fires before places finish loading", async () => {
     let resolveSummary!: (value: DashboardSummary) => void;
     vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
