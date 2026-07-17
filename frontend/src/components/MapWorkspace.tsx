@@ -191,7 +191,11 @@ export function MapWorkspace() {
     const pending = pendingIdsRef.current;
     pendingIdsRef.current = [];
     const resolved = entriesForIds(pending);
-    resolved.forEach((entry) => list.add(entry));
+    if (resolved.length > 0) {
+      // A late-resolving entry changes the list under existing results.
+      invalidateAnalysisContext();
+      resolved.forEach((entry) => list.add(entry));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.places]);
 

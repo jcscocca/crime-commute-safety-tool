@@ -62,6 +62,10 @@ const work: Place = {
   id: "p2", display_label: "Work", latitude: 47.62, longitude: -122.34, visit_count: 3,
   total_dwell_minutes: null, inferred_place_type: "manual_place", sensitivity_class: "normal",
 };
+const pin9: Place = {
+  id: "p9", display_label: "Pin 9", latitude: 47.6, longitude: -122.3, visit_count: 1,
+  total_dwell_minutes: null, inferred_place_type: "manual_place", sensitivity_class: "normal",
+};
 
 function makeSummary(places: Place[] = []): DashboardSummary {
   return {
@@ -1068,5 +1072,41 @@ describe("MapWorkspace", () => {
     const rows = screen.getByRole("list", { name: /addresses to compare/i });
     expect(within(rows).getByText("Work")).toBeInTheDocument();
     expect(within(rows).queryByText("Home")).not.toBeInTheDocument();
+  });
+
+  it("invalidates results when a queued place id resolves under fresh results", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home, work]));
+    vi.mocked(comparePlaces).mockResolvedValue(makeSiteComparison("Home", "Work"));
+    vi.mocked(getNeighborhoodAnalysis).mockResolvedValue(makeNeighborhoodAnalysis());
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 2 });
+    vi.mocked(createPlace).mockResolvedValue(pin9);
+
+    render(<MapWorkspace />);
+    // The restored two-place selection auto-runs and renders the ranked spine.
+    expect(await screen.findByTestId("compare-ranked")).toBeInTheDocument();
+
+    // Pin-save "Pin 9": createPlace resolves, but HOLD the save's summary refresh open so
+    // p9 stays queued as pending (it isn't in data.places until that refresh lands).
+    let resolveSummary!: (value: DashboardSummary) => void;
+    vi.mocked(getDashboardSummary).mockReturnValueOnce(new Promise<DashboardSummary>((resolve) => { resolveSummary = resolve; }));
+    fireEvent.click(screen.getByRole("button", { name: "Drop a pin on the map" }));
+    fireEvent.click(screen.getByTestId("fire-map-click"));
+    fireEvent.change(screen.getByLabelText(/label/i), { target: { value: "Pin 9" } });
+    fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
+    // Queue-time invalidate drops the greet spine while p9 waits on the held refresh.
+    await waitFor(() => expect(screen.queryByTestId("compare-ranked")).not.toBeInTheDocument());
+
+    // A fresh run completes while p9 is still pending.
+    fireEvent.click(screen.getByRole("button", { name: /compare 2 addresses/i }));
+    expect(await screen.findByTestId("compare-ranked")).toBeInTheDocument();
+
+    // The held refresh now lands WITH p9's place: the resolve-append changes the list
+    // under the fresh results, so it must invalidate the now-stale spine.
+    resolveSummary(makeSummary([home, work, pin9]));
+    await waitFor(() => expect(screen.queryByTestId("compare-ranked")).not.toBeInTheDocument());
+    // Scoped: the chip strip also renders "Pin 9" once the summary lands.
+    const rows = screen.getByRole("list", { name: /addresses to compare/i });
+    expect(await within(rows).findByText("Pin 9")).toBeInTheDocument();
   });
 });
