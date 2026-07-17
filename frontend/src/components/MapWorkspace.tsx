@@ -94,20 +94,43 @@ export function MapWorkspace() {
     },
   });
 
-  // One identity source for cards AND pins: index within the list (saved entries carry
-  // their place id so pins and chips can letter themselves).
+  // One identity source for cards AND pins: index within the list. Saved entries key by
+  // place id; ad-hoc entries key by coordinate key — the same synthetic id their map pins
+  // and hover events use.
   const identityByPlaceId = useMemo(
     () =>
       new Map<string, PlaceIdentity>(
-        list.entries
-          .map((entry, index) => [entry.savedPlaceId, placeIdentity(index)] as const)
-          .filter((pair): pair is [string, PlaceIdentity] => Boolean(pair[0])),
+        list.entries.map((entry, index) => [entry.savedPlaceId ?? keyOf(entry), placeIdentity(index)] as const),
       ),
     [list.entries],
   );
   const savedIdSet = useMemo(
     () => new Set(list.entries.map((e) => e.savedPlaceId).filter((id): id is string => Boolean(id))),
     [list.entries],
+  );
+  // Ad-hoc entries get map pins too: Place-shaped synthetics keyed by coordinate key.
+  // They render as "selected" pins (letter + label tag); rings/badges need persisted
+  // summaries, which only saved places have.
+  const adhocPlaces = useMemo(
+    () =>
+      list.entries
+        .filter((entry) => !entry.savedPlaceId)
+        .map((entry) => ({
+          id: keyOf(entry),
+          display_label: entry.label,
+          latitude: entry.latitude,
+          longitude: entry.longitude,
+          visit_count: 0,
+          total_dwell_minutes: null,
+          inferred_place_type: "adhoc_entry",
+          sensitivity_class: "normal",
+        })),
+    [list.entries],
+  );
+  const mapPlaces = useMemo(() => [...data.places, ...adhocPlaces], [data.places, adhocPlaces]);
+  const pinIdSet = useMemo(
+    () => new Set([...savedIdSet, ...adhocPlaces.map((p) => p.id)]),
+    [savedIdSet, adhocPlaces],
   );
   const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
   const savedPlaceKeys = useMemo(
@@ -234,7 +257,12 @@ export function MapWorkspace() {
     pinDraft.setDraft(null);
     setSharedBanner(false);
     const place = data.places.find((p) => p.id === id);
-    if (place) list.toggleSaved(place);
+    if (place) {
+      list.toggleSaved(place);
+      return;
+    }
+    const adhocIndex = list.entries.findIndex((e) => !e.savedPlaceId && keyOf(e) === id);
+    if (adhocIndex >= 0) list.removeAt(adhocIndex);
   }
 
   function handleAnalysisChange(patch: Partial<AnalysisSettings>) {
@@ -374,8 +402,8 @@ export function MapWorkspace() {
         style={{ "--panel-width": `${drawer.collapsed ? DRAWER_PEEK : drawer.widthPx}px` } as CSSProperties}
       >
         <MapCanvas
-          places={data.places}
-          selectedIds={savedIdSet}
+          places={mapPlaces}
+          selectedIds={pinIdSet}
           draft={pinDraft.draft}
           addPinMode={pinDraft.addPinMode}
           summary={data.summary}

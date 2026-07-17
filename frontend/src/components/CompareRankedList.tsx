@@ -11,14 +11,19 @@ const CHIP: Record<CompareRelationship, { label: string; clear: boolean }> = {
   limited: { label: "limited data", clear: false },
 };
 
-export function CompareRankedList({ rows, noun, radiusM, expansionByOptionId }: { rows: CompareVerdictRow[]; noun: IncidentNoun; radiusM: number; expansionByOptionId?: Map<string, ReactNode> }) {
+export function CompareRankedList({ rows, noun, radiusM, expansionByOptionId, onHoverRow }: { rows: CompareVerdictRow[]; noun: IncidentNoun; radiusM: number; expansionByOptionId?: Map<string, ReactNode>; onHoverRow?: (optionId: string | null) => void }) {
   return (
     <div className="mc-ranked" data-testid="compare-ranked">
       {rows.map((row) => {
         const chip = CHIP[row.relationship];
         const expansion = expansionByOptionId?.get(row.optionId) ?? null;
         return (
-          <div className={`mc-ranked-row${row.relationship === "lowest" ? " is-lowest" : ""}`} key={row.optionId}>
+          <div
+            className={`mc-ranked-row${row.relationship === "lowest" ? " is-lowest" : ""}`}
+            key={row.optionId}
+            onMouseEnter={onHoverRow ? () => onHoverRow(row.optionId) : undefined}
+            onMouseLeave={onHoverRow ? () => onHoverRow(null) : undefined}
+          >
             <span className="mc-rank">{row.rank}</span>
             <div className="mc-ranked-name">
               <strong>{row.label}</strong>

@@ -6,9 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Captures each distinct flyTo reference MapCanvas receives — the real MapCanvas re-flies
 // on reference change, so the capture list mirrors the fly sequence the map would perform.
 const flyToCaptures = vi.hoisted(() => [] as ({ lat: number; lng: number } | null)[]);
+// Captures the places + selectedIds MapCanvas receives each render, so tests can assert the
+// synthetic ad-hoc pins MapWorkspace appends (mirrors the flyToCaptures pattern above).
+const canvasCaptures = vi.hoisted(() => [] as { places: unknown[]; selectedIds: Set<string> }[]);
 vi.mock("./MapCanvas", () => ({
-  MapCanvas: ({ places, draft, flyTo, onMapClick, onMarkerClick }: any) => {
+  MapCanvas: ({ places, selectedIds, draft, flyTo, onMapClick, onMarkerClick }: any) => {
     if (flyToCaptures[flyToCaptures.length - 1] !== flyTo) flyToCaptures.push(flyTo);
+    canvasCaptures.push({ places, selectedIds });
     return (
       <div data-testid="mapcanvas">
         <button data-testid="fire-map-click" onClick={() => onMapClick({ lat: 47.6, lng: -122.3 })} />
@@ -143,6 +147,7 @@ afterEach(() => {
   // an assertion fails before a test's own cleanup lines run.
   window.history.replaceState(null, "", "/");
   flyToCaptures.length = 0;
+  canvasCaptures.length = 0;
 });
 
 describe("MapWorkspace", () => {
@@ -953,6 +958,30 @@ describe("MapWorkspace", () => {
       const rows = screen.getByRole("list", { name: /addresses to compare/i });
       expect(within(rows).queryByText("Home")).not.toBeInTheDocument();
       expect(within(rows).getByText("Work")).toBeInTheDocument();
+    });
+  });
+
+  it("synthesizes lettered pins for ad-hoc entries", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home]));
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 1 });
+    geocodeSearch.mockResolvedValue([{ label: "500 Pine St", latitude: 47.63, longitude: -122.35, source: "test" }]);
+
+    render(<MapWorkspace />);
+    await screen.findByText("Home");
+
+    // Add an ad-hoc address via the compare input (type, search, pick the result).
+    fireEvent.change(screen.getByLabelText("Add an address to compare"), { target: { value: "500 Pine" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    fireEvent.click(await screen.findByText("500 Pine St"));
+
+    // The last canvas capture carries a synthetic ad-hoc place keyed by its coordinate key,
+    // and that id is present in selectedIds so it renders as a lettered "selected" pin.
+    await waitFor(() => {
+      const last = canvasCaptures[canvasCaptures.length - 1]!;
+      const synthetic = (last.places as { id: string; inferred_place_type: string }[]).find((p) => p.inferred_place_type === "adhoc_entry");
+      expect(synthetic).toBeDefined();
+      expect(last.selectedIds.has(synthetic!.id)).toBe(true);
     });
   });
 

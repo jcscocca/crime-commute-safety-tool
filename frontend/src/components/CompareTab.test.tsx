@@ -184,6 +184,24 @@ describe("CompareTab (unified panel)", () => {
     expect(screen.getByTestId("run-announcement")).toHaveTextContent("Comparison complete: 3 addresses ranked by reported incident rate.");
   });
 
+  it("ranked-row hover reaches onHoverPlace with the entry's hover id (keyOf for ad-hoc)", () => {
+    const onHoverPlace = vi.fn();
+    render(<CompareTab {...base} entries={entriesOf("Pike", "Bell")} comparison={clearSweep} neighborhood={twoPlaceNeighborhood} runPoints={entriesOf("Pike", "Bell")} onHoverPlace={onHoverPlace} />);
+    const firstRow = screen.getByTestId("compare-ranked").querySelectorAll(".mc-ranked-row")[0]!;
+    fireEvent.mouseEnter(firstRow);
+    // Rank 1 is Pike (lowest rate); ad-hoc entries hover by coordinate key.
+    expect(onHoverPlace).toHaveBeenCalledWith(keyOf(entriesOf("Pike")[0]));
+    fireEvent.mouseLeave(firstRow);
+    expect(onHoverPlace).toHaveBeenLastCalledWith(null);
+  });
+
+  it("module hover falls back to the live entry when runPoints is absent (assistant-applied pane)", () => {
+    const onHoverPlace = vi.fn();
+    render(<CompareTab {...base} entries={entriesOf("Pike")} neighborhood={onePlaceNeighborhood} runPoints={null} onHoverPlace={onHoverPlace} />);
+    fireEvent.mouseEnter(screen.getByLabelText("Context for Pike"));
+    expect(onHoverPlace).toHaveBeenCalledWith(keyOf(entriesOf("Pike")[0]));
+  });
+
   it("N=2 result: callout + spine + expansions joined by index", () => {
     render(<CompareTab {...base} entries={entriesOf("Pike", "Bell")} comparison={clearSweep} neighborhood={twoPlaceNeighborhood} runPoints={entriesOf("Pike", "Bell")} />);
     expect(screen.getByText(/statistically lower than every other/i)).toBeInTheDocument();

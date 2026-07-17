@@ -122,10 +122,19 @@ export function CompareTab({ entries, provider, onAddEntry, onRemoveEntry, saved
       : `Analysis complete for ${announcedCount} ${announcedNoun}.`
     : "";
 
+  // One hover identity per entry: saved id when it exists, coordinate key otherwise —
+  // matching the synthetic pin ids MapWorkspace renders for ad-hoc entries. Falls back
+  // to the live entries when runPoints is absent (assistant-applied panes null it).
+  function hoverIdFor(index: number): string | null {
+    const point = runPoints?.[index] ?? entries[index];
+    if (!point) return null;
+    return point.savedPlaceId ?? keyOf(point);
+  }
+
   function moduleFor(index: number): ReactNode | null {
     const place = neighborhood?.places?.[index];
     if (!place || !neighborhood) return null;
-    const point = runPoints?.[index];
+    const point = runPoints?.[index] ?? entries[index];
     return (
       <PlaceContextCard
         place={place}
@@ -133,7 +142,7 @@ export function CompareTab({ entries, provider, onAddEntry, onRemoveEntry, saved
         windowLabel={windowLabel}
         noun={noun}
         domainMax={plotDomainMax(neighborhood.places)}
-        onHoverPlace={onHoverPlace ? (id) => onHoverPlace(id ? point?.savedPlaceId ?? null : null) : undefined}
+        onHoverPlace={onHoverPlace ? (id) => onHoverPlace(id ? hoverIdFor(index) : null) : undefined}
         locator={locator}
         coords={point ? { latitude: point.latitude, longitude: point.longitude } : null}
         onFlyTo={onFlyTo}
@@ -151,6 +160,14 @@ export function CompareTab({ entries, provider, onAddEntry, onRemoveEntry, saved
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comparison, neighborhood, runPoints, noun, locator, onHoverPlace, onFlyTo]);
+
+  const hoverIdByOptionId = useMemo(() => {
+    if (!comparison) return undefined;
+    const map = new Map<string, string | null>();
+    comparison.analytical.options.forEach((option, index) => map.set(option.id, hoverIdFor(index)));
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comparison, runPoints, entries]);
 
   return (
     <div className="mc-panel is-active has-querybar" role="tabpanel" aria-label="Compare">
@@ -288,7 +305,13 @@ export function CompareTab({ entries, provider, onAddEntry, onRemoveEntry, saved
             <>
               <CompareVerdict callout={verdict.callout} noun={noun} />
               <p className="mc-ranked-title">Ranked by {noun.singular} rate — lowest first</p>
-              <CompareRankedList rows={verdict.rows} noun={noun} radiusM={analysis.radiusM} expansionByOptionId={expansionByOptionId} />
+              <CompareRankedList
+                rows={verdict.rows}
+                noun={noun}
+                radiusM={analysis.radiusM}
+                expansionByOptionId={expansionByOptionId}
+                onHoverRow={onHoverPlace ? (optionId) => onHoverPlace(optionId ? hoverIdByOptionId?.get(optionId) ?? null : null) : undefined}
+              />
               {!expansionByOptionId ? (
                 <p className="mc-search-msg">Per-address context unavailable for this run.</p>
               ) : null}
