@@ -315,6 +315,8 @@ git add frontend/src/components/CompareTab.tsx frontend/src/components/CompareTa
 git commit -m "feat(compare): polite completion announcement for assistive tech"
 ```
 
+**Review amendment (applied post-commit):** the announced count is sourced from the announced payload (`comparison.analytical.options.length`, else `runPoints ?? neighborhood.places ?? entries`), pluralized uniformly — input-state counts lag created ids on the assistant path. Pinned by a payload-vs-input test.
+
 ---
 
 ## Task 5: Ad-hoc map pins + unified row↔map hover linkage
