@@ -553,6 +553,11 @@ git add frontend/src/components/MapWorkspace.tsx frontend/src/components/Compare
 git commit -m "feat(compare): lettered map pins for ad-hoc entries; row-level hover linkage"
 ```
 
+**Review amendments (applied post-commit):**
+1. `markerKindFor` gains a deliberate guard: `adhoc_entry` places are never analyzable — no "low" kind, no ring — regardless of the global `analyzedAtRadius` flag (mixed saved+ad-hoc sessions otherwise ringed unanalyzed addresses). The "MapCanvas untouched" premise was revised; unit tests pin the trap case and the ring exclusion.
+2. Ad-hoc pin click flies to the entry instead of removing it (reversibility: the row's labeled ✕ owns deletion); only the saved-place branch invalidates.
+3. Note for the backend option-ordering hardening chip (task_d2c32286): `hoverIdFor`/`hoverIdByOptionId` now duplicate the options-in-input-order assumption — update them in lockstep with the expansion join.
+
 ---
 
 ## Task 6: Pre-load banner-Exit guard
