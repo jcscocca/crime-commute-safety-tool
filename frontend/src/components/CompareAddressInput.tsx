@@ -3,7 +3,7 @@ import { type FormEvent } from "react";
 import { useAddressSearch, SEARCH_EMPTY_MSG, SEARCH_ERROR_MSG } from "../lib/useAddressSearch";
 import { compactGeocodeLabel } from "../lib/addressLabel";
 import type { GeocodingProvider } from "../lib/geocoding";
-import type { AddressEntry } from "../lib/useCompareSet";
+import type { AddressEntry } from "../lib/useAddressList";
 import type { GeocodeResult } from "../types";
 
 type Props = {

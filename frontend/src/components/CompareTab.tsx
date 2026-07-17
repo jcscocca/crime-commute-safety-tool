@@ -6,8 +6,8 @@ import { toCompareVerdict } from "../lib/compareVerdict";
 import { countNoun, incidentNoun } from "../lib/layerCopy";
 import { collectionBox, mosaicPath } from "../lib/locatorGeometry";
 import type { GeocodingProvider } from "../lib/geocoding";
-import type { AddressEntry } from "../lib/useCompareSet";
-import { MAX_ADDRESSES, keyOf } from "../lib/useCompareSet";
+import type { AddressEntry } from "../lib/useAddressList";
+import { MAX_ADDRESSES, keyOf } from "../lib/useAddressList";
 import type { AnalysisSettings, IncidentDetailsResponse, McppFeatureCollection, NeighborhoodAnalysis, SiteComparison } from "../types";
 import { plotDomainMax } from "./BaselineIntervalPlot";
 import { CompareAddressInput } from "./CompareAddressInput";
@@ -71,6 +71,14 @@ export function CompareTab({ entries, provider, onAddEntry, onRemoveEntry, saved
   const resultsAnchorRef = useRef<HTMLDivElement>(null);
   const wasRunningRef = useRef(false);
   const [editingControls, setEditingControls] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const copyResetRef = useRef<number | null>(null);
+  useEffect(() => () => { if (copyResetRef.current !== null) window.clearTimeout(copyResetRef.current); }, []);
+  function flashCopyState(next: "copied" | "failed") {
+    setCopyState(next);
+    if (copyResetRef.current !== null) window.clearTimeout(copyResetRef.current);
+    copyResetRef.current = window.setTimeout(() => setCopyState("idle"), 2000);
+  }
   useEffect(() => {
     if (wasRunningRef.current && !running) {
       if (isMobile) {
@@ -103,10 +111,31 @@ export function CompareTab({ entries, provider, onAddEntry, onRemoveEntry, saved
 
   const verdict = comparison ? toCompareVerdict(comparison) : null;
 
+  // Announce what the results actually contain — on the assistant path runPoints is
+  // null and entries can lag behind the created ids, so input state can miscount.
+  const announcedCount = comparison
+    ? comparison.analytical.options.length
+    : runPoints?.length ?? neighborhood?.places?.length ?? entries.length;
+  const announcedNoun = announcedCount === 1 ? "address" : "addresses";
+  const runAnnouncement = !running && hasResults
+    ? comparison
+      ? `Comparison complete: ${announcedCount} ${announcedNoun} ranked by ${noun.singular} rate.`
+      : `Analysis complete for ${announcedCount} ${announcedNoun}.`
+    : "";
+
+  // One hover identity per entry: saved id when it exists, coordinate key otherwise —
+  // matching the synthetic pin ids MapWorkspace renders for ad-hoc entries. Falls back
+  // to the live entries when runPoints is absent (assistant-applied panes null it).
+  function hoverIdFor(index: number): string | null {
+    const point = runPoints?.[index] ?? entries[index];
+    if (!point) return null;
+    return point.savedPlaceId ?? keyOf(point);
+  }
+
   function moduleFor(index: number): ReactNode | null {
     const place = neighborhood?.places?.[index];
     if (!place || !neighborhood) return null;
-    const point = runPoints?.[index];
+    const point = runPoints?.[index] ?? entries[index];
     return (
       <PlaceContextCard
         place={place}
@@ -114,7 +143,7 @@ export function CompareTab({ entries, provider, onAddEntry, onRemoveEntry, saved
         windowLabel={windowLabel}
         noun={noun}
         domainMax={plotDomainMax(neighborhood.places)}
-        onHoverPlace={onHoverPlace ? (id) => onHoverPlace(id ? point?.savedPlaceId ?? null : null) : undefined}
+        onHoverPlace={onHoverPlace ? (id) => onHoverPlace(id ? hoverIdFor(index) : null) : undefined}
         locator={locator}
         coords={point ? { latitude: point.latitude, longitude: point.longitude } : null}
         onFlyTo={onFlyTo}
@@ -132,6 +161,14 @@ export function CompareTab({ entries, provider, onAddEntry, onRemoveEntry, saved
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comparison, neighborhood, runPoints, noun, locator, onHoverPlace, onFlyTo]);
+
+  const hoverIdByOptionId = useMemo(() => {
+    if (!comparison) return undefined;
+    const map = new Map<string, string | null>();
+    comparison.analytical.options.forEach((option, index) => map.set(option.id, hoverIdFor(index)));
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comparison, runPoints, entries]);
 
   return (
     <div className="mc-panel is-active has-querybar" role="tabpanel" aria-label="Compare">
@@ -211,6 +248,10 @@ export function CompareTab({ entries, provider, onAddEntry, onRemoveEntry, saved
 
       <div ref={resultsAnchorRef} aria-hidden="true" />
 
+      <p className="mc-sr" data-testid="run-announcement" role="status" aria-live="polite">
+        {runAnnouncement}
+      </p>
+
       {isCallsLayer ? (
         <p className="mc-layer-note" role="note">
           911 calls are <strong>requests for service</strong>, not confirmed incidents. The same
@@ -244,11 +285,20 @@ export function CompareTab({ entries, provider, onAddEntry, onRemoveEntry, saved
                 className="mc-link-copy"
                 onClick={async () => {
                   const url = onCopyLink();
-                  if (url) await navigator.clipboard.writeText(url);
+                  if (!url) return;
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    flashCopyState("copied");
+                  } catch {
+                    flashCopyState("failed");
+                  }
                 }}
               >
                 Copy link to this view
               </button>
+              <span className="mc-copy-status" data-testid="copy-status" role="status" aria-live="polite">
+                {copyState === "copied" ? "Copied" : copyState === "failed" ? "Couldn't copy — try again." : ""}
+              </span>
             </div>
           ) : null}
 
@@ -256,7 +306,13 @@ export function CompareTab({ entries, provider, onAddEntry, onRemoveEntry, saved
             <>
               <CompareVerdict callout={verdict.callout} noun={noun} />
               <p className="mc-ranked-title">Ranked by {noun.singular} rate — lowest first</p>
-              <CompareRankedList rows={verdict.rows} noun={noun} radiusM={analysis.radiusM} expansionByOptionId={expansionByOptionId} />
+              <CompareRankedList
+                rows={verdict.rows}
+                noun={noun}
+                radiusM={analysis.radiusM}
+                expansionByOptionId={expansionByOptionId}
+                onHoverRow={onHoverPlace ? (optionId) => onHoverPlace(optionId ? hoverIdByOptionId?.get(optionId) ?? null : null) : undefined}
+              />
               {!expansionByOptionId ? (
                 <p className="mc-search-msg">Per-address context unavailable for this run.</p>
               ) : null}

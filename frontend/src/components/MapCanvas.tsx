@@ -75,6 +75,11 @@ export function markerKindFor(
   if (incidentCountForPlace(summary, place.id, radiusM) !== null) {
     return "analyzed";
   }
+  // Ephemeral ad-hoc entries are never analyzable: no "low" state, no radius ring
+  // (ringsGeoJSON derives from this kind), regardless of the global radius flag.
+  if (place.inferred_place_type === "adhoc_entry") {
+    return selectedIds.has(place.id) ? "selected" : "default";
+  }
   if (analyzedAtRadius && selectedIds.has(place.id)) {
     return "low";
   }

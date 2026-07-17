@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CompareRankedList } from "./CompareRankedList";
 import { incidentNoun } from "../lib/layerCopy";
@@ -61,5 +61,15 @@ describe("CompareRankedList", () => {
   it("renders no Full context disclosure when no expansions are provided", () => {
     render(<CompareRankedList rows={rows} noun={incidentNoun("reported")} radiusM={250} />);
     expect(within(screen.getByTestId("compare-ranked")).queryByText("Full context")).not.toBeInTheDocument();
+  });
+
+  it("fires onHoverRow with the row's option id on enter and null on leave", () => {
+    const onHoverRow = vi.fn();
+    render(<CompareRankedList rows={rows} noun={incidentNoun("reported")} radiusM={250} onHoverRow={onHoverRow} />);
+    const first = screen.getByTestId("compare-ranked").querySelectorAll(".mc-ranked-row")[0]!;
+    fireEvent.mouseEnter(first);
+    expect(onHoverRow).toHaveBeenCalledWith(rows[0].optionId);
+    fireEvent.mouseLeave(first);
+    expect(onHoverRow).toHaveBeenLastCalledWith(null);
   });
 });

@@ -6,9 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Captures each distinct flyTo reference MapCanvas receives — the real MapCanvas re-flies
 // on reference change, so the capture list mirrors the fly sequence the map would perform.
 const flyToCaptures = vi.hoisted(() => [] as ({ lat: number; lng: number } | null)[]);
+// Captures the places + selectedIds MapCanvas receives each render, so tests can assert the
+// synthetic ad-hoc pins MapWorkspace appends (mirrors the flyToCaptures pattern above).
+const canvasCaptures = vi.hoisted(() => [] as { places: unknown[]; selectedIds: Set<string> }[]);
 vi.mock("./MapCanvas", () => ({
-  MapCanvas: ({ places, draft, flyTo, onMapClick, onMarkerClick }: any) => {
+  MapCanvas: ({ places, selectedIds, draft, flyTo, onMapClick, onMarkerClick }: any) => {
     if (flyToCaptures[flyToCaptures.length - 1] !== flyTo) flyToCaptures.push(flyTo);
+    canvasCaptures.push({ places, selectedIds });
     return (
       <div data-testid="mapcanvas">
         <button data-testid="fire-map-click" onClick={() => onMapClick({ lat: 47.6, lng: -122.3 })} />
@@ -52,6 +56,7 @@ import { MapWorkspace } from "./MapWorkspace";
 import { analyzePlaces, comparePlaces, createBulkPlaces, createPlace, createSession, deletePlace, getDashboardSummary, getIncidentDetails, getMcppPolygons, getNeighborhoodAnalysis, streamAssistantChat, updatePlace } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
 import { encodeView } from "../lib/savedView";
+import { keyOf } from "../lib/useAddressList";
 import type { DashboardSummary, IncidentDetailsResponse, NeighborhoodAnalysis, Place, SiteComparison } from "../types";
 
 const home: Place = {
@@ -60,6 +65,10 @@ const home: Place = {
 };
 const work: Place = {
   id: "p2", display_label: "Work", latitude: 47.62, longitude: -122.34, visit_count: 3,
+  total_dwell_minutes: null, inferred_place_type: "manual_place", sensitivity_class: "normal",
+};
+const pin9: Place = {
+  id: "p9", display_label: "Pin 9", latitude: 47.6, longitude: -122.3, visit_count: 1,
   total_dwell_minutes: null, inferred_place_type: "manual_place", sensitivity_class: "normal",
 };
 
@@ -139,6 +148,7 @@ afterEach(() => {
   // an assertion fails before a test's own cleanup lines run.
   window.history.replaceState(null, "", "/");
   flyToCaptures.length = 0;
+  canvasCaptures.length = 0;
 });
 
 describe("MapWorkspace", () => {
@@ -952,6 +962,54 @@ describe("MapWorkspace", () => {
     });
   });
 
+  it("synthesizes lettered pins for ad-hoc entries", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home]));
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 1 });
+    geocodeSearch.mockResolvedValue([{ label: "500 Pine St", latitude: 47.63, longitude: -122.35, source: "test" }]);
+
+    render(<MapWorkspace />);
+    await screen.findByText("Home");
+
+    // Add an ad-hoc address via the compare input (type, search, pick the result).
+    fireEvent.change(screen.getByLabelText("Add an address to compare"), { target: { value: "500 Pine" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    fireEvent.click(await screen.findByText("500 Pine St"));
+
+    // The last canvas capture carries a synthetic ad-hoc place keyed by its coordinate key,
+    // and that id is present in selectedIds so it renders as a lettered "selected" pin.
+    await waitFor(() => {
+      const last = canvasCaptures[canvasCaptures.length - 1]!;
+      const synthetic = (last.places as { id: string; inferred_place_type: string }[]).find((p) => p.inferred_place_type === "adhoc_entry");
+      expect(synthetic).toBeDefined();
+      expect(last.selectedIds.has(synthetic!.id)).toBe(true);
+    });
+  });
+
+  it("clicking an ad-hoc pin flies to it instead of removing the entry", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home]));
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 1 });
+    geocodeSearch.mockResolvedValue([{ label: "500 Pine St", latitude: 47.63, longitude: -122.35, source: "test" }]);
+
+    render(<MapWorkspace />);
+    await screen.findByText("Home");
+
+    fireEvent.change(screen.getByLabelText("Add an address to compare"), { target: { value: "500 Pine" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    fireEvent.click(await screen.findByText("500 Pine St"));
+
+    // The synthetic's marker uses the entry's coordinate key as its id.
+    const adhocId = keyOf({ latitude: 47.63, longitude: -122.35 });
+    fireEvent.click(await screen.findByTestId(`marker-${adhocId}`));
+
+    // Focus, not destroy: the entry stays listed (the row's labeled ✕ owns removal) and
+    // the map flies to the entry's coordinates.
+    const rows = screen.getByRole("list", { name: /addresses to compare/i });
+    expect(within(rows).getByText("500 Pine St")).toBeInTheDocument();
+    expect(flyToCaptures[flyToCaptures.length - 1]).toEqual({ lat: 47.63, lng: -122.35 });
+  });
+
   it("exits a shared banner back to the restored saved-place list", async () => {
     localStorage.setItem("compcat.selection", JSON.stringify([home.id]));
     vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
@@ -979,6 +1037,32 @@ describe("MapWorkspace", () => {
       expect(within(list).getByText(home.display_label)).toBeInTheDocument();
     });
     await waitFor(() => expect(getNeighborhoodAnalysis).toHaveBeenCalledTimes(2));
+  });
+
+  it("banner Exit before the data load keeps the shared list instead of clearing it", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    // getDashboardSummary never resolves during this test: data.places stays empty and
+    // the persisted selection is never restored — the state Exit must guard against.
+    vi.mocked(getDashboardSummary).mockReturnValue(new Promise<DashboardSummary>(() => {}));
+    vi.mocked(comparePlaces).mockResolvedValue(makeSiteComparison("Downtown test point", "North test point"));
+
+    const view = encodeView({
+      points: [
+        { latitude: 47.6005, longitude: -122.3315, label: "Downtown test point" },
+        { latitude: 47.6595, longitude: -122.3125, label: "North test point" },
+      ],
+      radiusM: 250, startDate: "2026-01-01", endDate: "2026-06-24",
+      layer: "reported", offenseCategory: "",
+    });
+    window.history.replaceState({}, "", `/?view=${view}`);
+    render(<MapWorkspace />);
+
+    // Click Exit as soon as the banner renders — before any load has landed.
+    fireEvent.click(screen.getByRole("button", { name: "Exit" }));
+
+    expect(screen.getByText("Downtown test point")).toBeInTheDocument();
+    expect(screen.getByText("North test point")).toBeInTheDocument();
+    expect(screen.queryByText(/shared view/i)).not.toBeInTheDocument();
   });
 
   it("does not double-run when a lookup fires before places finish loading", async () => {
@@ -1068,5 +1152,90 @@ describe("MapWorkspace", () => {
     const rows = screen.getByRole("list", { name: /addresses to compare/i });
     expect(within(rows).getByText("Work")).toBeInTheDocument();
     expect(within(rows).queryByText("Home")).not.toBeInTheDocument();
+  });
+
+  it("invalidates results when a queued place id resolves under fresh results", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home, work]));
+    vi.mocked(comparePlaces).mockResolvedValue(makeSiteComparison("Home", "Work"));
+    vi.mocked(getNeighborhoodAnalysis).mockResolvedValue(makeNeighborhoodAnalysis());
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 2 });
+    vi.mocked(createPlace).mockResolvedValue(pin9);
+
+    render(<MapWorkspace />);
+    // The restored two-place selection auto-runs and renders the ranked spine.
+    expect(await screen.findByTestId("compare-ranked")).toBeInTheDocument();
+
+    // Pin-save "Pin 9": createPlace resolves, but HOLD the save's summary refresh open so
+    // p9 stays queued as pending (it isn't in data.places until that refresh lands).
+    let resolveSummary!: (value: DashboardSummary) => void;
+    vi.mocked(getDashboardSummary).mockReturnValueOnce(new Promise<DashboardSummary>((resolve) => { resolveSummary = resolve; }));
+    fireEvent.click(screen.getByRole("button", { name: "Drop a pin on the map" }));
+    fireEvent.click(screen.getByTestId("fire-map-click"));
+    fireEvent.change(screen.getByLabelText(/label/i), { target: { value: "Pin 9" } });
+    fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
+    // Queue-time invalidate drops the greet spine while p9 waits on the held refresh.
+    await waitFor(() => expect(screen.queryByTestId("compare-ranked")).not.toBeInTheDocument());
+
+    // A fresh run completes while p9 is still pending.
+    fireEvent.click(screen.getByRole("button", { name: /compare 2 addresses/i }));
+    expect(await screen.findByTestId("compare-ranked")).toBeInTheDocument();
+
+    // The held refresh now lands WITH p9's place: the resolve-append changes the list
+    // under the fresh results, so it must invalidate the now-stale spine.
+    resolveSummary(makeSummary([home, work, pin9]));
+    await waitFor(() => expect(screen.queryByTestId("compare-ranked")).not.toBeInTheDocument());
+    // The chip strip renders the same label once the summary lands, so scope to the address rows.
+    const rows = screen.getByRole("list", { name: /addresses to compare/i });
+    expect(await within(rows).findByText("Pin 9")).toBeInTheDocument();
+  });
+
+  it("keeps an assistant-applied comparison when its refetch resolves a queued place id", async () => {
+    // compare-by-name: the backend creates the unsaved place and returns its id, so the
+    // bridge's replace queues an id that data.places can't resolve yet. The tool effect's
+    // own summary refetch delivers it — and that resolve-append must NOT drop the applied
+    // pane (runPoints === null: assistant results aren't keyed to this list).
+    const pike: Place = { ...home, id: "p9", display_label: "Pike Street", latitude: 47.63, longitude: -122.35 };
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home, work]));
+    vi.mocked(streamAssistantChat).mockImplementation(async (_payload, handlers) => {
+      handlers.onEvent({
+        event: "tool",
+        data: {
+          tool_name: "compare_places",
+          result: {
+            place_ids: ["p1", "p2", "p9"],
+            settings_used: {
+              radius_m: 250,
+              analysis_start_date: "2026-01-01",
+              analysis_end_date: "2026-06-30",
+              offense_category: null,
+            },
+            comparison: makeSiteComparison("Home", "Work"),
+          },
+        },
+      });
+      handlers.onEvent({ event: "done", data: {} });
+    });
+
+    render(<MapWorkspace />);
+    await screen.findByRole("checkbox", { name: "Home" });
+    // Let the greet run's own summary refresh land first, so the deferred below is
+    // consumed by the tool effect's refetch and nothing else.
+    await waitFor(() => expect(getDashboardSummary).toHaveBeenCalledTimes(2));
+    let resolveSummary!: (value: DashboardSummary) => void;
+    vi.mocked(getDashboardSummary).mockReturnValueOnce(new Promise<DashboardSummary>((resolve) => { resolveSummary = resolve; }));
+
+    fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "compare with Pike Street" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    // The applied pane renders while p9 is still pending resolution.
+    expect(await screen.findByTestId("compare-ranked")).toBeInTheDocument();
+
+    // The refetch lands WITH p9's place: the row appends and the pane survives.
+    resolveSummary(makeSummary([home, work, pike]));
+    const rows = screen.getByRole("list", { name: /addresses to compare/i });
+    expect(await within(rows).findByText("Pike Street")).toBeInTheDocument();
+    expect(screen.getByTestId("compare-ranked")).toBeInTheDocument();
   });
 });

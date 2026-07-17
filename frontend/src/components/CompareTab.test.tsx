@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CompareTab } from "./CompareTab";
 import type { GeocodingProvider } from "../lib/geocoding";
-import type { AddressEntry } from "../lib/useCompareSet";
-import { keyOf } from "../lib/useCompareSet";
+import type { AddressEntry } from "../lib/useAddressList";
+import { keyOf } from "../lib/useAddressList";
 import type { AnalysisSettings, IncidentDetailsResponse, NeighborhoodAnalysis, NeighborhoodPlace, SiteComparison, SiteComparisonOption, SitePairwiseResult, SiteDecisionClass } from "../types";
 
 const provider: GeocodingProvider = { search: vi.fn().mockResolvedValue([]) };
@@ -128,15 +128,78 @@ describe("CompareTab (unified panel)", () => {
     expect(onHoverPlace).toHaveBeenLastCalledWith(null);
   });
 
-  it("copies the share link when results exist", async () => {
-    // clipboard idiom: define writeText mock via Object.defineProperty
-    const writeText = vi.fn();
+  it("copies the share link and confirms with a transient status", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     const onCopyLink = vi.fn().mockReturnValue("https://example.test/?view=abc");
     render(<CompareTab {...base} entries={entriesOf("Pike")} neighborhood={onePlaceNeighborhood} runPoints={entriesOf("Pike")} onCopyLink={onCopyLink} />);
     fireEvent.click(screen.getByRole("button", { name: /copy link to this view/i }));
-    expect(onCopyLink).toHaveBeenCalled();
     expect(writeText).toHaveBeenCalledWith("https://example.test/?view=abc");
+    expect(await screen.findByText("Copied")).toBeInTheDocument();
+  });
+
+  it("reports a clipboard failure instead of rejecting silently", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const onCopyLink = vi.fn().mockReturnValue("https://example.test/?view=abc");
+    render(<CompareTab {...base} entries={entriesOf("Pike")} neighborhood={onePlaceNeighborhood} runPoints={entriesOf("Pike")} onCopyLink={onCopyLink} />);
+    fireEvent.click(screen.getByRole("button", { name: /copy link to this view/i }));
+    expect(await screen.findByText("Couldn't copy — try again.")).toBeInTheDocument();
+  });
+
+  it("copy status region is polite live and empty at rest", () => {
+    render(<CompareTab {...base} entries={entriesOf("Pike")} neighborhood={onePlaceNeighborhood} runPoints={entriesOf("Pike")} onCopyLink={() => "u"} />);
+    const status = screen.getByTestId("copy-status");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveTextContent("");
+  });
+
+  it("announces completion politely: comparison wording at 2+", () => {
+    render(<CompareTab {...base} entries={entriesOf("Pike", "Bell")} comparison={clearSweep} neighborhood={twoPlaceNeighborhood} runPoints={entriesOf("Pike", "Bell")} />);
+    const region = screen.getByTestId("run-announcement");
+    expect(region).toHaveAttribute("aria-live", "polite");
+    expect(region).toHaveTextContent("Comparison complete: 2 addresses ranked by reported incident rate.");
+  });
+
+  it("announces completion politely: analysis wording at 1", () => {
+    render(<CompareTab {...base} entries={entriesOf("Pike")} neighborhood={onePlaceNeighborhood} runPoints={entriesOf("Pike")} />);
+    expect(screen.getByTestId("run-announcement")).toHaveTextContent("Analysis complete for 1 address.");
+  });
+
+  it("announcement is empty while running and before any run", () => {
+    const { rerender } = render(<CompareTab {...base} entries={entriesOf("Pike")} />);
+    expect(screen.getByTestId("run-announcement")).toHaveTextContent("");
+    rerender(<CompareTab {...base} entries={entriesOf("Pike")} running />);
+    expect(screen.getByTestId("run-announcement")).toHaveTextContent("");
+  });
+
+  it("announcement counts the announced payload, not the input list", () => {
+    const threeOptions = [opt("p1", "Pike", 12, 3.9), opt("p2", "Bell", 31, 10.1), opt("p3", "Yesler", 44, 14.3)];
+    const threeWay: SiteComparison = {
+      ...clearSweep,
+      overview: { ...clearSweep.overview, decision_class: "not_statistically_clear", recommendation_option_id: null, recommendation_label: null, options: threeOptions },
+      analytical: { ...clearSweep.analytical, options: threeOptions, pairwise_results: [pair("p1", "p2", "not_statistically_clear", null), pair("p1", "p3", "not_statistically_clear", null)] },
+    };
+    render(<CompareTab {...base} entries={entriesOf("Pike", "Bell")} comparison={threeWay} neighborhood={twoPlaceNeighborhood} runPoints={null} />);
+    expect(screen.getByTestId("run-announcement")).toHaveTextContent("Comparison complete: 3 addresses ranked by reported incident rate.");
+  });
+
+  it("ranked-row hover reaches onHoverPlace with the entry's hover id (keyOf for ad-hoc)", () => {
+    const onHoverPlace = vi.fn();
+    render(<CompareTab {...base} entries={entriesOf("Pike", "Bell")} comparison={clearSweep} neighborhood={twoPlaceNeighborhood} runPoints={entriesOf("Pike", "Bell")} onHoverPlace={onHoverPlace} />);
+    const firstRow = screen.getByTestId("compare-ranked").querySelectorAll(".mc-ranked-row")[0]!;
+    fireEvent.mouseEnter(firstRow);
+    // Rank 1 is Pike (lowest rate); ad-hoc entries hover by coordinate key.
+    expect(onHoverPlace).toHaveBeenCalledWith(keyOf(entriesOf("Pike")[0]));
+    fireEvent.mouseLeave(firstRow);
+    expect(onHoverPlace).toHaveBeenLastCalledWith(null);
+  });
+
+  it("module hover falls back to the live entry when runPoints is absent (assistant-applied pane)", () => {
+    const onHoverPlace = vi.fn();
+    render(<CompareTab {...base} entries={entriesOf("Pike")} neighborhood={onePlaceNeighborhood} runPoints={null} onHoverPlace={onHoverPlace} />);
+    fireEvent.mouseEnter(screen.getByLabelText("Context for Pike"));
+    expect(onHoverPlace).toHaveBeenCalledWith(keyOf(entriesOf("Pike")[0]));
   });
 
   it("N=2 result: callout + spine + expansions joined by index", () => {

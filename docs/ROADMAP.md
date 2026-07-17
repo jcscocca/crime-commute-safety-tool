@@ -176,11 +176,15 @@ slices.
   tabs collapsed to Compare + Export; tab-free share links with legacy decode; assistant
   bridge and pin/lookup/manage flows retargeted. Plan:
   `docs/superpowers/plans/2026-07-16-unified-compare-slice2.md`.
-- [ ] **Slice 3 — polish** — mobile tuning (adaptive CTA shipped early, in slice 2);
-  review-accumulated: ranked-row↔map hover linkage at N≥2 (incl. assistant-applied panes, which lose hover via the nulled runPoints), pending-id list appends without invalidation, aria-live results
-  announcement, clipboard-failure feedback on Copy link, pre-load banner-Exit corner,
-  `useCompareSet.ts` → `useAddressList.ts` rename, map pins for ad-hoc entries; later
-  optional: pin-to-compare columns, progressive spine-first rendering.
+- [x] **Slice 3 — polish** — shipped: `useAddressList.ts` rename, queued-id invalidation,
+  copy-link success/failure feedback, polite completion announcement, lettered map pins
+  for ad-hoc entries with row↔map hover linkage (assistant-pane fallback included), and
+  the pre-load banner-Exit guard. Mobile pass verified. Plan:
+  `docs/superpowers/plans/2026-07-16-unified-compare-slice3.md`.
+- [ ] **Compare backlog (optional):** pin-to-compare side-by-side columns (Shape A for
+  2–3 candidates), progressive spine-first rendering, ephemeral-flag refactor for ad-hoc
+  pin synthetics, post-save hover re-key (pulse resumes only after the next run), and
+  `expansionByOptionId` entries-dep for the assistant created-id tail.
 
 - [x] **Per-address rate interval (backend)** — every compared address now carries its own
   quasi-Poisson rate confidence interval (`rate_confidence_interval`), surfaced on the
