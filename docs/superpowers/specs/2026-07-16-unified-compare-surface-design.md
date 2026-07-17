@@ -128,6 +128,21 @@ Three shippable slices, each its own PR gated on `make test-all`:
   unmodified.
 - Banned-vocabulary sweeps cover the new dynamic regions.
 
+## Implementation deltas (slice 2, recorded 2026-07-16)
+
+- **Saved-place summaries:** the unified run additionally fires `analyzePlaces({ place_ids })`
+  for the list's saved entries — the points path never persists `crime_summaries`, and the
+  map's per-place rings read them from the summary payload.
+- **Auto-run policy:** seeding events auto-run (persisted-selection restore, share link,
+  landing lookup); manual list edits and control changes invalidate and wait for Run. The
+  old "points-subject re-runs on control change" special case is retired.
+- **Adaptive CTA** shipped in slice 2 (querybar rebuild made it free).
+- The module's landmark reads "Context for X" (was "Verdict for X").
+- **Assistant selection edits invalidate results** like user edits do; payload-bearing
+  assistant effects re-apply their panes after the invalidate.
+- **Deleting a saved place also removes its list entry** (a dangling saved id would
+  poison the run's `place_ids` summary refresh).
+
 ## Out of scope
 
 - Any backend/`app/` change, new endpoint, schema, or migration.
