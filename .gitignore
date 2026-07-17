@@ -19,3 +19,4 @@ otp-data/
 app/data/tiles/
 frontend/public/basemaps-assets/
 .tools/
+.claude/
