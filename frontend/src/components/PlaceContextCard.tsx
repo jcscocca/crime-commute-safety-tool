@@ -149,11 +149,23 @@ function TemporalSection({ temporal, windowLabel, noun }: { temporal: TemporalPr
         <p className="mc-temporal-note">Based on {temporal.total_with_time} {countNoun(noun, temporal.total_with_time)} — interpret with caution.</p>
       ) : null}
       {temporal.without_time > 0 ? (
-        <p className="mc-temporal-note">{temporal.without_time} {countNoun(noun, temporal.without_time)} had no recorded time and aren't shown here.</p>
-      ) : null}
+        <>
+          <p className="mc-temporal-note">{temporal.without_time} {countNoun(noun, temporal.without_time)} had no recorded time and aren't shown here.</p>
+          {timeConventionNote}
+        </>
+      ) : (
+        timeConventionNote
+      )}
     </div>
   );
 }
+
+const timeConventionNote = (
+  <p className="mc-temporal-note">
+    Times reflect each report's recorded offense start. Offenses reported as a time range (for
+    example, an overnight break-in discovered in the morning) appear at the start of that range.
+  </p>
+);
 
 function CategoryBreakdown({ rows }: { rows: CategoryShare[] }) {
   if (!rows.length) return null;

@@ -72,6 +72,13 @@ describe("PlaceContextCard", () => {
     expect(screen.getByText(/of the 40 reported incidents with a recorded time/)).toBeInTheDocument();
   });
 
+  it("discloses the offense-start point-stamping convention", () => {
+    renderCard();
+    expect(
+      screen.getByText(/Times reflect each report's recorded offense start/),
+    ).toBeInTheDocument();
+  });
+
   it("renders category rows with place and beat shares", () => {
     renderCard();
     expect(screen.getByText("Theft")).toBeInTheDocument();

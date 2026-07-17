@@ -33,6 +33,10 @@ def build_temporal_profile(incidents: Iterable[CrimeIncidentData]) -> TemporalPr
     ``hour_counts`` and ``dow_counts`` are the marginals of the ``hour_by_dow`` joint
     matrix. Incidents with no ``offense_start_utc`` are counted in ``without_time`` (not
     dropped), so callers can report how many incidents lacked a recorded time.
+
+    Each incident is point-stamped at its offense START time; offenses actually reported as
+    a time range (e.g. burglary, vehicle theft) are therefore biased toward the start of that
+    range in the hour-of-day profile — the "aoristic problem" (Ratcliffe & McCullagh 1998).
     """
     hour_by_dow = [[0] * 24 for _ in range(7)]
     total_with_time = 0
