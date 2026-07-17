@@ -18,6 +18,7 @@ import { IncidentDetailsSection } from "./IncidentDetailsSection";
 import type { LocatorData } from "./LocatorChip";
 import { MethodsAppendix } from "./MethodsAppendix";
 import { PlaceContextCard } from "./PlaceContextCard";
+import { TrendSection } from "./TrendSection";
 
 const INCIDENT_TABLE_MIN = 560;
 
@@ -263,6 +264,10 @@ export function CompareTab({ entries, provider, onAddEntry, onRemoveEntry, saved
             </>
           ) : neighborhood?.places?.length ? (
             neighborhood.places.map((place, index) => <Fragment key={place.place_id}>{moduleFor(index)}</Fragment>)
+          ) : null}
+
+          {neighborhood ? (
+            <TrendSection neighborhood={neighborhood} layer={analysis.layer} category={analysis.offenseCategory || null} />
           ) : null}
 
           {hasResults ? (
