@@ -16,6 +16,9 @@ update its doc in the same PR.
 
 ## Also under `docs/`
 
+- **`analysis/`** — durable methodology references for the statistical choices:
+  [overdispersion & the per-address rate interval](analysis/overdispersion-and-rate-intervals.md),
+  [anchored indexing for the trend overlay](analysis/trend-indexing-method.md).
 - **`superpowers/specs/` and `superpowers/plans/`** — point-in-time design specs and
   implementation plans, one pair per feature. A historical record of *how* things were built;
   not a description of current state.
