@@ -86,6 +86,30 @@ def test_category_filter_applies(seeded_session):
     assert sum(payload["area_counts"]) == 2  # the two PROPERTY-seeded TEST HILL rows
 
 
+def test_citywide_series_is_shared_across_mcpps(seeded_session, monkeypatch):
+    import app.services.trends_service as trends_service
+
+    calls: list[object] = []
+    real = trends_service.area_month_counts
+
+    def counting(session, column, *args, **kwargs):
+        calls.append(column)
+        return real(session, column, *args, **kwargs)
+
+    monkeypatch.setattr(trends_service, "area_month_counts", counting)
+    first = trends_for_mcpp(
+        seeded_session, mcpp="TEST HILL", layer="reported",
+        offense_category=None, today=TODAY,
+    )
+    second = trends_for_mcpp(
+        seeded_session, mcpp="DOWNTOWN COMMERCIAL", layer="reported",
+        offense_category=None, today=TODAY,
+    )
+    assert second["citywide_counts"] is first["citywide_counts"]
+    assert calls.count(CrimeIncident.mcpp) == 2   # one area query per MCPP
+    assert calls.count(CrimeIncident.beat) == 1   # citywide computed once, then shared
+
+
 def test_cache_hit_and_reset(seeded_session):
     clock = iter([0.0, 1.0, 2.0, 5000.0]).__next__
     first = trends_for_mcpp(seeded_session, mcpp="TEST HILL", layer="reported",
