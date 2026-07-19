@@ -23,7 +23,13 @@ safety scores or safe/unsafe rankings.
 4. **Results** — analyses render as rich cards inline in the conversation
    thread, built only from structured tool results (never parsed from prose),
    each showing its frozen run settings and a run-scoped export action.
-   Compare/Export tabs dissolve (staged; see Migration).
+   Cards have two sizes: **compact** (default — verdict lines, trend
+   sparkline, category mini-bars) and **expanded** (the full graph set:
+   trend chart, category breakdown, baseline detail, incident rows, methods).
+   Expanding widens the rail via the existing drawer width presets on desktop
+   and raises the sheet to full on mobile; closing restores the normal width.
+   Every graph in today's Compare tab lands in the expanded card — none are
+   dropped. Compare/Export tabs dissolve (staged; see Migration).
 5. **Map badges (v1)** — neutral **presence** badges on analyzed pins
    ("● analyzed — tap for context"); no verdict text, arrows, or evaluative
    color. Tapping a badge scrolls the thread to that place's latest card
