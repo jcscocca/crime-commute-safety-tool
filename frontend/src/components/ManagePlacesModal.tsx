@@ -27,6 +27,9 @@ type Props = {
   onUploaded?: () => void;
   onClose: () => void;
   onRename: (id: string, label: string) => Promise<void>;
+  /** Export privacy toggle: sensitivity_class normal ↔ suppress_from_public_export. */
+  onToggleExport: (placeId: string, include: boolean) => void;
+  exportHref: string;
 };
 
 function modalLabel(kind: ManageView): string {
@@ -68,6 +71,8 @@ export function ManagePlacesModal({
   onUploaded,
   onClose,
   onRename,
+  onToggleExport,
+  exportHref,
 }: Props) {
   const [view, setView] = useState<ManageView>(initialView);
   const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
@@ -143,9 +148,15 @@ export function ManagePlacesModal({
                           <div className="nm">{place.display_label}</div>
                         )}
                         <div className="sub">{coords(place)}</div>
-                        {isSensitive(place.sensitivity_class) ? (
-                          <span className="cnt" title="Excluded from public CSV exports">Hidden from exports</span>
-                        ) : null}
+                        <label className="mc-exp-toggle">
+                          <input
+                            type="checkbox"
+                            checked={!isSensitive(place.sensitivity_class)}
+                            aria-label={`Include ${place.display_label} in export`}
+                            onChange={(event) => onToggleExport(place.id, event.target.checked)}
+                          />
+                          <span>Include in export</span>
+                        </label>
                       </div>
                       <div className="right">
                         {count !== null ? <span className="cnt">{count} {summary?.layer === "calls" ? "calls" : summary?.layer === "arrests" ? "arr." : "inc."}</span> : null}
@@ -171,6 +182,9 @@ export function ManagePlacesModal({
         ) : (
           <PersonalUpload onUploaded={onUploaded ?? (() => {})} />
         )}
+        <div className="mc-modal-foot">
+          <a className="mc-link-copy" href={exportHref}>Download Tableau CSV</a>
+        </div>
       </div>
     </div>
   );

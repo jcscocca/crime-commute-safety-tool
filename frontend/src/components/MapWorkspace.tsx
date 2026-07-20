@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
-import { createBulkPlaces, createPlace, deletePlace, getBeatPolygons, getMcppPolygons, updatePlace, type AssistantCommandName } from "../api/client";
+import { createBulkPlaces, createPlace, deletePlace, getBeatPolygons, updatePlace, type AssistantCommandName } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
 import { compactGeocodeLabel } from "../lib/addressLabel";
 import { describeAnalysisPatch } from "../lib/analysisReceipt";
@@ -9,6 +9,7 @@ import { buildRerunArgs, followupChipsFor, type FollowupChip } from "../lib/foll
 import { offerForPlaces, type SavedPlaceRef } from "../lib/offers";
 import { DRAWER_PEEK, FOCUS_CHROME_MIN, MOBILE_MAX_WIDTH, snapHeightPx } from "../lib/drawer";
 import { geocodingProvider } from "../lib/geocoding";
+import { cardFromCompareResults, localSummaryLine } from "../lib/localCard";
 import { placeIdentity, type PlaceIdentity } from "../lib/placeIdentity";
 import { decodeView, encodeView } from "../lib/savedView";
 import { useIncidentPoints } from "../lib/useIncidentPoints";
@@ -23,10 +24,8 @@ import { useAssistantTurn } from "../lib/useAssistantTurn";
 import { useThread } from "../lib/useThread";
 import { AssistantPanel } from "./AssistantPanel";
 import { BottomSheet } from "./BottomSheet";
-import { CompareTab } from "./CompareTab";
 import { ContextStrip } from "./ContextStrip";
 import { DataFreshness } from "./DataFreshness";
-import { ExportTab } from "./ExportTab";
 import { LayerToggle } from "./LayerToggle";
 import { MapCanvas } from "./MapCanvas";
 import { MapLegend } from "./MapLegend";
@@ -35,10 +34,9 @@ import { IncidentDisclosure } from "./IncidentDisclosure";
 import { PlaceChipStrip } from "./PlaceChipStrip";
 import { PlaceSearch } from "./PlaceSearch";
 import { ManagePlacesModal, type ManageView } from "./ManagePlacesModal";
-import { RailNav, type RailView } from "./RailNav";
 import { SearchPill } from "./SearchPill";
 import { ThemeToggle } from "./ThemeToggle";
-import type { AnalysisCardData, AnalysisSettings, AssistantDashboardState, BadgeDescriptor, BeatFeatureCollection, GeocodeResult, LatLng, MapBounds, McppFeatureCollection, Place, PlaceCreate } from "../types";
+import type { AnalysisCardData, AnalysisSettings, AssistantDashboardState, BadgeDescriptor, BeatFeatureCollection, GeocodeResult, LatLng, MapBounds, Place, PlaceCreate } from "../types";
 
 export function MapWorkspace() {
   const { theme, setTheme } = useTheme();
@@ -50,7 +48,6 @@ export function MapWorkspace() {
   const [sharedBanner, setSharedBanner] = useState(Boolean(initialView));
   const [showBadLink, setShowBadLink] = useState(hadViewParam && initialView === null);
 
-  const [railView, setRailView] = useState<RailView>("tabby");
   const thread = useThread();
   // A deterministic post-add offer ("Saved X. Want me to pull what's on file nearby?") with
   // command chips. Set only by a user-driven place add (pin/manual/import) with no auto-run
@@ -76,11 +73,6 @@ export function MapWorkspace() {
 
   useEffect(() => {
     getBeatPolygons().then(setBeats).catch(() => setBeats(null)); // outline layer is optional chrome
-  }, []);
-
-  const [mcppPolygons, setMcppPolygons] = useState<McppFeatureCollection | null>(null);
-  useEffect(() => {
-    getMcppPolygons().then(setMcppPolygons).catch(() => setMcppPolygons(null)); // locator chips are optional chrome
   }, []);
 
   const incidentLayer = useIncidentPoints({ bounds: viewport, analysis });
@@ -149,15 +141,6 @@ export function MapWorkspace() {
     [savedIdSet, adhocPlaces],
   );
   const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
-  const savedPlaceKeys = useMemo(
-    () =>
-      new Set(
-        data.places
-          .filter((p) => p.latitude != null && p.longitude != null)
-          .map((p) => keyOf({ latitude: p.latitude as number, longitude: p.longitude as number })),
-      ),
-    [data.places],
-  );
 
   const compare = useCompare({
     entries: list.entries,
@@ -209,15 +192,47 @@ export function MapWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restored, list.entries.length]);
 
+  // An armed auto-run (share link / lookup / restored session) lands its result as a LOCAL,
+  // runId-null card on the rail — cards, not the legacy Compare view (no export link, no
+  // server badges: client runs can't route raw points through the assistant tools). Armed
+  // here; the completion effect below fires it once when the results land.
+  const pendingCardRef = useRef(false);
   useEffect(() => {
     if (!pendingAutoRun || list.entries.length === 0) return;
     setPendingAutoRun(false);
-    setRailView("compare");
+    pendingCardRef.current = true;
     void compare.run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingAutoRun, list.entries]);
 
+  // Synthesize the armed auto-run's payload into a card once its results land. Keyed on the
+  // result slices (not `running`): it can't fire on the arming commit — the slices are
+  // unchanged there — and fires exactly when useCompare commits a payload, sidestepping the
+  // batching that can collapse `running` false→true→false without a committed `true` render.
+  // pendingCardRef gates a single append (cleared once a card is produced; StrictMode's
+  // double-run and any re-fire find it disarmed). A fully-failed run leaves both slices null,
+  // so the effect never fires and nothing lands. useCompare writes all slices in one batch,
+  // so reading incidents alongside neighborhood here is safe.
+  useEffect(() => {
+    if (!pendingCardRef.current) return;
+    const card = cardFromCompareResults({
+      comparison: compare.comparison,
+      neighborhood: compare.neighborhood,
+      incidents: compare.incidents,
+      analysis,
+      placeIds: list.entries.map((e) => e.savedPlaceId).filter((id): id is string => Boolean(id)),
+    });
+    if (!card) return;
+    pendingCardRef.current = false;
+    thread.append({ kind: "analysis_card", card });
+    thread.append({ kind: "tabby_text", text: localSummaryLine(card, list.entries.length) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compare.comparison, compare.neighborhood]);
+
   function invalidateAnalysisContext() {
+    // Any context invalidation cancels a pending auto-run card: if the armed run failed
+    // (ref left armed), a later result landing in the same slices must not revive it.
+    pendingCardRef.current = false;
     compare.invalidate();
     // Filter/selection changes detach presence badges — they describe a specific run's
     // results, which no longer reflect the current context once it changes.
@@ -262,7 +277,20 @@ export function MapWorkspace() {
   function selectPlaceIds(ids: string[], savedPlaces?: SavedPlaceRef[]) {
     if (ids.length === 0) return;
     invalidateAnalysisContext();
-    entriesForIds(ids).forEach((entry) => list.add(entry));
+    // A just-saved place whose coordinates match an existing ad-hoc entry links in place
+    // (markSaved — mirroring the retired Compare row-save) instead of dedup-adding, which
+    // would keep the entry ad-hoc and leave the saved place looking unselected. Coords are
+    // rounded to 3 decimals to match useAddressList's normalize before keying.
+    const linked = new Set<string>();
+    for (const place of savedPlaces ?? []) {
+      if (place.latitude == null || place.longitude == null) continue;
+      const key = keyOf({ latitude: Number(place.latitude.toFixed(3)), longitude: Number(place.longitude.toFixed(3)) });
+      if (list.entries.some((e) => !e.savedPlaceId && keyOf(e) === key)) {
+        list.markSaved(key, place.id);
+        linked.add(place.id);
+      }
+    }
+    entriesForIds(ids.filter((id) => !linked.has(id))).forEach((entry) => list.add(entry));
     // A user-driven add earns a deterministic offer ("pull the reports near this?"), but only
     // when no auto-run is armed — the audit codified: share/restore/lookup paths never pass
     // savedPlaces (and never call selectPlaceIds at all), so this guard is belt-and-braces.
@@ -275,20 +303,16 @@ export function MapWorkspace() {
     if (built) {
       thread.append({ kind: "tabby_text", text: built.text });
       setOffer(built);
-      // The proactive moment must be SEEN when it fires: land on the rail, and raise a
-      // collapsed drawer/sheet so the offer is on screen (mobile sheet included).
-      setRailView("tabby");
+      // The proactive moment must be SEEN when it fires: raise a collapsed drawer/sheet so
+      // the offer is on screen (mobile sheet included).
       if (isMobile) onSnap("half");
       else setDrawerCollapsed(false);
-    } else {
-      setRailView("compare");
     }
   }
 
   const pinDraft = usePinDraft({
     selectPlaceIds,
     refreshWithFallback: data.refreshWithFallback,
-    setActiveTab: (tab) => setRailView(tab),
     // usePinDraft stays boolean-only; translate to a snap on mobile (armed → bar, placed → half).
     setDrawerCollapsed: (collapsed) => {
       if (isMobile) onSnap(collapsed ? "bar" : "half");
@@ -307,7 +331,6 @@ export function MapWorkspace() {
     invalidateAnalysisContext();
     setSharedBanner(false);
     list.replaceAll([{ latitude: result.latitude, longitude: result.longitude, label: compactGeocodeLabel(result.label) }]);
-    setRailView("compare");
     setPendingAutoRun(true);
   }
 
@@ -368,6 +391,10 @@ export function MapWorkspace() {
   function applyAssistantToolResult(payload: { tool_name?: string; result?: unknown }) {
     const effect = interpretToolResult(payload);
     if (!effect) return;
+    // Assistant results supersede any pending auto-run card. Without this, a failed auto-run
+    // leaves the ref armed, and applyAssistant writing the same result slices the completion
+    // effect keys on would append a LOCAL card alongside the bridge card (double-card).
+    pendingCardRef.current = false;
     if (effect.selection || effect.neighborhood !== undefined || effect.incidents !== undefined || effect.comparison !== undefined) {
       pinDraft.setDraft(null);
       setSharedBanner(false);
@@ -420,14 +447,13 @@ export function MapWorkspace() {
     }
   }
 
-  // Tapping a pin's presence badge routes to the rail and scrolls to that place's newest
-  // analysis card (reverse scan — the latest run defines "current"). A peeked/collapsed
-  // drawer opens so the card is readable.
+  // Tapping a pin's presence badge scrolls the rail to that place's newest analysis card
+  // (reverse scan — the latest run defines "current"). A peeked/collapsed drawer opens so
+  // the card is readable.
   function handleBadgeClick(placeId: string) {
     for (let i = thread.items.length - 1; i >= 0; i--) {
       const item = thread.items[i];
       if (item.kind === "analysis_card" && item.card.placeIds.includes(placeId)) {
-        setRailView("tabby");
         if (drawer.collapsed) {
           if (isMobile) onSnap("half");
           else setDrawerCollapsed(false);
@@ -449,6 +475,30 @@ export function MapWorkspace() {
     return `${window.location.origin}/?view=${encoded}`;
   }, [list, analysis]);
 
+  // Copies the share link, reporting success/failure to the strip's transient status note.
+  const handleCopyLink = useCallback(async (): Promise<boolean> => {
+    const url = buildShareUrl();
+    if (!url) return false;
+    try {
+      await navigator.clipboard.writeText(url);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [buildShareUrl]);
+
+  // Export privacy toggles live in both the manage modal (per place) and the legacy Export
+  // panel until Task 3 deletes it — one handler, two callers.
+  async function handleToggleExport(id: string, include: boolean) {
+    data.setError("");
+    try {
+      await updatePlace(id, { sensitivity_class: include ? "normal" : "suppress_from_public_export" });
+      await data.refreshWithFallback("Updated export setting, but dashboard totals could not refresh.");
+    } catch {
+      data.setError("Unable to update export setting. Try again.");
+    }
+  }
+
   const assistantState: AssistantDashboardState = useMemo(() => ({
     selected_place_ids: Array.from(savedIdSet),
     analysis_start_date: analysis.startDate || null,
@@ -460,8 +510,8 @@ export function MapWorkspace() {
     layer: analysis.layer,
   }), [analysis, savedIdSet]);
 
-  // Turn machinery lives here, not in AssistantPanel: bridge effects flip railView
-  // mid-stream, and the shared busy/draft/offline state must survive the panel unmounting.
+  // Turn machinery lives here, not in AssistantPanel: the shared busy/draft/offline state
+  // must survive the panel unmounting.
   const turn = useAssistantTurn({
     dashboardState: assistantState,
     items: thread.items,
@@ -488,6 +538,12 @@ export function MapWorkspace() {
     void turn.runCommand(label, command, args);
   }
 
+  // ContextStrip's Run analysis button: same deterministic command path as the panel's own
+  // chips, choosing compare vs. analyze from the saved-place count (2+ compares, 1 analyzes).
+  function handleContextStripRun() {
+    runPanelCommand("Run analysis", savedIdSet.size >= 2 ? "compare_places" : "analyze_places");
+  }
+
   // Tabby onboarding chips route to the three ways to point the assistant at a place: focus
   // the top search pill, arm pin-drop mode, or open the manual-add modal.
   function handlePanelAction(action: "search" | "add-pin" | "manual") {
@@ -512,7 +568,11 @@ export function MapWorkspace() {
     return null;
   }, [thread.items]);
   const followupChips = useMemo(
-    () => (latestCard ? followupChipsFor(latestCard.kind, latestCard.settings, data.availableRadii) : []),
+    // Point-only local cards (share links) have no place ids to re-run against.
+    () =>
+      latestCard && latestCard.placeIds.length > 0
+        ? followupChipsFor(latestCard.kind, latestCard.settings, data.availableRadii)
+        : [],
     [latestCard, data.availableRadii],
   );
   // A pending place-added offer owns the chip row until it's consumed; otherwise the newest
@@ -567,8 +627,8 @@ export function MapWorkspace() {
     </>
   );
 
-  // Rendered INSIDE the Analyze/Compare panels (topSlot): .mc-panel is absolutely
-  // positioned over .mc-panels, so a sibling rendered outside would be painted over.
+  // Rendered at the top of the rail (above the assistant thread): the saved-place chip
+  // strip and the in-progress pin-draft popover.
   const drawerTopSlot = (
     <>
       <PlaceChipStrip
@@ -651,7 +711,7 @@ export function MapWorkspace() {
           limit={incidentLayer.limit}
         />
 
-        {data.error && data.places.length === 0 && list.entries.length === 0 && railView !== "export" && !pinDraft.draft ? (
+        {data.error && data.places.length === 0 && list.entries.length === 0 && !pinDraft.draft ? (
           <p className="mc-error" role="alert">{data.error}</p>
         ) : null}
 
@@ -691,89 +751,40 @@ export function MapWorkspace() {
           snap={drawer.snap}
           onSnap={onSnap}
           peekHeader={isMobile ? layerControls : undefined}
-          nav={<RailNav view={railView} compareCount={list.entries.length} onSelect={setRailView} />}
         >
-          {railView === "tabby" ? (
-            <div className="mc-rail-wrap">
-              {drawerTopSlot}
-              <AssistantPanel
-                items={thread.items}
-                busy={turn.busy}
-                draft={turn.draft}
-                statusLine={turn.statusLine}
-                toolActivity={turn.toolActivity}
-                offline={turn.offline}
-                onSend={(text) => { setOffer(null); void turn.sendChat(text); }}
-                onRetry={() => void turn.sendChat(null)}
-                onRunCommand={runPanelCommand}
-                hasPlaces={data.places.length > 0 || list.entries.length > 0}
-                onAction={handlePanelAction}
-                followupChips={chipRow}
-                onFollowupChip={handleFollowupChip}
-                expandedCard={expandedCard}
-                onCardExpandChange={handleCardExpandChange}
-                focusCard={focusCard}
-                exportHrefBase={exportHrefBase}
-                contextStrip={
-                  <ContextStrip analysis={analysis} availableRadii={data.availableRadii} onChange={handleAnalysisChange} />
-                }
-              />
-            </div>
-          ) : (
-            <>
-          {railView === "compare" ? (
-            <CompareTab
-              topSlot={drawerTopSlot}
-              entries={list.entries}
-              provider={geocodingProvider}
-              onAddEntry={(entry) => { invalidateAnalysisContext(); list.add(entry); }}
-              onRemoveEntry={(index) => { invalidateAnalysisContext(); list.removeAt(index); }}
-              savedKeys={savedPlaceKeys}
-              onSaveEntry={async (entry) => {
-                data.setError("");
-                try {
-                  const created = await createPlace({ display_label: entry.label, latitude: entry.latitude, longitude: entry.longitude, visit_count: 1, sensitivity_class: "normal" });
-                  list.markSaved(keyOf(entry), created.id);
-                  await data.refreshWithFallback("Saved, but your places list could not refresh.");
-                } catch {
-                  data.setError("Unable to save this address. Try again.");
-                }
-              }}
-              analysis={analysis}
-              availableRadii={data.availableRadii}
-              comparison={compare.comparison}
-              neighborhood={compare.neighborhood}
-              incidents={compare.incidents}
-              runPoints={compare.runPoints}
-              running={compare.running}
-              error={data.error}
-              panelWidthPx={drawer.widthPx}
-              isMobile={isMobile}
-              onChange={handleAnalysisChange}
-              onRun={compare.run}
-              onCopyLink={buildShareUrl}
-              onHoverPlace={setHoveredPlaceId}
-              mcppPolygons={mcppPolygons}
-              onFlyTo={({ latitude, longitude }) => setChipFlyTo({ lat: latitude, lng: longitude })}
+          <div className="mc-rail-wrap">
+            {drawerTopSlot}
+            <AssistantPanel
+              items={thread.items}
+              busy={turn.busy}
+              draft={turn.draft}
+              statusLine={turn.statusLine}
+              toolActivity={turn.toolActivity}
+              offline={turn.offline}
+              onSend={(text) => { setOffer(null); void turn.sendChat(text); }}
+              onRetry={() => void turn.sendChat(null)}
+              onRunCommand={runPanelCommand}
+              hasPlaces={data.places.length > 0 || list.entries.length > 0}
+              onAction={handlePanelAction}
+              followupChips={chipRow}
+              onFollowupChip={handleFollowupChip}
+              expandedCard={expandedCard}
+              onCardExpandChange={handleCardExpandChange}
+              focusCard={focusCard}
+              exportHrefBase={exportHrefBase}
+              errorLine={data.error}
+              contextStrip={
+                <ContextStrip
+                  analysis={analysis}
+                  availableRadii={data.availableRadii}
+                  onChange={handleAnalysisChange}
+                  onRun={handleContextStripRun}
+                  runDisabled={savedIdSet.size === 0}
+                  onCopyLink={handleCopyLink}
+                />
+              }
             />
-          ) : null}
-          {railView === "export" ? (
-            <ExportTab
-              href={data.exportHref}
-              places={data.places}
-              onToggleExport={async (id, include) => {
-                data.setError("");
-                try {
-                  await updatePlace(id, { sensitivity_class: include ? "normal" : "suppress_from_public_export" });
-                  await data.refreshWithFallback("Updated export setting, but dashboard totals could not refresh.");
-                } catch {
-                  data.setError("Unable to update export setting. Try again.");
-                }
-              }}
-            />
-          ) : null}
-            </>
-          )}
+          </div>
         </BottomSheet>
 
         {managePlaces ? (
@@ -792,6 +803,8 @@ export function MapWorkspace() {
             onImportSubmit={handleImport}
             onUploaded={data.personalUploadsEnabled ? () => data.refreshWithFallback("Uploaded, but dashboard totals could not refresh.") : undefined}
             onClose={() => setManagePlaces(null)}
+            onToggleExport={handleToggleExport}
+            exportHref={data.exportHref}
             onRename={async (id, label) => {
               data.setError("");
               try {

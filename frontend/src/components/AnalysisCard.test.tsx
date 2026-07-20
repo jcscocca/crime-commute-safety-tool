@@ -177,6 +177,15 @@ describe("AnalysisCard", () => {
     expect(onExpandChange).toHaveBeenCalledWith(false);
   });
 
+  it("shows the product caveat above the methods appendix only when expanded", () => {
+    render(<AnalysisCard card={analyzeCard()} expanded={false} onExpandChange={() => {}} exportHrefBase={EXPORT_BASE} />);
+    expect(screen.queryByText(/not a personal risk prediction/)).not.toBeInTheDocument();
+    cleanup();
+
+    render(<AnalysisCard card={analyzeCard()} expanded onExpandChange={() => {}} exportHrefBase={EXPORT_BASE} />);
+    expect(screen.getByText(/not a personal risk prediction/)).toBeInTheDocument();
+  });
+
   it("skips the category mini-bars on the calls layer (911 calls carry no category)", () => {
     const card = analyzeCard({
       settings: { radius_m: 250, analysis_start_date: "2021-07-01", analysis_end_date: "2026-06-30", offense_category: null, layer: "calls" },

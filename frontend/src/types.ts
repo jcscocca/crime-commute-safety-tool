@@ -140,8 +140,6 @@ export type PlaceCreate = {
   sensitivity_class?: string;
 };
 
-export type TabKey = "compare" | "export";
-
 export type SheetSnap = "bar" | "half" | "full";
 
 export type DrawerState = { collapsed: boolean; widthPx: number; snap: SheetSnap };

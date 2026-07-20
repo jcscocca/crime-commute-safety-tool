@@ -1,0 +1,37 @@
+import type { AnalysisCardData, AnalysisSettings, IncidentDetailsResponse, NeighborhoodAnalysis, SiteComparison } from "../types";
+
+/** Card synthesized from a client-run analysis (share links, lookups, restored
+ * sessions run through useCompare — the assistant tools can't take raw points).
+ * runId stays null: no run-scoped export, no server badges. */
+export function cardFromCompareResults(input: {
+  comparison: SiteComparison | null;
+  neighborhood: NeighborhoodAnalysis | null;
+  incidents: IncidentDetailsResponse | null;
+  analysis: AnalysisSettings;
+  placeIds: string[];
+}): AnalysisCardData | null {
+  const { comparison, neighborhood, incidents, analysis, placeIds } = input;
+  if (!comparison && !neighborhood) return null;
+  return {
+    runId: null,
+    kind: comparison ? "compare" : "analyze",
+    placeIds,
+    settings: {
+      radius_m: analysis.radiusM,
+      analysis_start_date: analysis.startDate,
+      analysis_end_date: analysis.endDate,
+      offense_category: analysis.offenseCategory || null,
+      layer: analysis.layer,
+    },
+    comparison,
+    neighborhood: comparison ? null : neighborhood,
+    incidents: comparison ? null : incidents,
+  };
+}
+
+export function localSummaryLine(card: AnalysisCardData, placeCount: number): string {
+  const noun = placeCount === 1 ? "place" : "places";
+  return card.kind === "compare"
+    ? `Compared your ${placeCount} ${noun} — details in the card.`
+    : `Pulled the reports around your ${noun} — details in the card.`;
+}

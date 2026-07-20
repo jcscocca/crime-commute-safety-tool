@@ -38,6 +38,9 @@ type Props = {
   focusCard?: { card: AnalysisCardData } | null;
   exportHrefBase: string;
   contextStrip?: ReactNode;
+  /** Dashboard error string (run/rename/save/export failures) announced on the rail —
+   * the retired Compare panel used to be the visible home for these. */
+  errorLine?: string;
 };
 
 const SUGGESTED_ACTIONS: SuggestedAction[] = [
@@ -77,6 +80,7 @@ export function AssistantPanel({
   focusCard,
   exportHrefBase,
   contextStrip,
+  errorLine,
 }: Props) {
   const [input, setInput] = useState("");
   const [greeted, setGreeted] = useState(() => localStorage.getItem(GREETED_KEY) === "1");
@@ -236,6 +240,8 @@ export function AssistantPanel({
           ))}
         </div>
       ) : null}
+
+      {errorLine ? <p className="mc-inline-error" role="alert">{errorLine}</p> : null}
 
       {contextStrip}
 

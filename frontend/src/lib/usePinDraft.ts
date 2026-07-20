@@ -23,19 +23,17 @@ export interface PinDraftController {
 interface PinDraftDeps {
   selectPlaceIds: (ids: string[], savedPlaces?: SavedPlaceRef[]) => void;
   refreshWithFallback: (fallbackMessage: string) => Promise<void>;
-  setActiveTab: (tab: "compare") => void;
   setDrawerCollapsed: (collapsed: boolean) => void;
 }
 
 /**
  * Owns the "add a place pin" flow on the map: arming add-pin mode, the in-progress draft
  * (from a map click or an address search), saving it as a place, and the Esc-to-cancel
- * key handler. Drives the shared selection/drawer/tab via the injected callbacks.
+ * key handler. Drives the shared selection/drawer via the injected callbacks.
  */
 export function usePinDraft({
   selectPlaceIds,
   refreshWithFallback,
-  setActiveTab,
   setDrawerCollapsed,
 }: PinDraftDeps): PinDraftController {
   const [addPinMode, setAddPinMode] = useState(false);
@@ -57,7 +55,6 @@ export function usePinDraft({
 
   function startAddPin() {
     setAddPinMode(true);
-    setActiveTab("compare");
     setDrawerCollapsed(true);
   }
 
@@ -73,13 +70,11 @@ export function usePinDraft({
     });
     setDraftError("");
     setAddPinMode(false);
-    setActiveTab("compare");
     setDrawerCollapsed(false);
   }
 
-  // Sets the draft pin + flies the map to a searched address, WITHOUT changing the active
-  // tab. handleSearchSelect adds the Compare-tab switch (to show the save popover); the
-  // single-address lookup reuses previewSearch alone and routes to Compare itself.
+  // Sets the draft pin + flies the map to a searched address. handleSearchSelect and the
+  // single-address lookup both reuse this; the draft's save popover renders on the rail.
   function previewSearch(result: GeocodeResult) {
     setDraft({
       latitude: result.latitude,
@@ -95,7 +90,6 @@ export function usePinDraft({
 
   function handleSearchSelect(result: GeocodeResult) {
     previewSearch(result);
-    setActiveTab("compare");
   }
 
   async function saveDraft() {

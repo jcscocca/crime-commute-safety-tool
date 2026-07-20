@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { KeyboardEvent, PointerEvent, ReactNode } from "react";
 
-import { clampWidth, DRAWER_DEFAULT, DRAWER_MIN, DRAWER_PEEK, DRAWER_RESIZE_STEP, DRAWER_WIDE, drawerMax, type DrawerPreset } from "../lib/drawer";
+import { clampWidth, DRAWER_DEFAULT, DRAWER_MIN, DRAWER_PEEK, DRAWER_RESIZE_STEP, DRAWER_WIDE, drawerMax, SHEET_SNAPS, snapHeightPx, type DrawerPreset } from "../lib/drawer";
 import type { SheetSnap } from "../types";
 
 const GRABBER_TAP_SLOP = 6;
@@ -14,7 +14,6 @@ type Props = {
   onToggleCollapsed: () => void;
   onResize: (px: number) => void;
   onPreset: (preset: DrawerPreset) => void;
-  nav?: ReactNode;
   isMobile?: boolean;
   peekHeader?: ReactNode;
   /** Mobile-only: current sheet snap; defaults to bar/half from `collapsed` until wired. */
@@ -44,7 +43,6 @@ export function BottomSheet({
   onToggleCollapsed,
   onResize,
   onPreset,
-  nav,
   isMobile = false,
   peekHeader,
   snap,
@@ -91,11 +89,7 @@ export function BottomSheet({
     const velocity = dy / dt; // px/ms; positive = downward
     const endHeight = drag.startHeight - dy;
     const vh = window.innerHeight;
-    const candidates: { snap: SheetSnap; h: number }[] = [
-      { snap: "bar", h: 120 },
-      { snap: "half", h: vh * 0.5 },
-      { snap: "full", h: vh * 0.92 },
-    ];
+    const candidates: { snap: SheetSnap; h: number }[] = SHEET_SNAPS.map((snap) => ({ snap, h: snapHeightPx(snap, vh) }));
     let nearest = candidates.reduce((a, b) => (Math.abs(b.h - endHeight) < Math.abs(a.h - endHeight) ? b : a));
     const index = candidates.findIndex((c) => c.snap === nearest.snap);
     if (velocity > GRABBER_FLICK) {
@@ -200,7 +194,7 @@ export function BottomSheet({
   return (
     <section
       ref={panelRef}
-      className={`mc-workspace-panel ${collapsed ? "is-collapsed" : "is-open"}${isMobile ? ` is-${effectiveSnap}` : ""}`}
+      className={`mc-workspace-panel ${isMobile ? `is-${effectiveSnap}` : collapsed ? "is-collapsed" : "is-open"}`}
       style={!isMobile && !collapsed ? { width: widthPx } : undefined}
       aria-label="Workspace panel"
     >
@@ -256,7 +250,6 @@ export function BottomSheet({
           </div>
         </>
       )}
-      {nav}
       <div className="mc-panels">{children}</div>
     </section>
   );

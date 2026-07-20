@@ -19,9 +19,9 @@ type Deps = {
 };
 
 /** One reducer for both assistant streams (free-text chat and structured commands).
- * Lives in MapWorkspace so busy/draft/offline survive the panel unmounting when
- * railView flips mid-turn. Only chat outcomes drive `offline` — commands are the
- * degraded-mode path and must keep working while the LLM is down. */
+ * Lives in MapWorkspace so busy/draft/offline survive the panel unmounting. Only chat
+ * outcomes drive `offline` — commands are the degraded-mode path and must keep working
+ * while the LLM is down. */
 export function useAssistantTurn({ dashboardState, items, append, onToolResult }: Deps) {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState("");

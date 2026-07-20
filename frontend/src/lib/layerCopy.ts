@@ -29,3 +29,22 @@ export function incidentNoun(layer: LayerKey): IncidentNoun {
 export function countNoun(noun: IncidentNoun, count: number): string {
   return count === 1 ? noun.singular : noun.plural;
 }
+
+/** Product invariant, restated wherever results render (compare panel, expanded rail
+ * card): reported-incident context, not a personal risk prediction. */
+export const REVISED_CAVEAT =
+  "Reported incident context, not a personal risk prediction. Results use reported Seattle incident data, which can be incomplete, delayed, corrected, or geographically generalized.";
+
+/** Explains what the active data layer actually measures — retired from `CompareTab`
+ * (deleted in commit `193e0e7`), which rendered this unconditionally whenever the
+ * arrests/calls layer was active. Reported has no caveat of its own; arrests and calls
+ * do, because both diverge from "a reported incident happened here." */
+export function layerDisclosure(layer: LayerKey): string | null {
+  if (layer === "calls") {
+    return "911 calls are requests for service, not confirmed incidents. The same event can generate several calls, many are proactive officer activity, and a call does not mean a crime occurred. Counts below are call volume, not reported crime.";
+  }
+  if (layer === "arrests") {
+    return "Arrests are enforcement activity, not reported incidents. An arrest is logged where the arrest was made — which may differ from where an offense occurred — and most reported crimes never result in one. Categories are a best-effort NIBRS crosswalk from the arrest offense.";
+  }
+  return null;
+}

@@ -1,6 +1,6 @@
 import { titleCase } from "../lib/addressLabel";
 import { toCompareVerdict } from "../lib/compareVerdict";
-import { countNoun, incidentNoun } from "../lib/layerCopy";
+import { countNoun, incidentNoun, REVISED_CAVEAT } from "../lib/layerCopy";
 import { categoryLabel } from "../lib/offenseCategories";
 import { aggregateHeadline } from "../lib/verdictCopy";
 import type { AnalysisCardData, IncidentDetailsResponse, LayerKey } from "../types";
@@ -134,6 +134,10 @@ export function AnalysisCard({ card, expanded, onExpandChange, exportHrefBase }:
           ) : null}
           {neighborhood ? <TrendSection neighborhood={neighborhood} layer={layer} category={category} /> : null}
           <IncidentDetailsSection details={card.incidents} noun={noun} layout="table" showCategory={showCategory} subcategoryHeader={subcategoryHeader} />
+          <div className="mc-caveat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 8h.01M11 12h1v4h1" /></svg>
+            {REVISED_CAVEAT}
+          </div>
           <MethodsAppendix />
         </div>
       ) : null}

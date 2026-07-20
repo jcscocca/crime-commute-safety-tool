@@ -9,7 +9,7 @@ import type { DashboardSummary, Place } from "../types";
 afterEach(cleanup);
 afterEach(() => vi.clearAllMocks());
 
-function place(id: string, label: string): Place {
+function place(id: string, label: string, sensitivityClass = "normal"): Place {
   return {
     id,
     display_label: label,
@@ -18,7 +18,7 @@ function place(id: string, label: string): Place {
     visit_count: 1,
     total_dwell_minutes: null,
     inferred_place_type: "manual",
-    sensitivity_class: "normal",
+    sensitivity_class: sensitivityClass,
   } as Place;
 }
 
@@ -37,6 +37,8 @@ const baseProps = {
   onUploaded: undefined,
   onClose: vi.fn(),
   onRename: vi.fn().mockResolvedValue(undefined),
+  onToggleExport: vi.fn(),
+  exportHref: "/exports/current.csv",
 };
 
 describe("ManagePlacesModal", () => {
@@ -114,5 +116,31 @@ describe("ManagePlacesModal", () => {
     fireEvent.keyDown(input, { key: "Enter" });
     expect(baseProps.onRename).not.toHaveBeenCalled();
     expect(input).toBeInTheDocument();
+  });
+
+  it("toggles include-in-export both directions", () => {
+    const onToggleExport = vi.fn();
+    render(
+      <ManagePlacesModal
+        {...baseProps}
+        places={[place("p1", "Home", "normal"), place("p2", "Clinic", "suppress_from_public_export")]}
+        onToggleExport={onToggleExport}
+        initialView="manage"
+      />,
+    );
+    const homeToggle = screen.getByRole("checkbox", { name: "Include Home in export" });
+    const clinicToggle = screen.getByRole("checkbox", { name: "Include Clinic in export" });
+    expect(homeToggle).toBeChecked();
+    expect(clinicToggle).not.toBeChecked();
+
+    fireEvent.click(homeToggle);
+    expect(onToggleExport).toHaveBeenCalledWith("p1", false);
+    fireEvent.click(clinicToggle);
+    expect(onToggleExport).toHaveBeenCalledWith("p2", true);
+  });
+
+  it("renders the Download Tableau CSV link with the given href", () => {
+    render(<ManagePlacesModal {...baseProps} exportHref="/exports/session.csv" initialView="manage" />);
+    expect(screen.getByRole("link", { name: /download tableau csv/i })).toHaveAttribute("href", "/exports/session.csv");
   });
 });

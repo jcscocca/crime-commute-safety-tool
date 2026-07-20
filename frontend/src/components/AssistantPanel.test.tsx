@@ -295,4 +295,18 @@ describe("AssistantPanel", () => {
     fireEvent.click(retry);
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
+
+  it("announces a non-empty errorLine as an alert on the rail", () => {
+    setup({ errorLine: "Unable to rename place. Try again." });
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Unable to rename place. Try again.");
+    expect(alert).toHaveClass("mc-inline-error");
+  });
+
+  it("renders no alert when errorLine is empty", () => {
+    const { rerender } = setup({ errorLine: "" });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    rerender({ errorLine: undefined });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });

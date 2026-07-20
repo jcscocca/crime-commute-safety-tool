@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ANALYSIS_MIN_DATE } from "../lib/analysisDefaults";
-import { incidentNoun } from "../lib/layerCopy";
+import { incidentNoun, layerDisclosure } from "../lib/layerCopy";
 import { CATEGORIES, categoryLabel } from "../lib/offenseCategories";
 import type { AnalysisSettings } from "../types";
 
@@ -9,13 +9,31 @@ type Props = {
   analysis: AnalysisSettings;
   availableRadii: number[];
   onChange: (patch: Partial<AnalysisSettings>) => void;
+  /** Runs the deterministic analyze/compare command for the current saved places. */
+  onRun?: () => void;
+  runDisabled?: boolean;
+  /** Copies the share link and reports success/failure (the caller owns the URL + the
+   * clipboard write); the strip only owns the transient status note. */
+  onCopyLink?: () => Promise<boolean> | boolean;
 };
 
 /** One-line active-context summary above Tabby's input. This is literally the
  * dashboard_state Tabby sees each turn — tapping it opens inline editors. */
-export function ContextStrip({ analysis, availableRadii, onChange }: Props) {
+export function ContextStrip({ analysis, availableRadii, onChange, onRun, runDisabled, onCopyLink }: Props) {
   const [open, setOpen] = useState(false);
   const radii = availableRadii.length > 0 ? availableRadii : [250, 500, 1000];
+  const disclosure = layerDisclosure(analysis.layer);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const copyResetRef = useRef<number | null>(null);
+  useEffect(() => () => { if (copyResetRef.current !== null) window.clearTimeout(copyResetRef.current); }, []);
+
+  async function handleCopyLink() {
+    if (!onCopyLink) return;
+    const ok = await onCopyLink();
+    setCopyState(ok ? "copied" : "failed");
+    if (copyResetRef.current !== null) window.clearTimeout(copyResetRef.current);
+    copyResetRef.current = window.setTimeout(() => setCopyState("idle"), 2000);
+  }
 
   return (
     <div className="mc-ctx">
@@ -32,6 +50,8 @@ export function ContextStrip({ analysis, availableRadii, onChange }: Props) {
         <span>· {incidentNoun(analysis.layer).pluralCap}</span>
         <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
       </button>
+
+      {disclosure ? <p className="mc-layer-note" role="note">{disclosure}</p> : null}
 
       {open ? (
         <div className="mc-ctx-editor">
@@ -62,7 +82,14 @@ export function ContextStrip({ analysis, availableRadii, onChange }: Props) {
               ))}
             </div>
           </div>
-          <button type="button" className="mc-chip" onClick={() => setOpen(false)}>Done</button>
+          <div className="mc-ctx-actions">
+            <button type="button" className="mc-cta" disabled={runDisabled} onClick={() => onRun?.()}>Run analysis</button>
+            <button type="button" className="mc-link-copy" onClick={() => void handleCopyLink()}>Copy link</button>
+            <button type="button" className="mc-chip" onClick={() => setOpen(false)}>Done</button>
+          </div>
+          <span className="mc-copy-status" data-testid="copy-status" role="status" aria-live="polite">
+            {copyState === "copied" ? "Copied" : copyState === "failed" ? "Couldn't copy — try again." : ""}
+          </span>
         </div>
       ) : null}
     </div>

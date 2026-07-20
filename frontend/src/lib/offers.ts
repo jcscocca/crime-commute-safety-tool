@@ -1,7 +1,9 @@
 import type { AnalysisSettings } from "../types";
 import type { FollowupChip } from "./followupChips";
 
-export type SavedPlaceRef = { id: string; display_label: string };
+/** Callers pass full Place objects; coords let selectPlaceIds link a just-saved place to
+ * its pre-existing ad-hoc list entry (same coordinate key) instead of dedup-adding. */
+export type SavedPlaceRef = { id: string; display_label: string; latitude?: number | null; longitude?: number | null };
 
 /** Deterministic post-add offer. No LLM — must work in degraded mode. */
 export function offerForPlaces(

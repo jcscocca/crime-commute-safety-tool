@@ -38,11 +38,6 @@ function renderSheet(overrides: Partial<Parameters<typeof BottomSheet>[0]> = {})
 }
 
 describe("BottomSheet", () => {
-  it("renders the injected nav slot", () => {
-    renderSheet({ nav: <nav aria-label="Workspace sections">nav slot</nav> });
-    expect(screen.getByRole("navigation", { name: "Workspace sections" })).toBeInTheDocument();
-  });
-
   it("exposes Peek, Default, and Wide presets and marks the active one pressed", () => {
     const { props } = renderSheet({ widthPx: DRAWER_DEFAULT });
     expect(screen.getByRole("button", { name: /default/i })).toHaveAttribute("aria-pressed", "true");
@@ -166,18 +161,18 @@ describe("BottomSheet", () => {
     expect(props.onToggleCollapsed).toHaveBeenCalledTimes(1);
   });
 
-  it("mobile: applies the is-<snap> class alongside the collapsed/open class", () => {
+  it("mobile: applies only the is-<snap> class, not the desktop collapsed/open class", () => {
     const { container, rerender } = renderSheet({ isMobile: true, collapsed: false, snap: "full" });
     const panel = () => container.querySelector(".mc-workspace-panel") as HTMLElement;
-    expect(panel()).toHaveClass("is-open");
     expect(panel()).toHaveClass("is-full");
+    expect(panel()).not.toHaveClass("is-open");
     rerender(
       <BottomSheet collapsed widthPx={DRAWER_DEFAULT} snap="bar" isMobile onToggleCollapsed={vi.fn()} onResize={vi.fn()} onPreset={vi.fn()}>
         <div>panel</div>
       </BottomSheet>,
     );
-    expect(panel()).toHaveClass("is-collapsed");
     expect(panel()).toHaveClass("is-bar");
+    expect(panel()).not.toHaveClass("is-collapsed");
   });
 
   it("mobile: derives the snap class from collapsed when no snap prop is passed", () => {
