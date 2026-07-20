@@ -208,6 +208,15 @@ export type AnalysisCardData = {
   incidents: IncidentDetailsResponse | null;
 };
 
+/** A neutral presence descriptor for an analyzed place — server-described, never
+ * verdict-bearing (product invariant). Drives the map pin's presence badge. */
+export type BadgeDescriptor = {
+  place_id: string;
+  label: string;
+  run_id: string | null;
+  settings_fingerprint: string;
+};
+
 export type AssistantToolEffect = {
   selection?: { mode: "replace" | "add" | "clear"; ids: string[] };
   settings?: Partial<AnalysisSettings>;
@@ -216,6 +225,7 @@ export type AssistantToolEffect = {
   incidents?: IncidentDetailsResponse | null;
   refetchSummary?: boolean;
   card?: AnalysisCardData;
+  badges?: BadgeDescriptor[];
 };
 
 export type AssistantMessage = {

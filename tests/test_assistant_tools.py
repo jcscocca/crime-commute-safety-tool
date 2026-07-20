@@ -414,6 +414,39 @@ def test_analyze_places_returns_analysis_run_id(tmp_path):
         session.close()
 
 
+def test_analyze_places_returns_badge_descriptors(tmp_path):
+    session, user_hash, place_id = session_with_places_and_beat_crime(tmp_path)
+    try:
+        args = {
+            "place_ids": [place_id],  # no queries -> use selection
+            "analysis_start_date": "2026-01-01",
+            "analysis_end_date": "2026-06-30",
+            "radii_m": [250],
+        }
+        result = execute_tool(session, user_hash, "analyze_places", args)
+        payload = result["result"]
+        badges = payload["badges"]
+        assert [b["place_id"] for b in badges] == payload["place_ids"]
+        badge = badges[0]
+        assert badge["run_id"] == payload["analysis_run_id"]
+        assert badge["label"] == "Neighborhood place"
+        assert len(badge["settings_fingerprint"]) == 12
+
+        # Same settings -> same fingerprint; different radius -> different fingerprint.
+        again = execute_tool(session, user_hash, "analyze_places", args)
+        assert again["result"]["badges"][0]["settings_fingerprint"] == badge["settings_fingerprint"]
+
+        different_radius = execute_tool(
+            session, user_hash, "analyze_places", {**args, "radii_m": [500]}
+        )
+        assert (
+            different_radius["result"]["badges"][0]["settings_fingerprint"]
+            != badge["settings_fingerprint"]
+        )
+    finally:
+        session.close()
+
+
 def test_compare_places_by_name_persists_analysis_and_compares(tmp_path, monkeypatch):
     session, user_hash = _session_with_place_and_crime(tmp_path)
     # Add a second place so a comparison is possible.
@@ -498,6 +531,53 @@ def test_compare_places_returns_analysis_run_id(tmp_path, monkeypatch):
     finally:
         session.close()
     assert result["result"]["analysis_run_id"]
+
+
+def test_compare_places_returns_badge_descriptors(tmp_path, monkeypatch):
+    session, user_hash = _session_with_place_and_crime(tmp_path)
+    # Add a second place so a comparison is possible.
+    session.add(
+        PlaceCluster(
+            id="place-2",
+            user_id_hash=user_hash,
+            cluster_version="manual-v1",
+            cluster_method="manual",
+            centroid_latitude=47.62,
+            centroid_longitude=-122.34,
+            display_latitude=47.62,
+            display_longitude=-122.34,
+            visit_count=1,
+            sensitivity_class="normal",
+            display_label="Second stop",
+            inferred_place_type="manual_place",
+            label_source="manual",
+        )
+    )
+    session.commit()
+    monkeypatch.setattr("app.assistant.tools.build_provider", lambda settings: _FakeProvider([]))
+    try:
+        result = execute_tool(
+            session,
+            user_hash,
+            "compare_places",
+            {
+                "queries": ["Library stop", "Second stop"],
+                "analysis_start_date": "2024-01-01",
+                "analysis_end_date": "2024-01-31",
+                "radius_m": 250,
+                "offense_category": "PROPERTY",
+            },
+        )
+    finally:
+        session.close()
+    payload = result["result"]
+    assert {b["place_id"] for b in payload["badges"]} == set(payload["place_ids"])
+    labels = {b["place_id"]: b["label"] for b in payload["badges"]}
+    assert labels["place-1"] == "Library stop"
+    assert labels["place-2"] == "Second stop"
+    for badge in payload["badges"]:
+        assert badge["run_id"] == payload["analysis_run_id"]
+        assert len(badge["settings_fingerprint"]) == 12
 
 
 def test_compare_places_requires_two_places(tmp_path, monkeypatch):

@@ -1,5 +1,5 @@
 // frontend/src/components/AssistantPanel.tsx
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 
 import type { AssistantCommandName } from "../api/client";
@@ -27,6 +27,9 @@ type Props = {
    * and shifts indices, but card references survive the slice. */
   expandedCard: AnalysisCardData | null;
   onCardExpandChange: (card: AnalysisCardData, expanded: boolean) => void;
+  /** A badge-tap focus request. Wrapped in a fresh object per tap so re-focusing the SAME
+   * card (object identity unchanged) still re-fires the scroll effect below. */
+  focusCard?: { card: AnalysisCardData } | null;
   exportHrefBase: string;
   contextStrip?: ReactNode;
 };
@@ -55,11 +58,14 @@ export function AssistantPanel({
   onFollowupChip,
   expandedCard,
   onCardExpandChange,
+  focusCard,
   exportHrefBase,
   contextStrip,
 }: Props) {
   const [input, setInput] = useState("");
   const [greeted, setGreeted] = useState(() => localStorage.getItem(GREETED_KEY) === "1");
+  // Card wrapper elements keyed by their index in displayItems, for scroll-to-card.
+  const cardRefs = useRef(new Map<number, HTMLDivElement>());
 
   function markGreeted() {
     if (!greeted) {
@@ -82,6 +88,21 @@ export function AssistantPanel({
   // bubble that shows streaming text is the same DOM node the final commit updates in
   // place (rather than an unmount+remount when the turn settles).
   const displayItems: ThreadItem[] = draft ? [...items, { kind: "tabby_text", text: draft }] : items;
+
+  useEffect(() => {
+    if (!focusCard) return;
+    // Newest match wins: scan from the end so a later duplicate of the same card resolves
+    // to its latest wrapper. focusCard is a fresh object per tap, so this re-fires even
+    // when the target card object is unchanged.
+    for (let i = displayItems.length - 1; i >= 0; i--) {
+      const item = displayItems[i];
+      if (item.kind === "analysis_card" && item.card === focusCard.card) {
+        cardRefs.current.get(i)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusCard]);
 
   return (
     <aside className="mc-dock mc-rail" aria-label="Tabby">
@@ -123,13 +144,21 @@ export function AssistantPanel({
           }
           if (item.kind === "analysis_card") {
             return (
-              <AnalysisCard
+              <div
                 key={index}
-                card={item.card}
-                expanded={expandedCard === item.card}
-                onExpandChange={(next) => onCardExpandChange(item.card, next)}
-                exportHrefBase={exportHrefBase}
-              />
+                data-card-index={index}
+                ref={(el) => {
+                  if (el) cardRefs.current.set(index, el);
+                  else cardRefs.current.delete(index);
+                }}
+              >
+                <AnalysisCard
+                  card={item.card}
+                  expanded={expandedCard === item.card}
+                  onExpandChange={(next) => onCardExpandChange(item.card, next)}
+                  exportHrefBase={exportHrefBase}
+                />
+              </div>
             );
           }
           return null;

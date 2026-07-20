@@ -187,6 +187,54 @@ describe("AssistantPanel", () => {
     expect(screen.getAllByText("Working…")).toHaveLength(1);
   });
 
+  describe("focusCard scroll-into-view", () => {
+    it("scrolls the matching card into view when focusCard is set", () => {
+      const scrollSpy = vi.fn();
+      Element.prototype.scrollIntoView = scrollSpy;
+      setup({
+        items: [{ kind: "analysis_card", card: analyzeCard }] as ThreadItem[],
+        focusCard: { card: analyzeCard },
+      });
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+      expect(scrollSpy).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
+    });
+
+    it("does not scroll when focusCard is null", () => {
+      const scrollSpy = vi.fn();
+      Element.prototype.scrollIntoView = scrollSpy;
+      setup({
+        items: [{ kind: "analysis_card", card: analyzeCard }] as ThreadItem[],
+        focusCard: null,
+      });
+      expect(scrollSpy).not.toHaveBeenCalled();
+    });
+
+    it("does not scroll when focusCard matches no rendered card", () => {
+      const scrollSpy = vi.fn();
+      Element.prototype.scrollIntoView = scrollSpy;
+      const otherCard: AnalysisCardData = { ...analyzeCard, runId: "run-other" };
+      setup({
+        items: [{ kind: "analysis_card", card: analyzeCard }] as ThreadItem[],
+        focusCard: { card: otherCard },
+      });
+      expect(scrollSpy).not.toHaveBeenCalled();
+    });
+
+    it("re-fires on a repeat focus of the same card (fresh request object)", () => {
+      const scrollSpy = vi.fn();
+      Element.prototype.scrollIntoView = scrollSpy;
+      const { rerender } = setup({
+        items: [{ kind: "analysis_card", card: analyzeCard }] as ThreadItem[],
+        focusCard: { card: analyzeCard },
+      });
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+      // A second badge tap hands a NEW request object wrapping the SAME card; the fresh
+      // identity must re-fire the scroll (the one-shot concern the plan calls out).
+      rerender({ focusCard: { card: analyzeCard } });
+      expect(scrollSpy).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it("shows Retry on a notice followed only by receipts and calls onRetry", () => {
     const { onRetry } = setup({
       items: [

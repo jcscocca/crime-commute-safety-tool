@@ -55,6 +55,7 @@ vi.mock("maplibre-gl", () => {
     }
     flyTo = vi.fn();
     easeTo = vi.fn();
+    fitBounds = vi.fn();
     remove() {}
     fireClick(lat: number, lng: number) {
       for (const cb of this.handlers.click ?? []) cb({ lngLat: { lat, lng } });
@@ -91,6 +92,19 @@ vi.mock("maplibre-gl", () => {
       this.element.remove();
     }
   }
+  class MockLngLatBounds {
+    sw: [number, number];
+    ne: [number, number];
+    extended: [number, number][] = [];
+    constructor(sw: [number, number], ne: [number, number]) {
+      this.sw = sw;
+      this.ne = ne;
+    }
+    extend(point: [number, number]) {
+      this.extended.push(point);
+      return this;
+    }
+  }
   class MockPopup {
     static last: MockPopup | null = null;
     content: HTMLElement | null = null;
@@ -112,7 +126,16 @@ vi.mock("maplibre-gl", () => {
       this.content?.remove();
     }
   }
-  return { default: { Map: MockMap, Marker: MockMarker, Popup: MockPopup, NavigationControl: class {}, addProtocol: vi.fn() } };
+  return {
+    default: {
+      Map: MockMap,
+      Marker: MockMarker,
+      Popup: MockPopup,
+      LngLatBounds: MockLngLatBounds,
+      NavigationControl: class {},
+      addProtocol: vi.fn(),
+    },
+  };
 });
 
 vi.mock("pmtiles", () => ({ Protocol: class { tile = vi.fn(); } }));
@@ -130,6 +153,7 @@ type MockMapInstance = {
   sources: Map<string, { options?: Record<string, unknown>; setData: ReturnType<typeof vi.fn> }>;
   layers: Array<Record<string, unknown>>;
   setStyle: ReturnType<typeof vi.fn>;
+  fitBounds: ReturnType<typeof vi.fn>;
 };
 const MockedMap = maplibregl.Map as unknown as {
   last: MockMapInstance | null;
@@ -336,6 +360,83 @@ describe("MapCanvas", () => {
       const el = document.body.querySelector(".mc-pin-icon") as HTMLElement;
       expect(el.innerHTML).toContain("mc-pin-tag");
     });
+  });
+});
+
+describe("presence badges", () => {
+  it("renders a presence badge only for places in badgedPlaceIds", async () => {
+    renderCanvas({ badgedPlaceIds: new Set(["p1"]) });
+    await waitFor(() => expect(document.body.querySelectorAll(".mc-pin-icon")).toHaveLength(1));
+    const badge = document.body.querySelector(".mc-pin-presence");
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveAttribute("aria-label", "Analyzed — view context");
+  });
+
+  it("renders no presence badge for a place outside badgedPlaceIds", async () => {
+    renderCanvas({ badgedPlaceIds: new Set() });
+    await waitFor(() => expect(document.body.querySelectorAll(".mc-pin-icon")).toHaveLength(1));
+    expect(document.body.querySelector(".mc-pin-presence")).toBeNull();
+  });
+
+  it("clicking the badge calls onBadgeClick, not onMarkerClick", async () => {
+    const onBadgeClick = vi.fn();
+    const onMarkerClick = vi.fn();
+    renderCanvas({ badgedPlaceIds: new Set(["p1"]), onBadgeClick, onMarkerClick });
+    await waitFor(() => expect(document.body.querySelector(".mc-pin-presence")).not.toBeNull());
+    (document.body.querySelector(".mc-pin-presence") as HTMLElement).click();
+    expect(onBadgeClick).toHaveBeenCalledWith("p1");
+    expect(onMarkerClick).not.toHaveBeenCalled();
+  });
+
+  it("keyboard-activating the badge never bubbles into the marker's keydown handler", async () => {
+    // The marker element fires onMarkerClick on any Enter/Space keydown; without
+    // isolation, a focused badge's Enter would fire BOTH callbacks (the bubbled keydown
+    // plus the browser's synthesized click on the button).
+    const onBadgeClick = vi.fn();
+    const onMarkerClick = vi.fn();
+    renderCanvas({ badgedPlaceIds: new Set(["p1"]), onBadgeClick, onMarkerClick });
+    await waitFor(() => expect(document.body.querySelector(".mc-pin-presence")).not.toBeNull());
+    const badge = document.body.querySelector(".mc-pin-presence") as HTMLElement;
+    badge.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    badge.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    expect(onMarkerClick).not.toHaveBeenCalled();
+    badge.click();
+    expect(onBadgeClick).toHaveBeenCalledTimes(1);
+    expect(onBadgeClick).toHaveBeenCalledWith("p1");
+  });
+});
+
+describe("fitTo", () => {
+  it("fits bounds to the given points with the exact padding", async () => {
+    renderCanvas({
+      fitTo: {
+        points: [{ lat: 47.6, lng: -122.3 }, { lat: 47.65, lng: -122.25 }],
+        padding: { top: 80, left: 40, bottom: 40, right: 440 },
+      },
+    });
+    await waitFor(() => expect(MockedMap.last?.fitBounds).toHaveBeenCalled());
+    const [bounds, options] = MockedMap.last!.fitBounds.mock.calls.at(-1)! as [
+      { sw: [number, number]; ne: [number, number]; extended: [number, number][] },
+      { padding: unknown; maxZoom: number; duration: number },
+    ];
+    expect(bounds.sw).toEqual([-122.3, 47.6]);
+    expect(bounds.ne).toEqual([-122.3, 47.6]);
+    expect(bounds.extended).toEqual([[-122.3, 47.6], [-122.25, 47.65]]);
+    expect(options).toEqual({ padding: { top: 80, left: 40, bottom: 40, right: 440 }, maxZoom: 16, duration: 600 });
+  });
+
+  it("still fits bounds for a single-point fitTo, with maxZoom capped", async () => {
+    renderCanvas({
+      fitTo: { points: [{ lat: 47.6, lng: -122.3 }], padding: { top: 80, left: 40, bottom: 40, right: 440 } },
+    });
+    await waitFor(() => expect(MockedMap.last?.fitBounds).toHaveBeenCalled());
+    const [bounds, options] = MockedMap.last!.fitBounds.mock.calls.at(-1)! as [
+      { sw: [number, number]; ne: [number, number]; extended: [number, number][] },
+      { padding: unknown; maxZoom: number; duration: number },
+    ];
+    expect(bounds.sw).toEqual([-122.3, 47.6]);
+    expect(bounds.extended).toEqual([[-122.3, 47.6]]);
+    expect(options.maxZoom).toBe(16);
   });
 });
 

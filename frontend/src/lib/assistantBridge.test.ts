@@ -111,6 +111,62 @@ describe("interpretToolResult", () => {
     expect(effect?.settings?.layer).toBe("arrests");
   });
 
+  it("surfaces compare_places badges verbatim on the effect when present", () => {
+    const badges = [
+      { place_id: "a", label: "Home", run_id: "run-1", settings_fingerprint: "abc123def456" },
+      { place_id: "b", label: "Work", run_id: "run-1", settings_fingerprint: "abc123def456" },
+    ];
+    const effect = interpretToolResult({
+      tool_name: "compare_places",
+      result: {
+        place_ids: ["a", "b"],
+        settings_used: { radius_m: 500, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-30", offense_category: null },
+        comparison: null,
+        badges,
+      },
+    });
+    expect(effect?.badges).toEqual(badges);
+  });
+
+  it("surfaces analyze_places badges verbatim on the effect when present", () => {
+    const badges = [{ place_id: "a", label: "Home", run_id: "run-1", settings_fingerprint: "abc123def456" }];
+    const effect = interpretToolResult({
+      tool_name: "analyze_places",
+      result: {
+        place_ids: ["a"],
+        settings_used: { radius_m: 250, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-30", offense_category: null },
+        neighborhood: null,
+        incidents: null,
+        badges,
+      },
+    });
+    expect(effect?.badges).toEqual(badges);
+  });
+
+  it("omits badges from the effect when missing or not an array", () => {
+    const missing = interpretToolResult({
+      tool_name: "compare_places",
+      result: {
+        place_ids: ["a"],
+        settings_used: { radius_m: 500, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-30", offense_category: null },
+        comparison: null,
+      },
+    });
+    expect(missing).not.toHaveProperty("badges");
+
+    const malformed = interpretToolResult({
+      tool_name: "analyze_places",
+      result: {
+        place_ids: ["a"],
+        settings_used: { radius_m: 250, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-30", offense_category: null },
+        neighborhood: null,
+        incidents: null,
+        badges: "nope",
+      },
+    });
+    expect(malformed).not.toHaveProperty("badges");
+  });
+
   it("maps add_place to an append-selection effect", () => {
     const effect = interpretToolResult({
       tool_name: "add_place",

@@ -7,19 +7,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Captures each distinct flyTo reference MapCanvas receives — the real MapCanvas re-flies
 // on reference change, so the capture list mirrors the fly sequence the map would perform.
 const flyToCaptures = vi.hoisted(() => [] as ({ lat: number; lng: number } | null)[]);
+// Mirrors flyToCaptures for the fit-on-analysis prop: pushes each distinct fitTo reference
+// MapCanvas receives, so tests can assert the camera-fit points + padding.
+const fitToCaptures = vi.hoisted(() => [] as unknown[]);
 // Captures the places + selectedIds MapCanvas receives each render, so tests can assert the
 // synthetic ad-hoc pins MapWorkspace appends (mirrors the flyToCaptures pattern above).
 const canvasCaptures = vi.hoisted(() => [] as { places: unknown[]; selectedIds: Set<string> }[]);
 vi.mock("./MapCanvas", () => ({
-  MapCanvas: ({ places, selectedIds, draft, flyTo, onMapClick, onMarkerClick }: any) => {
+  MapCanvas: ({ places, selectedIds, draft, flyTo, fitTo, badgedPlaceIds, onMapClick, onMarkerClick, onBadgeClick }: any) => {
     if (flyToCaptures[flyToCaptures.length - 1] !== flyTo) flyToCaptures.push(flyTo);
+    if (fitToCaptures[fitToCaptures.length - 1] !== fitTo) fitToCaptures.push(fitTo);
     canvasCaptures.push({ places, selectedIds });
     return (
       <div data-testid="mapcanvas">
         <button data-testid="fire-map-click" onClick={() => onMapClick({ lat: 47.6, lng: -122.3 })} />
         {draft ? <div data-testid="draft-pin" /> : null}
         {places.map((place: any) => (
-          <button key={place.id} data-testid={`marker-${place.id}`} onClick={() => onMarkerClick(place.id)} />
+          <span key={place.id}>
+            <button data-testid={`marker-${place.id}`} onClick={() => onMarkerClick(place.id)} />
+            {badgedPlaceIds?.has(place.id) ? (
+              <button data-testid={`badge-${place.id}`} onClick={() => onBadgeClick(place.id)} />
+            ) : null}
+          </span>
         ))}
       </div>
     );
@@ -139,6 +148,8 @@ beforeEach(() => {
   // `compcat.selection` key never leaks between tests.
   localStorage.clear();
   document.documentElement.removeAttribute("data-theme");
+  // jsdom has no scrollIntoView; the rail's focus-card effect calls it. Fresh stub per test.
+  Element.prototype.scrollIntoView = vi.fn();
 });
 afterEach(() => {
   cleanup();
@@ -150,6 +161,7 @@ afterEach(() => {
   // an assertion fails before a test's own cleanup lines run.
   window.history.replaceState(null, "", "/");
   flyToCaptures.length = 0;
+  fitToCaptures.length = 0;
   canvasCaptures.length = 0;
 });
 
@@ -1481,5 +1493,148 @@ describe("MapWorkspace", () => {
     await renderWithAnalyzeCard(analyzeCardResult({ analysis_run_id: "run-xyz" }));
     const link = screen.getByRole("link", { name: "Export CSV" });
     expect(link.getAttribute("href")).toContain("run_id=run-xyz");
+  });
+
+  // --- Slice 4 Task 4: presence badges → focus-card + fit-on-analysis ---
+
+  const badge = (place_id: string, label: string) => ({
+    place_id, label, run_id: "run-1", settings_fingerprint: "fp0123456789",
+  });
+
+  it("shows presence badges for analyzed places and fits the camera with drawer-aware padding", async () => {
+    await renderWithAnalyzeCard(analyzeCardResult({ badges: [badge("a", "Alpha")] }));
+
+    // The analyzed place gets a presence badge on its pin.
+    expect(await screen.findByTestId("badge-a")).toBeInTheDocument();
+
+    // Fit-on-analysis captured the analyzed place's point with drawer-width-aware padding.
+    const fit = fitToCaptures.at(-1) as {
+      points: { lat: number; lng: number }[];
+      padding: { top: number; right: number; bottom: number; left: number };
+    };
+    expect(fit.points).toEqual([{ lat: home.latitude, lng: home.longitude }]);
+    // Desktop (jsdom 1024px): default drawer width 400 + 40 gutter on the right.
+    expect(fit.padding).toEqual({ top: 90, left: 40, right: 440, bottom: 40 });
+  });
+
+  it("tapping a presence badge focuses the newest matching card and shows the rail", async () => {
+    await renderWithAnalyzeCard(analyzeCardResult({ badges: [badge("a", "Alpha")] }));
+    expect(await screen.findByTestId("badge-a")).toBeInTheDocument();
+
+    // Move off the rail so the tap must bring it back.
+    openLegacyView("Compare");
+    expect(screen.queryByLabelText("Analyst message")).not.toBeInTheDocument();
+
+    const scrollSpy = vi.fn();
+    Element.prototype.scrollIntoView = scrollSpy;
+    fireEvent.click(screen.getByTestId("badge-a"));
+
+    // The rail returns (composer present) and the panel scrolls the matching card into view.
+    expect(await screen.findByLabelText("Analyst message")).toBeInTheDocument();
+    await waitFor(() => expect(scrollSpy).toHaveBeenCalledWith({ behavior: "smooth", block: "center" }));
+  });
+
+  it("clears presence badges when the analysis context changes via the strip", async () => {
+    await renderWithAnalyzeCard(analyzeCardResult({ badges: [badge("a", "Alpha")] }));
+    expect(await screen.findByTestId("badge-a")).toBeInTheDocument();
+
+    // A radius change through the rail's context strip invalidates the analysis context,
+    // detaching the presence badges.
+    fireEvent.click(screen.getByRole("button", { name: /analysis context/i }));
+    fireEvent.click(screen.getByRole("button", { name: "500 m" }));
+
+    await waitFor(() => expect(screen.queryByTestId("badge-a")).not.toBeInTheDocument());
+  });
+
+  it("deleting a place clears ALL live presence badges", async () => {
+    // Spec-aligned (review ruling): delete invalidates the WHOLE analysis context, so every
+    // badge drops — not just the deleted place's.
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home, work]));
+    vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 2 });
+    vi.mocked(comparePlaces).mockResolvedValue(makeSiteComparison("Home", "Work"));
+    vi.mocked(getNeighborhoodAnalysis).mockResolvedValue(makeNeighborhoodAnalysis());
+    vi.mocked(deletePlace).mockResolvedValue(undefined);
+    vi.mocked(streamAssistantChat).mockImplementation(async (_payload, handlers) => {
+      handlers.onEvent({
+        event: "tool",
+        data: {
+          tool_name: "compare_places",
+          result: {
+            place_ids: ["p1", "p2"],
+            settings_used: { radius_m: 250, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-30", offense_category: null },
+            comparison: makeSiteComparison("Home", "Work"),
+            badges: [badge("p1", "Home"), badge("p2", "Work")],
+          },
+        },
+      });
+      handlers.onEvent({ event: "token", data: { delta: "Compared Home and Work." } });
+      handlers.onEvent({ event: "done", data: {} });
+    });
+
+    render(<MapWorkspace />);
+    await screen.findByText("Home");
+    await backToTabby();
+    fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "compare" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    // Both analyzed places carry a presence badge.
+    expect(await screen.findByTestId("badge-p1")).toBeInTheDocument();
+    expect(screen.getByTestId("badge-p2")).toBeInTheDocument();
+
+    // Deleting ONE place clears EVERY badge (delete invalidates the whole context).
+    fireEvent.click(screen.getByRole("button", { name: "Add or manage places" }));
+    const dialog = await screen.findByRole("dialog", { name: "Manage places" });
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Remove Home" }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("badge-p1")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("badge-p2")).not.toBeInTheDocument();
+    });
+  });
+
+  it("detaches badges when an assistant update_filters effect changes the settings", async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary([home, work]));
+    vi.mocked(comparePlaces).mockResolvedValue(makeSiteComparison("Home", "Work"));
+    vi.mocked(getNeighborhoodAnalysis).mockResolvedValue(makeNeighborhoodAnalysis());
+    vi.mocked(streamAssistantChat)
+      .mockImplementationOnce(async (_payload, handlers) => {
+        handlers.onEvent({
+          event: "tool",
+          data: {
+            tool_name: "compare_places",
+            result: {
+              place_ids: ["p1", "p2"],
+              settings_used: { radius_m: 250, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-30", offense_category: null },
+              comparison: makeSiteComparison("Home", "Work"),
+              badges: [badge("p1", "Home"), badge("p2", "Work")],
+            },
+          },
+        });
+        handlers.onEvent({ event: "done", data: {} });
+      })
+      .mockImplementationOnce(async (_payload, handlers) => {
+        handlers.onEvent({
+          event: "tool",
+          data: { tool_name: "update_filters", result: { patch: { radius_m: 1000 } } },
+        });
+        handlers.onEvent({ event: "done", data: {} });
+      });
+
+    render(<MapWorkspace />);
+    await screen.findByText("Home");
+    await backToTabby();
+    fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "compare" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findByTestId("badge-p1")).toBeInTheDocument();
+
+    // An assistant-driven filter change detaches badges like a user edit would.
+    fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "widen to 1000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("badge-p1")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("badge-p2")).not.toBeInTheDocument();
+    });
+    expect(await screen.findByText("Search radius → 1000 m")).toBeInTheDocument();
   });
 });

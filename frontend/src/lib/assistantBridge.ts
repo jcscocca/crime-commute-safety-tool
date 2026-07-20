@@ -2,6 +2,7 @@ import type {
   AnalysisCardData,
   AnalysisSettings,
   AssistantToolEffect,
+  BadgeDescriptor,
   IncidentDetailsResponse,
   NeighborhoodAnalysis,
   SettingsUsed,
@@ -41,6 +42,7 @@ export function interpretToolResult(data: {
         settings: settingsFrom(result.settings_used as SettingsUsed),
         comparison,
         refetchSummary: true,
+        ...(Array.isArray(result.badges) ? { badges: result.badges as BadgeDescriptor[] } : {}),
         card: {
           runId: typeof result.analysis_run_id === "string" ? result.analysis_run_id : null,
           kind: "compare",
@@ -62,6 +64,7 @@ export function interpretToolResult(data: {
         neighborhood,
         incidents,
         refetchSummary: true,
+        ...(Array.isArray(result.badges) ? { badges: result.badges as BadgeDescriptor[] } : {}),
         card: {
           runId: typeof result.analysis_run_id === "string" ? result.analysis_run_id : null,
           kind: "analyze",

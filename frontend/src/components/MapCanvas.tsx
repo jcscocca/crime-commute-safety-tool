@@ -140,9 +140,12 @@ type Props = {
   theme: MapTheme;
   identityByPlaceId?: Map<string, PlaceIdentity>;
   pulsePlaceId?: string | null;
+  badgedPlaceIds?: Set<string>;
+  fitTo?: { points: LatLng[]; padding: { top: number; right: number; bottom: number; left: number } } | null;
   onViewportChange?: (bounds: MapBounds) => void;
   onMapClick: (latlng: LatLng) => void;
   onMarkerClick: (placeId: string) => void;
+  onBadgeClick?: (placeId: string) => void;
 };
 
 export function MapCanvas({
@@ -159,9 +162,12 @@ export function MapCanvas({
   theme,
   identityByPlaceId,
   pulsePlaceId,
+  badgedPlaceIds,
+  fitTo,
   onViewportChange,
   onMapClick,
   onMarkerClick,
+  onBadgeClick,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -169,6 +175,7 @@ export function MapCanvas({
   const markerElsRef = useRef(new Map<string, HTMLElement>());
   const onMapClickRef = useRef(onMapClick);
   const onMarkerClickRef = useRef(onMarkerClick);
+  const onBadgeClickRef = useRef(onBadgeClick);
   const onViewportChangeRef = useRef(onViewportChange);
   const themeRef = useRef(theme);
   const tilesMissingRef = useRef(false);
@@ -180,6 +187,7 @@ export function MapCanvas({
   useLayoutEffect(() => {
     onMapClickRef.current = onMapClick;
     onMarkerClickRef.current = onMarkerClick;
+    onBadgeClickRef.current = onBadgeClick;
     onViewportChangeRef.current = onViewportChange;
   });
 
@@ -297,6 +305,20 @@ export function MapCanvas({
         if (event.key === " ") event.preventDefault();
         onMarkerClickRef.current(place.id);
       });
+      if (badgedPlaceIds?.has(place.id)) {
+        const badge = document.createElement("button");
+        badge.type = "button";
+        badge.className = "mc-pin-presence";
+        badge.setAttribute("aria-label", "Analyzed — view context");
+        badge.addEventListener("click", (event) => {
+          event.stopPropagation();
+          onBadgeClickRef.current?.(place.id);
+        });
+        // Enter/Space on the focused badge must not reach the marker's keydown handler
+        // (which would fire onMarkerClick alongside the button's synthesized click).
+        badge.addEventListener("keydown", (event) => event.stopPropagation());
+        el.appendChild(badge);
+      }
       markerElsRef.current.set(place.id, el);
       markersRef.current.push(
         new maplibregl.Marker({ element: el, anchor: "bottom" })
@@ -314,13 +336,13 @@ export function MapCanvas({
           .addTo(map),
       );
     }
-  }, [places, selectedIds, summary, radiusM, draft, mapReady, identityByPlaceId]);
+  }, [places, selectedIds, summary, radiusM, draft, mapReady, identityByPlaceId, badgedPlaceIds]);
 
   useEffect(() => {
     for (const [id, el] of markerElsRef.current) {
       el.classList.toggle("is-pulsing", id === pulsePlaceId);
     }
-  }, [pulsePlaceId, places, selectedIds, summary, radiusM, draft, mapReady, identityByPlaceId]);
+  }, [pulsePlaceId, places, selectedIds, summary, radiusM, draft, mapReady, identityByPlaceId, badgedPlaceIds]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -357,6 +379,16 @@ export function MapCanvas({
     // Floor 14 ≈ the old flyTo floor of 15 (512px- vs 256px-tile zoom offset).
     map.flyTo({ center: [flyTo.lng, flyTo.lat], zoom: Math.max(map.getZoom(), 14) });
   }, [flyTo, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !fitTo || fitTo.points.length === 0) return;
+    const bounds = fitTo.points.reduce(
+      (acc, p) => acc.extend([p.lng, p.lat]),
+      new maplibregl.LngLatBounds([fitTo.points[0].lng, fitTo.points[0].lat], [fitTo.points[0].lng, fitTo.points[0].lat]),
+    );
+    map.fitBounds(bounds, { padding: fitTo.padding, maxZoom: 16, duration: 600 });
+  }, [fitTo, mapReady]);
 
   return (
     <div className={`mc-map${addPinMode ? " is-adding" : ""}`}>

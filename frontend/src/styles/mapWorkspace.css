@@ -395,6 +395,11 @@
 .mc-pin-badge i{font-style:normal;font-size:10px;color:var(--text-dim);}
 .mc-pin-tag{position:absolute;left:50%;bottom:100%;transform:translate(-50%,-4px);white-space:nowrap;font-family:var(--f-ui);font-size:12px;font-weight:600;color:var(--surface);background:var(--text-strong);padding:5px 10px;border-radius:9px;box-shadow:0 8px 16px -8px rgba(0,0,0,.5);}
 .mc-pin-halo{position:absolute;left:50%;top:100%;width:26px;height:26px;transform:translate(-50%,-22px);border-radius:50%;background:var(--accent-halo);animation:halo 2.3s ease-out infinite;}
+/* Neutral presence dot: which places have current analysis results. Sits at the pin's
+   top-left corner — .mc-pin-badge occupies the right (incident count), .mc-pin-tag the
+   top-center (selected label) — so it never collides with either. Monochrome only, no
+   evaluative color (product invariant: presence-only, no verdict). */
+.mc-pin-presence{position:absolute;top:-4px;left:-4px;width:14px;height:14px;border-radius:50%;border:1.5px solid var(--surface);background:var(--text-dim);padding:0;cursor:pointer;}
 
 .mc-draft{background:var(--accent-soft);border:1px solid var(--accent);border-radius:13px;padding:13px;margin-bottom:12px;display:grid;gap:8px;}
 .mc-draft-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}

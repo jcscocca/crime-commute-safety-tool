@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 from datetime import date
 from functools import lru_cache
+from hashlib import sha256
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError, model_validator
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.analysis.area_baselines import load_mcpp_areas, load_mcpp_polygons
@@ -225,6 +228,30 @@ def _settings_used(
     }
 
 
+def _badge_descriptors(
+    session: Session,
+    place_ids: list[str],
+    run_id: str | None,
+    settings_used: dict[str, Any],
+) -> list[dict[str, Any]]:
+    # Neutral presence descriptors: which places have current results, and from which
+    # run/settings. Never carries verdict content (product invariant) — presence only.
+    fingerprint = sha256(
+        json.dumps(settings_used, sort_keys=True, default=str).encode()
+    ).hexdigest()[:12]
+    rows = session.execute(select(PlaceCluster).where(PlaceCluster.id.in_(place_ids))).scalars()
+    labels = {row.id: row.display_label for row in rows}
+    return [
+        {
+            "place_id": place_id,
+            "label": labels.get(place_id, ""),
+            "run_id": run_id,
+            "settings_fingerprint": fingerprint,
+        }
+        for place_id in place_ids
+    ]
+
+
 def _analyze_places(session: Session, user_id_hash: str, args: AnalyzePlacesArgs) -> dict[str, Any]:
     resolved = _resolve_or_select(session, user_id_hash, args.queries, args.place_ids)
     if not resolved.place_ids:
@@ -276,9 +303,10 @@ def _analyze_places(session: Session, user_id_hash: str, args: AnalyzePlacesArgs
         limit=AGENT_INCIDENT_LIMIT,
         sources=sources,
     )
+    settings_used = _settings_used(args, radius_m)
     return {
         "place_ids": resolved.place_ids,
-        "settings_used": _settings_used(args, radius_m),
+        "settings_used": settings_used,
         "analysis": analysis,
         "neighborhood": neighborhood,
         "incidents": incidents,
@@ -286,6 +314,7 @@ def _analyze_places(session: Session, user_id_hash: str, args: AnalyzePlacesArgs
         "created": resolved.created,
         "unresolved": resolved.unresolved,
         "analysis_run_id": run_id,
+        "badges": _badge_descriptors(session, resolved.place_ids, run_id, settings_used),
     }
 
 
@@ -328,14 +357,16 @@ def _compare_places(
         nibrs_group=args.nibrs_group,
         sources=sources,
     )
+    settings_used = _settings_used(args, args.radius_m)
     return {
         "place_ids": resolved.place_ids,
-        "settings_used": _settings_used(args, args.radius_m),
+        "settings_used": settings_used,
         "comparison": comparison,
         "matched": resolved.matched,
         "created": resolved.created,
         "unresolved": resolved.unresolved,
         "analysis_run_id": run_id,
+        "badges": _badge_descriptors(session, resolved.place_ids, run_id, settings_used),
     }
 
 

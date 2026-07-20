@@ -38,7 +38,7 @@ import { ManagePlacesModal, type ManageView } from "./ManagePlacesModal";
 import { RailNav, type RailView } from "./RailNav";
 import { SearchPill } from "./SearchPill";
 import { ThemeToggle } from "./ThemeToggle";
-import type { AnalysisCardData, AnalysisSettings, AssistantDashboardState, BeatFeatureCollection, GeocodeResult, LatLng, MapBounds, McppFeatureCollection, PlaceCreate } from "../types";
+import type { AnalysisCardData, AnalysisSettings, AssistantDashboardState, BadgeDescriptor, BeatFeatureCollection, GeocodeResult, LatLng, MapBounds, McppFeatureCollection, Place, PlaceCreate } from "../types";
 
 export function MapWorkspace() {
   const { theme, setTheme } = useTheme();
@@ -162,6 +162,19 @@ export function MapWorkspace() {
     onSummariesRefreshed: () => void data.refreshWithFallback("Ran, but dashboard totals could not refresh."),
   });
 
+  // Presence badges for places with current (not-yet-invalidated) analysis results —
+  // replaced wholesale per analysis, cleared whenever the analysis context invalidates.
+  const [liveBadges, setLiveBadges] = useState<Map<string, BadgeDescriptor>>(new Map());
+  // Memoized like pinIdSet/identityByPlaceId above: MapCanvas rebuilds markers (and
+  // restarts pin-drop animations) whenever this Set's identity changes, so it must stay
+  // stable across renders where liveBadges itself hasn't changed.
+  const badgedPlaceIds = useMemo(() => new Set(liveBadges.keys()), [liveBadges]);
+  // A badge tap asks the rail to scroll to that place's newest card; wrapped in a fresh
+  // object per tap so re-tapping the same badge re-fires the panel's scroll effect.
+  const [focusCard, setFocusCard] = useState<{ card: AnalysisCardData } | null>(null);
+  // Camera fit around the just-analyzed places (drawer-aware padding), consumed by MapCanvas.
+  const [fitTo, setFitTo] = useState<{ points: LatLng[]; padding: { top: number; right: number; bottom: number; left: number } } | null>(null);
+
   // analyzed-beat highlight from the neighborhood payload
   const highlightBeats = useMemo(
     () =>
@@ -202,6 +215,9 @@ export function MapWorkspace() {
 
   function invalidateAnalysisContext() {
     compare.invalidate();
+    // Filter/selection changes detach presence badges — they describe a specific run's
+    // results, which no longer reflect the current context once it changes.
+    setLiveBadges(new Map());
   }
 
   // Resolve saved-place ids to list entries; ids whose places haven't loaded yet are
@@ -293,7 +309,7 @@ export function MapWorkspace() {
 
   async function handleDelete(id: string) {
     data.setError("");
-    invalidateAnalysisContext();
+    invalidateAnalysisContext(); // also clears ALL live badges — delete invalidates the whole analysis context
     try {
       await deletePlace(id);
       const entryIndex = list.entries.findIndex((e) => e.savedPlaceId === id);
@@ -332,6 +348,9 @@ export function MapWorkspace() {
       const receipt = describeAnalysisPatch(analysis, effect.settings);
       if (receipt) thread.append({ kind: "receipt", text: receipt });
       setAnalysis((current) => ({ ...current, ...effect.settings }));
+      // Assistant filter changes detach results like user edits do; analyze/compare
+      // effects re-apply panes and badges right below.
+      invalidateAnalysisContext();
     }
     // Assistant selection edits invalidate like user edits; payload-bearing effects
     // re-apply their panes right below.
@@ -351,8 +370,39 @@ export function MapWorkspace() {
     if (effect.refetchSummary) {
       void data.refreshWithFallback("Analyst updated the view, but dashboard totals could not refresh.");
     }
+    // The newest analysis defines "current" — badges replace wholesale, not merge.
+    if (effect.badges) setLiveBadges(new Map(effect.badges.map((b) => [b.place_id, b])));
     // The frozen card lands in the thread alongside the map effects — it doesn't replace them.
-    if (effect.card) thread.append({ kind: "analysis_card", card: effect.card });
+    if (effect.card) {
+      const card = effect.card;
+      // Fit the camera around the analyzed places, leaving room for the drawer (right inset
+      // desktop) or the raised sheet (bottom inset mobile).
+      const points = card.placeIds
+        .map((id) => data.places.find((p) => p.id === id))
+        .filter((p): p is Place => Boolean(p && p.latitude != null && p.longitude != null))
+        .map((p) => ({ lat: p.latitude as number, lng: p.longitude as number }));
+      if (points.length > 0) {
+        const rightInset = isMobile ? 40 : (drawer.collapsed ? DRAWER_PEEK : drawer.widthPx) + 40;
+        const bottomInset = isMobile ? Math.round(window.innerHeight * 0.5) : 40;
+        setFitTo({ points, padding: { top: 90, left: 40, right: rightInset, bottom: bottomInset } });
+      }
+      thread.append({ kind: "analysis_card", card });
+    }
+  }
+
+  // Tapping a pin's presence badge routes to the rail and scrolls to that place's newest
+  // analysis card (reverse scan — the latest run defines "current"). A peeked/collapsed
+  // drawer opens so the card is readable.
+  function handleBadgeClick(placeId: string) {
+    for (let i = thread.items.length - 1; i >= 0; i--) {
+      const item = thread.items[i];
+      if (item.kind === "analysis_card" && item.card.placeIds.includes(placeId)) {
+        setRailView("tabby");
+        if (drawer.collapsed) setDrawerCollapsed(false);
+        setFocusCard({ card: item.card });
+        return;
+      }
+    }
   }
 
   const buildShareUrl = useCallback((): string | null => {
@@ -507,9 +557,12 @@ export function MapWorkspace() {
           theme={theme}
           identityByPlaceId={identityByPlaceId}
           pulsePlaceId={hoveredPlaceId}
+          badgedPlaceIds={badgedPlaceIds}
+          fitTo={fitTo}
           onViewportChange={setViewport}
           onMapClick={pinDraft.handleMapClick}
           onMarkerClick={handleToggleSelect}
+          onBadgeClick={handleBadgeClick}
         />
 
         <header className="mc-topbar">
@@ -601,6 +654,7 @@ export function MapWorkspace() {
                 onFollowupChip={handleFollowupChip}
                 expandedCard={expandedCard}
                 onCardExpandChange={handleCardExpandChange}
+                focusCard={focusCard}
                 exportHrefBase={exportHrefBase}
                 contextStrip={
                   <ContextStrip analysis={analysis} availableRadii={data.availableRadii} onChange={handleAnalysisChange} />
