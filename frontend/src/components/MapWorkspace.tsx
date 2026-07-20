@@ -6,6 +6,7 @@ import { compactGeocodeLabel } from "../lib/addressLabel";
 import { describeAnalysisPatch } from "../lib/analysisReceipt";
 import { interpretToolResult } from "../lib/assistantBridge";
 import { buildRerunArgs, followupChipsFor, type FollowupChip } from "../lib/followupChips";
+import { offerForPlaces, type SavedPlaceRef } from "../lib/offers";
 import { DRAWER_PEEK, FOCUS_CHROME_MIN, MOBILE_MAX_WIDTH } from "../lib/drawer";
 import { geocodingProvider } from "../lib/geocoding";
 import { placeIdentity, type PlaceIdentity } from "../lib/placeIdentity";
@@ -20,7 +21,6 @@ import { usePinDraft } from "../lib/usePinDraft";
 import { useTheme } from "../lib/useTheme";
 import { useAssistantTurn } from "../lib/useAssistantTurn";
 import { useThread } from "../lib/useThread";
-import { AddressLookup } from "./AddressLookup";
 import { AssistantPanel } from "./AssistantPanel";
 import { BottomSheet } from "./BottomSheet";
 import { CompareTab } from "./CompareTab";
@@ -52,6 +52,10 @@ export function MapWorkspace() {
 
   const [railView, setRailView] = useState<RailView>("tabby");
   const thread = useThread();
+  // A deterministic post-add offer ("Saved X. Want me to pull what's on file nearby?") with
+  // command chips. Set only by a user-driven place add (pin/manual/import) with no auto-run
+  // armed; consumed by any chip use, a chat send, a command chip, or a context invalidation.
+  const [offer, setOffer] = useState<{ text: string; chips: FollowupChip[] } | null>(null);
   const [chipFlyTo, setChipFlyTo] = useState<LatLng | null>(null);
   const [managePlaces, setManagePlaces] = useState<ManageView | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisSettings>(() => {
@@ -218,6 +222,9 @@ export function MapWorkspace() {
     // Filter/selection changes detach presence badges — they describe a specific run's
     // results, which no longer reflect the current context once it changes.
     setLiveBadges(new Map());
+    // A stale offer references the pre-change window/selection — drop it. selectPlaceIds
+    // re-sets the offer AFTER this call (batched, last write wins), so its own add survives.
+    setOffer(null);
   }
 
   // Resolve saved-place ids to list entries; ids whose places haven't loaded yet are
@@ -252,11 +259,29 @@ export function MapWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.places]);
 
-  function selectPlaceIds(ids: string[]) {
+  function selectPlaceIds(ids: string[], savedPlaces?: SavedPlaceRef[]) {
     if (ids.length === 0) return;
     invalidateAnalysisContext();
-    setRailView("compare");
     entriesForIds(ids).forEach((entry) => list.add(entry));
+    // A user-driven add earns a deterministic offer ("pull the reports near this?"), but only
+    // when no auto-run is armed — the audit codified: share/restore/lookup paths never pass
+    // savedPlaces (and never call selectPlaceIds at all), so this guard is belt-and-braces.
+    // Set AFTER invalidateAnalysisContext's setOffer(null) above so this add's offer survives
+    // (both are batched; the later write wins). savedIdSet lags a render, so add the new count.
+    const built =
+      savedPlaces?.length && !pendingAutoRun
+        ? offerForPlaces(savedPlaces, analysis, savedIdSet.size + savedPlaces.length)
+        : null;
+    if (built) {
+      thread.append({ kind: "tabby_text", text: built.text });
+      setOffer(built);
+      // The proactive moment must be SEEN when it fires: land on the rail, and raise a
+      // collapsed drawer/sheet so the offer is on screen (mobile sheet included).
+      setRailView("tabby");
+      setDrawerCollapsed(false);
+    } else {
+      setRailView("compare");
+    }
   }
 
   const pinDraft = usePinDraft({
@@ -324,14 +349,14 @@ export function MapWorkspace() {
   async function handleManualSubmit(place: PlaceCreate) {
     data.setError("");
     const created = await createPlace(place);
-    selectPlaceIds([created.id]);
+    selectPlaceIds([created.id], [created]);
     await data.refreshWithFallback("Saved, but dashboard totals could not refresh.");
   }
 
   async function handleImport(csv: string) {
     data.setError("");
     const result = await createBulkPlaces(csv);
-    selectPlaceIds(result.places.map((place) => place.id));
+    selectPlaceIds(result.places.map((place) => place.id), result.places);
     await data.refreshWithFallback("Imported rows, but dashboard totals could not refresh.");
   }
 
@@ -440,6 +465,7 @@ export function MapWorkspace() {
   // analysis chips send the saved-place ids plus the dashboard's current window —
   // without dates and a radius the tools clarify instead of running.
   function runPanelCommand(label: string, command: AssistantCommandName) {
+    setOffer(null); // a command chip supersedes any pending place-added offer
     const args: Record<string, unknown> = {};
     if (command === "analyze_places" || command === "compare_places") {
       args.place_ids = Array.from(savedIdSet);
@@ -454,11 +480,13 @@ export function MapWorkspace() {
     void turn.runCommand(label, command, args);
   }
 
-  // Landing shows only on a truly fresh session: no saved data and no in-progress draft
-  // (so a search preview or dropped pin reaches the chip strip + draft popover instead of
-  // being hidden behind the landing).
-  const showLanding =
-    data.places.length === 0 && list.entries.length === 0 && railView !== "export" && !pinDraft.draft;
+  // Tabby onboarding chips route to the three ways to point the assistant at a place: focus
+  // the top search pill, arm pin-drop mode, or open the manual-add modal.
+  function handlePanelAction(action: "search" | "add-pin" | "manual") {
+    if (action === "search") document.getElementById("mc-search-input")?.focus();
+    else if (action === "add-pin") pinDraft.startAddPin();
+    else setManagePlaces("manual");
+  }
 
   // Recomputed every render: useDrawer's window-resize listener always produces a new
   // drawer object, so viewport changes re-render. No extra state needed.
@@ -479,7 +507,24 @@ export function MapWorkspace() {
     () => (latestCard ? followupChipsFor(latestCard.kind, latestCard.settings, data.availableRadii) : []),
     [latestCard, data.availableRadii],
   );
+  // A pending place-added offer owns the chip row until it's consumed; otherwise the newest
+  // card's re-run chips show.
+  const chipRow = offer?.chips ?? followupChips;
   function handleFollowupChip(chip: FollowupChip) {
+    setOffer(null); // any chip use consumes the offer
+    if (chip.args) {
+      // Offer chips carry a full-args override — run it verbatim, no card required. A
+      // compare_places offer without place_ids compares the whole saved set.
+      const args = { ...chip.args };
+      // Union in ids still awaiting the summary refresh so a fast click after a
+      // save still compares the place the offer is about.
+      if (chip.command === "compare_places" && !args.place_ids) {
+        args.place_ids = Array.from(new Set([...savedIdSet, ...pendingIdsRef.current]));
+      }
+      for (const key of Object.keys(args)) if (args[key] == null) delete args[key];
+      void turn.runCommand(chip.label, chip.command, args);
+      return;
+    }
     if (!latestCard) return;
     void turn.runCommand(chip.label, chip.command, buildRerunArgs(latestCard, chip));
   }
@@ -597,7 +642,9 @@ export function MapWorkspace() {
           limit={incidentLayer.limit}
         />
 
-        {data.error && showLanding ? <p className="mc-error" role="alert">{data.error}</p> : null}
+        {data.error && data.places.length === 0 && list.entries.length === 0 && railView !== "export" && !pinDraft.draft ? (
+          <p className="mc-error" role="alert">{data.error}</p>
+        ) : null}
 
         {sharedBanner ? (
           <div className="mc-banner" role="status">
@@ -635,9 +682,7 @@ export function MapWorkspace() {
           peekHeader={isMobile ? layerControls : undefined}
           nav={<RailNav view={railView} compareCount={list.entries.length} onSelect={setRailView} />}
         >
-          {showLanding ? (
-            <AddressLookup provider={geocodingProvider} onSelect={handleLookup} onManual={() => setManagePlaces("manual")} />
-          ) : railView === "tabby" ? (
+          {railView === "tabby" ? (
             <div className="mc-rail-wrap">
               {drawerTopSlot}
               <AssistantPanel
@@ -647,10 +692,12 @@ export function MapWorkspace() {
                 statusLine={turn.statusLine}
                 toolActivity={turn.toolActivity}
                 offline={turn.offline}
-                onSend={(text) => void turn.sendChat(text)}
+                onSend={(text) => { setOffer(null); void turn.sendChat(text); }}
                 onRetry={() => void turn.sendChat(null)}
                 onRunCommand={runPanelCommand}
-                followupChips={followupChips}
+                hasPlaces={data.places.length > 0 || list.entries.length > 0}
+                onAction={handlePanelAction}
+                followupChips={chipRow}
                 onFollowupChip={handleFollowupChip}
                 expandedCard={expandedCard}
                 onCardExpandChange={handleCardExpandChange}

@@ -8,6 +8,10 @@ export type FollowupChip = {
   argsPatch: Record<string, unknown>;
   /** The settings delta the chip represents (used only for labeling/receipts). */
   settingsPatch: Partial<SettingsUsed>;
+  /** Full-args override. When present, the chip runs its command with these args verbatim
+   * (null/undefined stripped) instead of deriving them from a card via buildRerunArgs —
+   * used by deterministic place-added offers, which have no card to re-run against. */
+  args?: Record<string, unknown>;
 };
 
 /** Deterministic follow-ups for the newest analysis card. No LLM involved —

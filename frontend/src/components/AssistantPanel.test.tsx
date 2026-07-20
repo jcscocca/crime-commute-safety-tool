@@ -34,6 +34,7 @@ function setup(overrides: Partial<PanelProps> = {}) {
   const onRunCommand = vi.fn();
   const onFollowupChip = vi.fn();
   const onCardExpandChange = vi.fn();
+  const onAction = vi.fn();
   const props: PanelProps = {
     items: [],
     busy: false,
@@ -49,11 +50,13 @@ function setup(overrides: Partial<PanelProps> = {}) {
     expandedCard: null,
     onCardExpandChange,
     exportHrefBase: "/exports/tableau/place-summary.csv",
+    hasPlaces: true,
+    onAction,
     ...overrides,
   };
   const view = render(<AssistantPanel {...props} />);
   const rerender = (next: Partial<PanelProps>) => view.rerender(<AssistantPanel {...props} {...next} />);
-  return { onSend, onRetry, onRunCommand, onFollowupChip, onCardExpandChange, rerender };
+  return { onSend, onRetry, onRunCommand, onFollowupChip, onCardExpandChange, onAction, rerender };
 }
 
 beforeEach(() => localStorage.clear());
@@ -233,6 +236,50 @@ describe("AssistantPanel", () => {
       rerender({ focusCard: { card: analyzeCard } });
       expect(scrollSpy).toHaveBeenCalledTimes(2);
     });
+  });
+
+  describe("onboarding empty state (hasPlaces=false)", () => {
+    it("renders the fresh-session greeting and action chips, routing clicks to onAction", () => {
+      const { onAction } = setup({ hasPlaces: false });
+      expect(
+        screen.getByText(
+          "Tabby, case desk. Point me at a place — search an address, drop a pin, or add one by hand — and I'll pull the reports near it.",
+        ),
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Search an address" }));
+      expect(onAction).toHaveBeenCalledWith("search");
+
+      fireEvent.click(screen.getByRole("button", { name: "Drop a pin" }));
+      expect(onAction).toHaveBeenCalledWith("add-pin");
+
+      fireEvent.click(screen.getByRole("button", { name: "Add places manually" }));
+      expect(onAction).toHaveBeenCalledWith("manual");
+    });
+
+    it("does not render the has-places SUGGESTED_ACTIONS chips", () => {
+      setup({ hasPlaces: false });
+      expect(screen.queryByRole("button", { name: "Compare my places" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "What's near this pin?" })).not.toBeInTheDocument();
+    });
+
+    it("disables action chips while busy but keeps them live while offline", () => {
+      const { rerender } = setup({ hasPlaces: false, offline: true });
+      expect(screen.getByRole("button", { name: "Search an address" })).not.toBeDisabled();
+      expect(screen.getByRole("button", { name: "Drop a pin" })).not.toBeDisabled();
+      expect(screen.getByRole("button", { name: "Add places manually" })).not.toBeDisabled();
+
+      rerender({ hasPlaces: false, offline: true, busy: true });
+      expect(screen.getByRole("button", { name: "Search an address" })).toBeDisabled();
+    });
+  });
+
+  it("keeps the has-places greeting and SUGGESTED_ACTIONS chips when hasPlaces is true", () => {
+    setup({ hasPlaces: true });
+    expect(screen.getByText("Tabby, case desk. Point me at a place and I'll pull the reports near it.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "What's near this pin?" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Compare my places" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "What's on file around here?" })).toBeInTheDocument();
   });
 
   it("shows Retry on a notice followed only by receipts and calls onRetry", () => {

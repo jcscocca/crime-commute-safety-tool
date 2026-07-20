@@ -2,6 +2,7 @@ import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
 import { createPlace } from "../api/client";
 import { labelOrDefault } from "./placeDefaults";
+import type { SavedPlaceRef } from "./offers";
 import type { DraftPin, GeocodeResult, LatLng } from "../types";
 
 export interface PinDraftController {
@@ -20,7 +21,7 @@ export interface PinDraftController {
 }
 
 interface PinDraftDeps {
-  selectPlaceIds: (ids: string[]) => void;
+  selectPlaceIds: (ids: string[], savedPlaces?: SavedPlaceRef[]) => void;
   refreshWithFallback: (fallbackMessage: string) => Promise<void>;
   setActiveTab: (tab: "compare") => void;
   setDrawerCollapsed: (collapsed: boolean) => void;
@@ -109,7 +110,7 @@ export function usePinDraft({
         visit_count: 1,
         sensitivity_class: draft.sensitivity_class,
       });
-      selectPlaceIds([created.id]);
+      selectPlaceIds([created.id], [created]);
       setDraft(null);
       await refreshWithFallback("Saved, but dashboard totals could not refresh.");
     } catch {

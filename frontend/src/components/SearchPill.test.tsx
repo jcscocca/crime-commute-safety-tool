@@ -32,6 +32,11 @@ describe("SearchPill", () => {
     expect(onSelect).toHaveBeenCalledWith(RESULT);
   });
 
+  it("carries a stable id for external focus requests", () => {
+    render(<SearchPill search={search} onSelect={vi.fn()} addPinMode={false} onToggleAddPin={vi.fn()} />);
+    expect(screen.getByRole("combobox", { name: /search address/i })).toHaveAttribute("id", "mc-search-input");
+  });
+
   it("arms pin-drop mode via the pin button", () => {
     const onToggleAddPin = vi.fn();
     render(<SearchPill search={search} onSelect={vi.fn()} addPinMode={false} onToggleAddPin={onToggleAddPin} />);

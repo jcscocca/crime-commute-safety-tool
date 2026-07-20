@@ -9,7 +9,9 @@ import type { AnalysisCardData } from "../types";
 import { AnalysisCard } from "./AnalysisCard";
 import { TabbyAvatar } from "./TabbyAvatar";
 
-type SuggestedAction = { label: string; command?: AssistantCommandName };
+type OnboardingAction = "search" | "add-pin" | "manual";
+
+type SuggestedAction = { label: string; command?: AssistantCommandName; action?: OnboardingAction };
 
 type Props = {
   items: ThreadItem[];
@@ -21,6 +23,10 @@ type Props = {
   onSend: (text: string) => void;
   onRetry: () => void;
   onRunCommand: (label: string, command: AssistantCommandName) => void;
+  /** False on a truly fresh session (no saved places, no ad-hoc list entries) — drives
+   * which empty-state copy + chips render. */
+  hasPlaces: boolean;
+  onAction: (action: OnboardingAction) => void;
   followupChips: FollowupChip[];
   onFollowupChip: (chip: FollowupChip) => void;
   /** Keyed by card object identity, not thread index — the thread cap drops oldest items
@@ -40,6 +46,14 @@ const SUGGESTED_ACTIONS: SuggestedAction[] = [
   { label: "What's on file around here?" }, // free-text — needs the LLM
 ];
 
+// Fresh-session onboarding: no places yet, so lead with the three ways to point Tabby at
+// a place instead of the has-places prompt chips.
+const ONBOARDING_ACTIONS: SuggestedAction[] = [
+  { label: "Search an address", action: "search" },
+  { label: "Drop a pin", action: "add-pin" },
+  { label: "Add places manually", action: "manual" },
+];
+
 const OFFLINE_COMPOSER_HINT = "Tabby can't reach the case files — chips and filters still work.";
 
 const GREETED_KEY = "wp-copper-greeted";
@@ -54,6 +68,8 @@ export function AssistantPanel({
   onSend,
   onRetry,
   onRunCommand,
+  hasPlaces,
+  onAction,
   followupChips,
   onFollowupChip,
   expandedCard,
@@ -169,19 +185,32 @@ export function AssistantPanel({
         {conversationEmpty && !draft ? (
           <div className="mc-dock-empty">
             <TabbyAvatar variant="bust" size={72} />
-            <p>Tabby, case desk. Point me at a place and I'll pull the reports near it.</p>
+            <p>
+              {hasPlaces
+                ? "Tabby, case desk. Point me at a place and I'll pull the reports near it."
+                : "Tabby, case desk. Point me at a place — search an address, drop a pin, or add one by hand — and I'll pull the reports near it."}
+            </p>
             <div className="mc-dock-chips">
-              {SUGGESTED_ACTIONS.map((action) => {
-                const command = action.command;
+              {(hasPlaces ? SUGGESTED_ACTIONS : ONBOARDING_ACTIONS).map((suggestion) => {
+                if (suggestion.action) {
+                  const onboardingAction = suggestion.action;
+                  return (
+                    <button key={suggestion.label} type="button" className="mc-chip" disabled={busy}
+                      onClick={() => { markGreeted(); onAction(onboardingAction); }}>
+                      {suggestion.label}
+                    </button>
+                  );
+                }
+                const command = suggestion.command;
                 return command ? (
-                  <button key={action.label} type="button" className="mc-chip" disabled={busy}
-                    onClick={() => { markGreeted(); onRunCommand(action.label, command); }}>
-                    {action.label}
+                  <button key={suggestion.label} type="button" className="mc-chip" disabled={busy}
+                    onClick={() => { markGreeted(); onRunCommand(suggestion.label, command); }}>
+                    {suggestion.label}
                   </button>
                 ) : (
-                  <button key={action.label} type="button" className="mc-chip" disabled={busy || offline}
-                    onClick={() => { markGreeted(); onSend(action.label); }}>
-                    {action.label}
+                  <button key={suggestion.label} type="button" className="mc-chip" disabled={busy || offline}
+                    onClick={() => { markGreeted(); onSend(suggestion.label); }}>
+                    {suggestion.label}
                   </button>
                 );
               })}

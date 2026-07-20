@@ -213,7 +213,7 @@ describe("MapWorkspace", () => {
     vi.mocked(createPlace).mockResolvedValue(home);
 
     render(<MapWorkspace />);
-    await screen.findByRole("heading", { name: /look up an address/i });
+    await screen.findByText(/point me at a place/i);
 
     fireEvent.click(screen.getByRole("button", { name: "Drop a pin on the map" }));
     fireEvent.click(screen.getByTestId("fire-map-click"));
@@ -240,22 +240,24 @@ describe("MapWorkspace", () => {
     vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 1 });
 
     render(<MapWorkspace />);
-    await screen.findByRole("heading", { name: /look up an address/i });
+    await screen.findByText(/point me at a place/i);
 
     fireEvent.click(screen.getByRole("button", { name: "Drop a pin on the map" }));
     fireEvent.click(screen.getByTestId("fire-map-click"));
     fireEvent.change(screen.getByLabelText(/label/i), { target: { value: "Home" } });
     fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
 
-    // The saved pin lands in the one address list as a selected (saved) entry — its chip
-    // renders WITHIN the Compare panel (as its topSlot), checked.
+    // The saved pin lands in the one address list as a selected (saved) entry. The
+    // offer-bearing add lands on the Tabby rail, so its chip renders in the rail's
+    // topSlot, checked.
     await waitFor(() => {
-      const comparePanel = screen.getByRole("tabpanel", { name: "Compare" });
-      expect(within(comparePanel).getByRole("checkbox", { name: "Home" })).toHaveAttribute("aria-checked", "true");
+      expect(screen.getByRole("checkbox", { name: "Home" })).toHaveAttribute("aria-checked", "true");
     });
 
-    // A manual save is an edit, so it waits for Run — no premature auto-run fires. Running
-    // then sends the saved place's id on the place_ids summary-refresh pass.
+    // A manual save is an edit, so it waits for Run — no premature auto-run fires. Open
+    // the legacy Compare panel to run it; running then sends the saved place's id on the
+    // place_ids summary-refresh pass.
+    openLegacyView("Compare");
     const runButton = await screen.findByRole("button", { name: /run analysis/i });
     expect(getNeighborhoodAnalysis).not.toHaveBeenCalled();
     fireEvent.click(runButton);
@@ -282,7 +284,7 @@ describe("MapWorkspace", () => {
     vi.mocked(analyzePlaces).mockResolvedValue({ summary_count: 2 });
 
     render(<MapWorkspace />);
-    await screen.findByRole("heading", { name: /look up an address/i });
+    await screen.findByRole("button", { name: "Add places manually" });
 
     fireEvent.click(screen.getByRole("button", { name: /add places manually/i }));
     fireEvent.click(screen.getByRole("button", { name: "Bulk CSV" }));
@@ -294,8 +296,11 @@ describe("MapWorkspace", () => {
     expect(await screen.findByRole("checkbox", { name: "Select Home" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("checkbox", { name: "Select Work" })).toHaveAttribute("aria-checked", "true");
 
-    // Importing is an edit, so it waits for Run — no premature auto-run fires. Two
-    // entries → the compare CTA.
+    // Importing is an edit, so it waits for Run — no premature auto-run fires. The
+    // offer-bearing import lands on the rail; close the modal and open the legacy
+    // Compare panel to run the two entries → the compare CTA.
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    openLegacyView("Compare");
     const runButton = await screen.findByRole("button", { name: /compare 2 addresses/i });
     expect(getNeighborhoodAnalysis).not.toHaveBeenCalled();
     fireEvent.click(runButton);
@@ -358,14 +363,14 @@ describe("MapWorkspace", () => {
     try {
       // Default width (400) leaves a 624px strip at jsdom's 1024 viewport — chrome stays.
       const wide = render(<MapWorkspace />);
-      await screen.findByRole("heading", { name: /look up an address/i });
+      await screen.findByText(/point me at a place/i);
       expect(wide.container.querySelector(".mc-frame")).not.toHaveClass("is-focus");
       wide.unmount();
 
       // A 900px drawer leaves a 124px strip (< FOCUS_CHROME_MIN 240) — chrome sheds.
       localStorage.setItem("compcat.drawer.width", "900");
       const focus = render(<MapWorkspace />);
-      await screen.findByRole("heading", { name: /look up an address/i });
+      await screen.findByText(/point me at a place/i);
       expect(focus.container.querySelector(".mc-frame")).toHaveClass("is-focus");
     } finally {
       localStorage.removeItem("compcat.drawer.width");
@@ -389,7 +394,7 @@ describe("MapWorkspace", () => {
     vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary());
 
     const { container } = render(<MapWorkspace />);
-    await screen.findByRole("heading", { name: /look up an address/i });
+    await screen.findByText(/point me at a place/i);
 
     fireEvent.click(screen.getByRole("button", { name: "Drop a pin on the map" }));
 
@@ -646,12 +651,37 @@ describe("MapWorkspace", () => {
     expect(await screen.findByTestId("compare-ranked")).toBeInTheDocument();
   });
 
-  it("leads a fresh session with the look-up landing", async () => {
+  it("leads a fresh session with Tabby's onboarding chips", async () => {
     vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
     vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary());
     render(<MapWorkspace />);
-    expect(await screen.findByRole("heading", { name: /look up an address/i })).toBeInTheDocument();
-    expect(screen.queryByText(/Map your places/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/point me at a place/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Search an address" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Drop a pin" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add places manually" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /look up an address/i })).not.toBeInTheDocument();
+  });
+
+  it("focuses the search pill when the onboarding 'Search an address' chip is clicked", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary());
+    render(<MapWorkspace />);
+    await screen.findByRole("button", { name: "Search an address" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Search an address" }));
+
+    expect(screen.getByRole("combobox", { name: /search address or place/i })).toHaveFocus();
+  });
+
+  it("arms pin-drop mode when the onboarding 'Drop a pin' chip is clicked", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary());
+    const { container } = render(<MapWorkspace />);
+    await screen.findByRole("button", { name: "Drop a pin" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Drop a pin" }));
+
+    expect(container.querySelector(".mc-frame")).toHaveClass("is-placing-pin");
   });
 
   it("looks up an address and analyzes it via the points path without saving a place", async () => {
@@ -663,10 +693,9 @@ describe("MapWorkspace", () => {
     geocodeSearch.mockResolvedValue([{ label: "123 Main St", latitude: 47.61, longitude: -122.34, source: "test" }]);
 
     render(<MapWorkspace />);
-    await screen.findByRole("heading", { name: /look up an address/i });
-    fireEvent.change(screen.getByLabelText(/search an address/i), { target: { value: "123 Main" } });
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
-    fireEvent.click(await screen.findByText("123 Main St"));
+    await screen.findByText(/point me at a place/i);
+    fireEvent.change(screen.getByRole("combobox", { name: /search address or place/i }), { target: { value: "123 Main" } });
+    fireEvent.click(await screen.findByRole("option", { name: "123 Main St" }));
 
     // The lookup drops a draft pin on the map (via previewSearch) and flies to it.
     expect(await screen.findByTestId("draft-pin")).toBeInTheDocument();
@@ -712,10 +741,9 @@ describe("MapWorkspace", () => {
     geocodeSearch.mockResolvedValue([{ label: "123 Main St", latitude: 47.61, longitude: -122.34, source: "test" }]);
 
     render(<MapWorkspace />);
-    await screen.findByRole("heading", { name: /look up an address/i });
-    fireEvent.change(screen.getByLabelText(/search an address/i), { target: { value: "123 Main" } });
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
-    fireEvent.click(await screen.findByText("123 Main St"));
+    await screen.findByText(/point me at a place/i);
+    fireEvent.change(screen.getByRole("combobox", { name: /search address or place/i }), { target: { value: "123 Main" } });
+    fireEvent.click(await screen.findByRole("option", { name: "123 Main St" }));
 
     // The lookup itself flies the map to the looked-up address (pinDraft.flyTo).
     await waitFor(() => {
@@ -750,10 +778,9 @@ describe("MapWorkspace", () => {
     geocodeSearch.mockResolvedValue([{ label: "123 Main St", latitude: 47.61, longitude: -122.34, source: "test" }]);
 
     render(<MapWorkspace />);
-    await screen.findByRole("heading", { name: /look up an address/i });
-    fireEvent.change(screen.getByLabelText(/search an address/i), { target: { value: "123 Main" } });
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
-    fireEvent.click(await screen.findByText("123 Main St"));
+    await screen.findByText(/point me at a place/i);
+    fireEvent.change(screen.getByRole("combobox", { name: /search address or place/i }), { target: { value: "123 Main" } });
+    fireEvent.click(await screen.findByRole("option", { name: "123 Main St" }));
 
     // The lookup lands directly on the unified Compare surface with the address as row 1;
     // there is no separate "compare with another address" bridge anymore.
@@ -773,10 +800,9 @@ describe("MapWorkspace", () => {
     geocodeSearch.mockResolvedValue([{ label: "123 Main St", latitude: 47.61, longitude: -122.34, source: "test" }]);
 
     render(<MapWorkspace />);
-    await screen.findByRole("heading", { name: /look up an address/i });
-    fireEvent.change(screen.getByLabelText(/search an address/i), { target: { value: "123 Main" } });
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
-    fireEvent.click(await screen.findByText("123 Main St"));
+    await screen.findByText(/point me at a place/i);
+    fireEvent.change(screen.getByRole("combobox", { name: /search address or place/i }), { target: { value: "123 Main" } });
+    fireEvent.click(await screen.findByRole("option", { name: "123 Main St" }));
 
     // The lookup's analysis has rendered before we save.
     expect(await screen.findByText("100 block of Main St")).toBeInTheDocument();
@@ -821,10 +847,9 @@ describe("MapWorkspace", () => {
     });
 
     render(<MapWorkspace />);
-    await screen.findByRole("heading", { name: /look up an address/i });
-    fireEvent.change(screen.getByLabelText(/search an address/i), { target: { value: "123 Main" } });
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
-    fireEvent.click(await screen.findByText("123 Main St"));
+    await screen.findByText(/point me at a place/i);
+    fireEvent.change(screen.getByRole("combobox", { name: /search address or place/i }), { target: { value: "123 Main" } });
+    fireEvent.click(await screen.findByRole("option", { name: "123 Main St" }));
     expect(await screen.findByTestId("draft-pin")).toBeInTheDocument();
 
     // The assistant now takes over the pane with a different selection; the ephemeral lookup
@@ -872,7 +897,7 @@ describe("MapWorkspace", () => {
 
     render(<MapWorkspace />);
 
-    await screen.findByRole("heading", { name: /look up an address/i });
+    await screen.findByText(/point me at a place/i);
     expect(analyzePlaces).not.toHaveBeenCalled();
   });
 
@@ -1241,7 +1266,13 @@ describe("MapWorkspace", () => {
     fireEvent.click(screen.getByTestId("fire-map-click"));
     fireEvent.change(screen.getByLabelText(/label/i), { target: { value: "Pin 9" } });
     fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
-    // Queue-time invalidate drops the greet spine while p9 waits on the held refresh.
+    // The offer-bearing save lands on the rail once createPlace resolves — wait for the
+    // offer before switching views, or the async rail flip would override the switch.
+    await screen.findByText("Saved Pin 9. Want me to pull what's on file nearby?");
+    // Reopen the legacy Compare panel and check the queue-time invalidate dropped the greet
+    // spine while p9 waits on the held refresh (the panel is mounted, so the spine's
+    // absence is the invalidate, not an unmount).
+    openLegacyView("Compare");
     await waitFor(() => expect(screen.queryByTestId("compare-ranked")).not.toBeInTheDocument());
 
     // A fresh run completes while p9 is still pending.
@@ -1636,5 +1667,176 @@ describe("MapWorkspace", () => {
       expect(screen.queryByTestId("badge-p2")).not.toBeInTheDocument();
     });
     expect(await screen.findByText("Search radius → 1000 m")).toBeInTheDocument();
+  });
+
+  // --- Slice 5 Task 2: deterministic place-added offers + auto-run audit ---
+
+  it("offers to pull reports after a pin save, firing no analysis of its own", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValueOnce(makeSummary()).mockResolvedValue(makeSummary([home]));
+    vi.mocked(createPlace).mockResolvedValue(home);
+
+    render(<MapWorkspace />);
+    await screen.findByText(/point me at a place/i);
+
+    fireEvent.click(screen.getByRole("button", { name: "Drop a pin on the map" }));
+    fireEvent.click(screen.getByTestId("fire-map-click"));
+    fireEvent.change(screen.getByLabelText(/label/i), { target: { value: "Home" } });
+    fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
+
+    // The proactive moment must be SEEN when it fires: the offer-bearing add lands on the
+    // rail — offer text, chip, and composer visible immediately, no view switch needed. It
+    // survives its own add (set AFTER selectPlaceIds' invalidateAnalysisContext clears it).
+    expect(await screen.findByText("Saved Home. Want me to pull what's on file nearby?")).toBeInTheDocument();
+    expect(screen.getByLabelText("Analyst message")).toBeInTheDocument();
+    expect(screen.queryByRole("tabpanel", { name: "Compare" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pull reports near Home" })).toBeInTheDocument();
+    // Only one saved place → no cross-place compare chip.
+    expect(screen.queryByRole("button", { name: /compare with my places/i })).not.toBeInTheDocument();
+    // The offer is an invitation, not an analysis — nothing ran.
+    expect(analyzePlaces).not.toHaveBeenCalled();
+    expect(comparePlaces).not.toHaveBeenCalled();
+    expect(getNeighborhoodAnalysis).not.toHaveBeenCalled();
+  });
+
+  it("runs the offer chip as a structured command and hands the row back to the card's chips", async () => {
+    const window = currentYearAnalysisWindow();
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValueOnce(makeSummary()).mockResolvedValue(makeSummary([home]));
+    vi.mocked(createPlace).mockResolvedValue(home);
+    vi.mocked(streamAssistantCommand).mockImplementation(async (_p, { onEvent }) => {
+      onEvent({
+        event: "tool",
+        data: {
+          tool_name: "analyze_places",
+          result: {
+            place_ids: ["p1"],
+            settings_used: { radius_m: 250, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-30", offense_category: null, layer: "reported" },
+            neighborhood: makeNeighborhoodAnalysis(),
+            incidents: makeIncidentDetails(),
+          },
+        },
+      });
+      onEvent({ event: "token", data: { delta: "Pulled reports near Home." } });
+      onEvent({ event: "done", data: {} });
+    });
+
+    render(<MapWorkspace />);
+    await screen.findByText(/point me at a place/i);
+    fireEvent.click(screen.getByRole("button", { name: "Drop a pin on the map" }));
+    fireEvent.click(screen.getByTestId("fire-map-click"));
+    fireEvent.change(screen.getByLabelText(/label/i), { target: { value: "Home" } });
+    fireEvent.click(screen.getByRole("button", { name: /save pin/i }));
+
+    // The offer-bearing add lands on the rail, so the chip is clickable immediately.
+    fireEvent.click(await screen.findByRole("button", { name: "Pull reports near Home" }));
+
+    // The offer chip runs the structured command path with the frozen offer args (never /chat).
+    await waitFor(() => expect(streamAssistantCommand).toHaveBeenCalled());
+    expect(streamAssistantChat).not.toHaveBeenCalled();
+    const payload = vi.mocked(streamAssistantCommand).mock.calls[0][0];
+    expect(payload.command).toBe("analyze_places");
+    expect(payload.arguments).toEqual({
+      place_ids: ["p1"],
+      radii_m: [250],
+      analysis_start_date: window.analysis_start_date,
+      analysis_end_date: window.analysis_end_date,
+      layer: "reported",
+    });
+
+    // The offer is consumed: its chip is gone and the landed card's own re-run chips take over.
+    await screen.findByText("Pulled reports near Home.");
+    expect(screen.queryByRole("button", { name: "Pull reports near Home" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Widen to 500 m" })).toBeInTheDocument();
+  });
+
+  it("offers a compare after a bulk import of two places, firing no analysis of its own", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValueOnce(makeSummary()).mockResolvedValue(makeSummary([home, work]));
+    vi.mocked(createBulkPlaces).mockResolvedValue({ created_count: 2, skipped_count: 0, places: [home, work] });
+
+    render(<MapWorkspace />);
+    await screen.findByRole("button", { name: "Add places manually" });
+    fireEvent.click(screen.getByRole("button", { name: /add places manually/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Bulk CSV" }));
+    fireEvent.change(screen.getByLabelText("CSV rows"), {
+      target: { value: "display_label,latitude,longitude\nHome,47.61,-122.33\nWork,47.62,-122.34" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /import rows/i }));
+
+    await screen.findByRole("checkbox", { name: "Select Home" }); // import landed on the manage list
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    // The offer-bearing import lands on the rail — offer and composer visible immediately.
+    expect(await screen.findByText("Saved 2 places. Want me to compare them?")).toBeInTheDocument();
+    expect(screen.getByLabelText("Analyst message")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Compare these 2 places" })).toBeInTheDocument();
+    expect(analyzePlaces).not.toHaveBeenCalled();
+    expect(comparePlaces).not.toHaveBeenCalled();
+  });
+
+  it("share-link mount auto-runs exactly once and fires no place-added offer", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary());
+    vi.mocked(getNeighborhoodAnalysis).mockResolvedValue(makeNeighborhoodAnalysis());
+    vi.mocked(getIncidentDetails).mockResolvedValue(makeIncidentDetails());
+
+    const view = encodeView({
+      points: [{ latitude: 47.61, longitude: -122.34, label: "Pike Place" }],
+      radiusM: 250, startDate: "2024-01-01", endDate: "2024-01-31",
+      layer: "reported", offenseCategory: "",
+    });
+    window.history.replaceState({}, "", `/?view=${view}`);
+    render(<MapWorkspace />);
+
+    // The armed auto-run fires exactly once — no double-fire, no offer.
+    await waitFor(() => expect(getNeighborhoodAnalysis).toHaveBeenCalledTimes(1));
+    await screen.findByText(/shared view/i);
+    expect(getNeighborhoodAnalysis).toHaveBeenCalledTimes(1);
+    expect(comparePlaces).not.toHaveBeenCalled();
+    expect(screen.queryByText(/want me to pull what's on file/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/want me to compare/i)).not.toBeInTheDocument();
+  });
+
+  it("an address lookup auto-runs once and fires no place-added offer (no place saved)", async () => {
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary());
+    vi.mocked(getNeighborhoodAnalysis).mockResolvedValue(makeNeighborhoodAnalysis());
+    vi.mocked(getIncidentDetails).mockResolvedValue(makeIncidentDetails());
+    geocodeSearch.mockResolvedValue([{ label: "123 Main St", latitude: 47.61, longitude: -122.34, source: "test" }]);
+
+    render(<MapWorkspace />);
+    await screen.findByText(/point me at a place/i);
+    fireEvent.change(screen.getByRole("combobox", { name: /search address or place/i }), { target: { value: "123 Main" } });
+    fireEvent.click(await screen.findByRole("option", { name: "123 Main St" }));
+
+    await waitFor(() => expect(getNeighborhoodAnalysis).toHaveBeenCalledTimes(1));
+    expect(createPlace).not.toHaveBeenCalled();
+    expect(getNeighborhoodAnalysis).toHaveBeenCalledTimes(1);
+    expect(comparePlaces).not.toHaveBeenCalled();
+    expect(screen.queryByText(/want me to pull what's on file/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/want me to compare/i)).not.toBeInTheDocument();
+  });
+
+  it("an assistant add_place tool event fires no place-added offer (bridge path, not selectPlaceIds)", async () => {
+    const created: Place = { ...home, id: "np", display_label: "New Place" };
+    vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });
+    vi.mocked(getDashboardSummary).mockResolvedValueOnce(makeSummary()).mockResolvedValue(makeSummary([created]));
+    vi.mocked(streamAssistantChat).mockImplementation(async (_payload, handlers) => {
+      handlers.onEvent({ event: "tool", data: { tool_name: "add_place", result: { place: { id: "np" } } } });
+      handlers.onEvent({ event: "token", data: { delta: "Added New Place to your list." } });
+      handlers.onEvent({ event: "done", data: {} });
+    });
+
+    render(<MapWorkspace />);
+    await screen.findByText(/point me at a place/i);
+    fireEvent.change(screen.getByLabelText("Analyst message"), { target: { value: "add New Place" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await screen.findByText("Added New Place to your list.");
+    // The bridge's add_place never routes through selectPlaceIds, so no offer is minted.
+    expect(screen.queryByText(/want me to pull what's on file/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/want me to compare/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /pull reports near/i })).not.toBeInTheDocument();
   });
 });

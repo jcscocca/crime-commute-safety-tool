@@ -105,6 +105,18 @@ describe("buildRerunArgs", () => {
     expect(args).not.toHaveProperty("radii_m");
   });
 
+  it("ignores a chip's full-args override — that's consumed by the handler, not the builder", () => {
+    const card = cardFrom("analyze");
+    const chips = followupChipsFor(card.kind, card.settings, [250, 500, 1000]);
+    const widen = chips.find((c) => c.label === "Widen to 500 m")!;
+    // A place-added offer chip would carry `args`; buildRerunArgs must still derive from the
+    // card + argsPatch (the override is applied in handleFollowupChip, not here).
+    const withOverride = { ...widen, args: { place_ids: ["zzz"], radii_m: [9999] } };
+    const args = buildRerunArgs(card, withOverride);
+    expect(args.place_ids).toEqual(["p1", "p2"]);
+    expect(args.radii_m).toEqual([500]);
+  });
+
   it("takes the analysis window from the card, never from anything live", () => {
     const card = cardFrom("analyze", { analysis_start_date: "2025-03-04", analysis_end_date: "2025-09-09" });
     const chips = followupChipsFor(card.kind, card.settings, [250, 500]);
