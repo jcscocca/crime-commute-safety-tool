@@ -3,9 +3,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.pyc
-.env
-.env.deploy
-.env.demo
+.env*
+!.env*.example
 .superpowers/
 dev-output/
 dist/
@@ -20,3 +19,7 @@ app/data/tiles/
 frontend/public/basemaps-assets/
 .tools/
 .claude/
+soak-out/
+*.db
+*.sqlite
+*.sqlite3
