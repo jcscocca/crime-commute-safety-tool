@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { BulkPlaceEntry } from "./BulkPlaceEntry";
@@ -77,10 +77,67 @@ export function ManagePlacesModal({
   const [view, setView] = useState<ManageView>(initialView);
   const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
   const analyzedAtRadius = summary?.crime_summaries.some((entry) => entry.radius_m === radiusM) ?? false;
+  const modalRef = useRef<HTMLDivElement>(null);
+  // onClose is a fresh arrow each parent render; read it through a ref so the focus/trap effect
+  // runs once on open (not on every render, which would steal focus back to the first control).
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // Dialog accessibility: move focus into the dialog on open, trap Tab within it, close on
+  // Escape, and restore focus to the trigger on close. Without this a keyboard/screen-reader
+  // user tabs straight out to the map behind the "modal".
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const focusable = () =>
+      Array.from(
+        modalRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((el) => el.offsetParent !== null);
+
+    focusable()[0]?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previouslyFocused?.focus?.();
+    };
+    // Runs once per open; onClose is read via ref (see above).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <div className="mc-modal-scrim" role="dialog" aria-modal="true" aria-label={modalLabel(view)}>
-      <div className="mc-modal">
+    <div
+      className="mc-modal-scrim"
+      role="dialog"
+      aria-modal="true"
+      aria-label={modalLabel(view)}
+      onMouseDown={(event) => {
+        // Dismiss only on a click of the scrim itself, never a click bubbling from the dialog.
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="mc-modal" ref={modalRef}>
         <div className="mc-modal-head">
           <h3>{modalLabel(view)}</h3>
           <button type="button" className="mc-iconbtn" aria-label="Close" onClick={onClose}>
@@ -135,7 +192,11 @@ export function ManagePlacesModal({
                             autoFocus
                             onChange={(e) => setEditing({ id: place.id, value: e.target.value })}
                             onKeyDown={async (e) => {
-                              if (e.key === "Escape") setEditing(null);
+                              if (e.key === "Escape") {
+                                // Cancel the rename only; don't let the dialog's Escape close the modal.
+                                e.stopPropagation();
+                                setEditing(null);
+                              }
                               if (e.key === "Enter") {
                                 const label = editing.value.trim();
                                 if (!label) return;

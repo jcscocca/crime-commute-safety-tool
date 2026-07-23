@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { titleCase } from "../lib/addressLabel";
 import { toCompareVerdict } from "../lib/compareVerdict";
 import { countNoun, incidentNoun, REVISED_CAVEAT } from "../lib/layerCopy";
@@ -39,7 +40,7 @@ function totalIncidentCount(card: AnalysisCardData): number | null {
   return null;
 }
 
-export function AnalysisCard({ card, expanded, historical = false, onExpandChange, exportHrefBase }: Props) {
+function AnalysisCardImpl({ card, expanded, historical = false, onExpandChange, exportHrefBase }: Props) {
   const layer: LayerKey = card.settings.layer ?? "reported";
   const noun = incidentNoun(layer);
   const category = card.settings.offense_category ?? null;
@@ -148,3 +149,19 @@ export function AnalysisCard({ card, expanded, historical = false, onExpandChang
     </article>
   );
 }
+
+// Memoized so token-by-token assistant streaming (which re-renders AssistantPanel and its whole
+// thread) does not re-render every frozen card and its tables/plots. `onExpandChange` is
+// intentionally excluded from the comparison: it is a thin forwarder to the parent's stable
+// handler bound to this same (stable) card object, so its per-render identity never changes what
+// the card renders. Card objects are frozen once created, so `card ===` is a sound identity check.
+function cardPropsEqual(a: Props, b: Props): boolean {
+  return (
+    a.card === b.card &&
+    a.expanded === b.expanded &&
+    a.historical === b.historical &&
+    a.exportHrefBase === b.exportHrefBase
+  );
+}
+
+export const AnalysisCard = memo(AnalysisCardImpl, cardPropsEqual);

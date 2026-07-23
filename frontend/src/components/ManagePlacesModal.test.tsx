@@ -88,6 +88,20 @@ describe("ManagePlacesModal", () => {
     expect(baseProps.onClose).toHaveBeenCalled();
   });
 
+  it("closes on Escape", () => {
+    render(<ManagePlacesModal {...baseProps} initialView="manage" />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(baseProps.onClose).toHaveBeenCalled();
+  });
+
+  it("closes on a scrim click but not on a click inside the dialog", () => {
+    render(<ManagePlacesModal {...baseProps} initialView="manage" />);
+    fireEvent.mouseDown(screen.getByRole("heading", { name: "Manage places" }));
+    expect(baseProps.onClose).not.toHaveBeenCalled();
+    fireEvent.mouseDown(screen.getByRole("dialog", { name: "Manage places" }));
+    expect(baseProps.onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("renames a place inline: pencil, edit, Enter", async () => {
     render(<ManagePlacesModal {...baseProps} initialView="manage" />);
     fireEvent.click(screen.getByRole("button", { name: "Rename Home" }));

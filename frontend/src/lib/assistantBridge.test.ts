@@ -171,6 +171,38 @@ describe("interpretToolResult", () => {
     expect(malformed).not.toHaveProperty("badges");
   });
 
+  it("coerces malformed neighborhood/incidents/comparison payloads to null (no crash)", () => {
+    const effect = interpretToolResult({
+      tool_name: "compare_places",
+      result: {
+        place_ids: ["a", "b"],
+        settings_used: { radius_m: 500, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-30", offense_category: null },
+        // Server shape drift: places missing, incidents not an array, comparison a bare string.
+        neighborhood: { radius_m: 500 },
+        incidents: { returned_count: 0 },
+        comparison: "oops",
+      },
+    });
+    expect(effect?.neighborhood).toBeNull();
+    expect(effect?.incidents).toBeNull();
+    expect(effect?.comparison).toBeNull();
+    expect(effect?.card?.neighborhood).toBeNull();
+  });
+
+  it("drops badge entries that lack a string place_id", () => {
+    const effect = interpretToolResult({
+      tool_name: "analyze_places",
+      result: {
+        place_ids: ["a"],
+        settings_used: { radius_m: 250, analysis_start_date: "2026-01-01", analysis_end_date: "2026-06-30", offense_category: null },
+        neighborhood: null,
+        incidents: null,
+        badges: [{ label: "no id" }, { place_id: 5 }, "junk"],
+      },
+    });
+    expect(effect).not.toHaveProperty("badges");
+  });
+
   it("maps add_place to an append-selection effect", () => {
     const effect = interpretToolResult({
       tool_name: "add_place",

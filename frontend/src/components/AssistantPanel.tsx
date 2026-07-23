@@ -150,8 +150,17 @@ export function AssistantPanel({
             return <div key={index} className="mc-dock-msg is-user">{item.text}</div>;
           }
           if (item.kind === "tabby_text") {
+            // The streaming draft is the synthesized last item while `draft` is truthy. Hide
+            // it from the aria-live region so a screen reader isn't re-read the growing message
+            // on every token; when the turn settles the same node loses aria-hidden and the
+            // final answer is announced once.
+            const isStreamingDraft = !!draft && index === displayItems.length - 1;
             return (
-              <div key={index} className="mc-dock-msg is-assistant">
+              <div
+                key={index}
+                className="mc-dock-msg is-assistant"
+                aria-hidden={isStreamingDraft || undefined}
+              >
                 <ReactMarkdown>{item.text}</ReactMarkdown>
               </div>
             );

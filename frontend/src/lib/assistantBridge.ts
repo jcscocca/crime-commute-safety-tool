@@ -15,6 +15,46 @@ import type {
 // import sites (`from "./assistantBridge"`) keep working.
 export type { AnalysisCardData, SettingsUsed };
 
+// Tool results arrive off the SSE stream as `unknown`. Validate the structural invariants the
+// render layer relies on at this boundary and coerce anything malformed to null / [] (a shape
+// the cards already handle), so a drifted or truncated server frame degrades gracefully instead
+// of throwing deep inside render (e.g. `neighborhood.places.map` when `places` is missing).
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function asNeighborhood(value: unknown): NeighborhoodAnalysis | null {
+  if (isRecord(value) && Array.isArray(value.places) && Array.isArray(value.pairwise)) {
+    return value as unknown as NeighborhoodAnalysis;
+  }
+  return null;
+}
+
+function asIncidents(value: unknown): IncidentDetailsResponse | null {
+  if (isRecord(value) && Array.isArray(value.incidents)) {
+    return value as unknown as IncidentDetailsResponse;
+  }
+  return null;
+}
+
+// The compare render reads nested fields off `comparison`; require at least a non-null object
+// so a non-object frame can't be spread/dereferenced as one.
+function asComparison(value: unknown): SiteComparison | null {
+  return isRecord(value) ? (value as unknown as SiteComparison) : null;
+}
+
+function asBadges(value: unknown): BadgeDescriptor[] | null {
+  if (!Array.isArray(value)) return null;
+  const badges = value.filter(
+    (b): b is BadgeDescriptor => isRecord(b) && typeof b.place_id === "string",
+  );
+  return badges.length > 0 ? badges : null;
+}
+
+function asSettingsUsed(value: unknown): SettingsUsed | undefined {
+  return isRecord(value) ? (value as SettingsUsed) : undefined;
+}
+
 function settingsFrom(used: SettingsUsed | undefined): Partial<AnalysisSettings> {
   if (!used) return {};
   const patch: Partial<AnalysisSettings> = {};
@@ -36,22 +76,23 @@ export function interpretToolResult(data: {
   switch (data.tool_name) {
     case "compare_places": {
       const placeIds = Array.isArray(result.place_ids) ? (result.place_ids as string[]) : [];
-      const comparison = (result.comparison as SiteComparison) ?? null;
-      const neighborhood = (result.neighborhood as NeighborhoodAnalysis) ?? null;
-      const incidents = (result.incidents as IncidentDetailsResponse) ?? null;
+      const comparison = asComparison(result.comparison);
+      const neighborhood = asNeighborhood(result.neighborhood);
+      const incidents = asIncidents(result.incidents);
+      const badges = asBadges(result.badges);
       return {
         selection: { mode: "replace", ids: placeIds },
-        settings: settingsFrom(result.settings_used as SettingsUsed),
+        settings: settingsFrom(asSettingsUsed(result.settings_used)),
         comparison,
         neighborhood,
         incidents,
         refetchSummary: true,
-        ...(Array.isArray(result.badges) ? { badges: result.badges as BadgeDescriptor[] } : {}),
+        ...(badges ? { badges } : {}),
         card: {
           runId: typeof result.analysis_run_id === "string" ? result.analysis_run_id : null,
           kind: "compare",
           placeIds,
-          settings: (result.settings_used as SettingsUsed) ?? {},
+          settings: asSettingsUsed(result.settings_used) ?? {},
           comparison,
           neighborhood,
           incidents,
@@ -60,20 +101,21 @@ export function interpretToolResult(data: {
     }
     case "analyze_places": {
       const placeIds = Array.isArray(result.place_ids) ? (result.place_ids as string[]) : [];
-      const neighborhood = (result.neighborhood as NeighborhoodAnalysis) ?? null;
-      const incidents = (result.incidents as IncidentDetailsResponse) ?? null;
+      const neighborhood = asNeighborhood(result.neighborhood);
+      const incidents = asIncidents(result.incidents);
+      const badges = asBadges(result.badges);
       return {
         selection: { mode: "replace", ids: placeIds },
-        settings: settingsFrom(result.settings_used as SettingsUsed),
+        settings: settingsFrom(asSettingsUsed(result.settings_used)),
         neighborhood,
         incidents,
         refetchSummary: true,
-        ...(Array.isArray(result.badges) ? { badges: result.badges as BadgeDescriptor[] } : {}),
+        ...(badges ? { badges } : {}),
         card: {
           runId: typeof result.analysis_run_id === "string" ? result.analysis_run_id : null,
           kind: "analyze",
           placeIds,
-          settings: (result.settings_used as SettingsUsed) ?? {},
+          settings: asSettingsUsed(result.settings_used) ?? {},
           comparison: null,
           neighborhood,
           incidents,
@@ -97,7 +139,7 @@ export function interpretToolResult(data: {
       };
     }
     case "update_filters":
-      return { settings: settingsFrom(result.patch as SettingsUsed) };
+      return { settings: settingsFrom(asSettingsUsed(result.patch)) };
     default:
       return null;
   }

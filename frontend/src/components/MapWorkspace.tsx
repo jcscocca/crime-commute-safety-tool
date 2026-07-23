@@ -1,3 +1,9 @@
+// MapWorkspace is the dashboard's central coordinator, not a thin shell: the per-tab data/UI
+// concerns were extracted into hooks (useDrawer / useDashboardData / usePinDraft / useAnalyze /
+// useCompare / useAddressList), but the cross-cutting glue — selection state, analysis-context
+// invalidation, and the assistant tool-result fan-out — deliberately stays here so those slices
+// stay in sync. It is large by design; further extraction candidates (auto-run card synthesis,
+// the selection orchestrator, assistant-effect application) are noted in the repo review.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import { createBulkPlaces, createPlace, deletePlace, getBeatPolygons, updatePlace, type AssistantCommandName } from "../api/client";

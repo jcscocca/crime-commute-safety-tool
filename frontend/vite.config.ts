@@ -25,9 +25,13 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        // Split the markdown renderer (react-markdown + micromark/* deps) into its own
-        // chunk so it doesn't bloat the main bundle past the size-warning threshold.
-        manualChunks: { markdown: ["react-markdown"] }
+        // Split the heavy, rarely-changing vendor stacks into their own chunks so they
+        // cache independently of app code (an app-only change no longer re-downloads
+        // ~1MB of map/markdown vendor) and the main bundle stays under the size warning.
+        manualChunks: {
+          markdown: ["react-markdown"],
+          maplibre: ["maplibre-gl", "pmtiles", "@protomaps/basemaps"]
+        }
       }
     }
   }
