@@ -80,6 +80,30 @@ def test_run_personal_upload_retains_when_opted_in(tmp_path):
     assert staging > 0 and stops > 0
 
 
+def test_second_retained_upload_preserves_first_import_clusters(tmp_path):
+    from app.services.public_upload_service import run_personal_upload
+
+    session = _app_session(tmp_path)
+    settings = Settings(raw_upload_retention=True)
+    payload = (FIXTURES / "google_recurring.json").read_bytes()
+
+    first = run_personal_upload(session, payload, "first.json", USER, settings)
+    second = run_personal_upload(session, payload, "second.json", USER, settings)
+
+    assert first["place_cluster_count"] == 1
+    assert second["place_cluster_count"] == 1
+    assert session.query(PlaceCluster).filter(
+        PlaceCluster.user_id_hash == USER,
+        PlaceCluster.cluster_method == CLUSTER_METHOD,
+    ).count() == 2
+    assert {
+        import_id
+        for (import_id,) in session.query(StopVisit.import_id).filter(
+            StopVisit.user_id_hash == USER
+        )
+    } == {first["import_id"], second["import_id"]}
+
+
 def test_run_personal_upload_rejects_unknown_format(tmp_path):
     import pytest
 

@@ -11,6 +11,7 @@ import type { DashboardFreshness, DashboardSummary, Place } from "../types";
 const DEFAULT_EXPORT = "/exports/tableau/place-summary.csv";
 
 export interface DashboardData {
+  sessionReady: boolean;
   summary: DashboardSummary | null;
   freshness: DashboardFreshness | null;
   freshnessLoaded: boolean;
@@ -31,6 +32,7 @@ export interface DashboardData {
  * the rest of the workspace reads.
  */
 export function useDashboardData(): DashboardData {
+  const [sessionReady, setSessionReady] = useState(false);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [freshness, setFreshness] = useState<DashboardFreshness | null>(null);
   const [freshnessLoaded, setFreshnessLoaded] = useState(false);
@@ -52,38 +54,37 @@ export function useDashboardData(): DashboardData {
     let isMounted = true;
     setError("");
     createSession()
-      .then(() => getDashboardSummary())
-      .then((next) => {
-        if (isMounted) {
-          setError("");
-          setSummary(next);
-        }
+      .then(() => {
+        if (!isMounted) return;
+        setSessionReady(true);
+        void getDashboardSummary()
+          .then((value) => {
+            if (!isMounted) return;
+            setError("");
+            setSummary(value);
+          })
+          .catch(() => {
+            if (isMounted) setError("Unable to load dashboard data. Try again shortly.");
+          });
+        void getDashboardFreshness()
+          .then((value) => {
+            if (isMounted) setFreshness(value);
+          })
+          .catch(() => {
+            if (isMounted) setFreshness(null);
+          })
+          .finally(() => {
+            if (isMounted) setFreshnessLoaded(true);
+          });
       })
       .catch(() => {
-        if (isMounted) setError("Unable to start a dashboard session. Try again shortly.");
+        if (isMounted) {
+          setFreshnessLoaded(true);
+          setError("Unable to start a dashboard session. Try again shortly.");
+        }
       });
     return () => {
       isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    getDashboardFreshness()
-      .then((data) => {
-        if (active) {
-          setFreshness(data);
-          setFreshnessLoaded(true);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setFreshness(null);
-          setFreshnessLoaded(true);
-        }
-      });
-    return () => {
-      active = false;
     };
   }, []);
 
@@ -106,6 +107,7 @@ export function useDashboardData(): DashboardData {
   const exportHref = summary?.exports.tableau_place_summary_csv || DEFAULT_EXPORT;
 
   return {
+    sessionReady,
     summary,
     freshness,
     freshnessLoaded,

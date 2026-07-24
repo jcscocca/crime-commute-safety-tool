@@ -20,6 +20,7 @@ from app.analysis.schemas import (
     PairwiseComparisonResult,
     StatisticalComparisonResult,
 )
+from app.crime.sources import SOURCE_SPD_911, SOURCE_SPD_ARRESTS, SOURCE_SPD_CRIME
 
 
 def build_statistical_comparison(
@@ -35,6 +36,7 @@ def build_statistical_comparison(
     nibrs_group: str | None,
     options: list[AnalysisOptionResult],
     period_counts_by_option_id: dict[str, list[int]],
+    source_dataset: str = SOURCE_SPD_CRIME,
 ) -> StatisticalComparisonResult:
     if len(options) < 2:
         raise ValueError("At least two options are required.")
@@ -163,12 +165,15 @@ def build_statistical_comparison(
         offense_category=offense_category,
         offense_subcategory=offense_subcategory,
         nibrs_group=nibrs_group,
+        source_dataset=source_dataset,
         decision_class=overall_decision,
         recommendation_option_id=recommendation_option_id,
         recommendation_label=recommendation_label,
-        overview_summary_text=_overview_summary(overall_decision, recommendation_label),
-        overview_caveat_text=_overview_caveat(overall_decision),
-        full_caveat_text=_full_caveat(pairwise_results),
+        overview_summary_text=_overview_summary(
+            overall_decision, recommendation_label, source_dataset
+        ),
+        overview_caveat_text=_overview_caveat(overall_decision, source_dataset),
+        full_caveat_text=_full_caveat(pairwise_results, source_dataset),
         options=[
             _option_with_rate_interval(
                 option,
@@ -316,8 +321,22 @@ def _overall_decision(pairwise_results: list[PairwiseComparisonResult]) -> Decis
     return DecisionClass.NOT_STATISTICALLY_CLEAR
 
 
-def _overview_summary(decision_class: DecisionClass, recommendation_label: str | None) -> str:
+def _overview_summary(
+    decision_class: DecisionClass,
+    recommendation_label: str | None,
+    source_dataset: str,
+) -> str:
     if decision_class == DecisionClass.STATISTICALLY_LOWER and recommendation_label:
+        if source_dataset == SOURCE_SPD_ARRESTS:
+            return (
+                f"{recommendation_label} has a statistically lower SPD-arrest rate "
+                "for the selected places, date range, and offense filter."
+            )
+        if source_dataset == SOURCE_SPD_911:
+            return (
+                f"{recommendation_label} has a statistically lower 911-call rate "
+                "for the selected places, date range, and call-type filter."
+            )
         return (
             f"{recommendation_label} has a statistically lower reported-incident rate "
             "for the selected places, date range, and offense filter."
@@ -326,18 +345,45 @@ def _overview_summary(decision_class: DecisionClass, recommendation_label: str |
         return "There is insufficient data for a statistical comparison under the selected filters."
     if decision_class == DecisionClass.MODEL_WARNING:
         return "The model detected data or geometry limitations that require analytical review."
+    if source_dataset == SOURCE_SPD_ARRESTS:
+        return "No option has a statistically clear lower SPD-arrest rate under the filters."
+    if source_dataset == SOURCE_SPD_911:
+        return "No option has a statistically clear lower 911-call rate under the filters."
     return "There is no statistically clear lower-incident alternative under the selected filters."
 
 
-def _overview_caveat(decision_class: DecisionClass) -> str:
+def _overview_caveat(decision_class: DecisionClass, source_dataset: str) -> str:
     if decision_class == DecisionClass.STATISTICALLY_LOWER:
+        if source_dataset == SOURCE_SPD_ARRESTS:
+            return (
+                "SPD arrests describe enforcement activity at the arrest location, "
+                "not confirmed offenses or personal outcomes."
+            )
+        if source_dataset == SOURCE_SPD_911:
+            return (
+                "911 calls are requests for service, not confirmed incidents "
+                "or personal outcomes."
+            )
         return "This describes reported incidents, not causation or personal outcomes."
-    return "The app still shows alternatives, but it does not make a lower-incident recommendation."
+    return "The app still shows alternatives, but it does not make a lower-rate recommendation."
 
 
-def _full_caveat(pairwise_results: list[PairwiseComparisonResult]) -> str:
+def _full_caveat(
+    pairwise_results: list[PairwiseComparisonResult], source_dataset: str
+) -> str:
     caveats = [result.caveat_text for result in pairwise_results if result.caveat_text]
-    base = "Results use exposure-adjusted reported incident rates and conservative thresholds."
+    if source_dataset == SOURCE_SPD_ARRESTS:
+        base = (
+            "Results use exposure-adjusted SPD-arrest rates and conservative thresholds; "
+            "arrests are enforcement activity."
+        )
+    elif source_dataset == SOURCE_SPD_911:
+        base = (
+            "Results use exposure-adjusted 911-call rates and conservative thresholds; "
+            "calls are requests for service."
+        )
+    else:
+        base = "Results use exposure-adjusted reported incident rates and conservative thresholds."
     return " ".join([base, *caveats]).strip()
 
 
