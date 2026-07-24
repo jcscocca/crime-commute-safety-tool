@@ -79,11 +79,11 @@ export function MapWorkspace() {
   const [beats, setBeats] = useState<BeatFeatureCollection | null>(null);
   const [viewport, setViewport] = useState<MapBounds | null>(null);
 
-  useEffect(() => {
-    getBeatPolygons().then(setBeats).catch(() => setBeats(null)); // outline layer is optional chrome
-  }, []);
-
   const data = useDashboardData();
+  useEffect(() => {
+    if (!data.sessionReady) return;
+    getBeatPolygons().then(setBeats).catch(() => setBeats(null)); // outline layer is optional chrome
+  }, [data.sessionReady]);
   const layerAvailability = useMemo<Partial<Record<LayerKey, boolean>> | undefined>(() => {
     if (!data.freshness) return undefined;
     return {

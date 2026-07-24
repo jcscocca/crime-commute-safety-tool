@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { StrictMode } from "react";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Captures each distinct flyTo reference MapCanvas receives — the real MapCanvas re-flies
@@ -64,7 +64,7 @@ vi.mock("../lib/geocoding", async (importOriginal) => ({
 }));
 
 import { MapWorkspace } from "./MapWorkspace";
-import { analyzePlaces, comparePlaces, createBulkPlaces, createPlace, createSession, deletePlace, getDashboardFreshness, getDashboardSummary, getIncidentDetails, getNeighborhoodAnalysis, streamAssistantChat, streamAssistantCommand, updatePlace } from "../api/client";
+import { analyzePlaces, comparePlaces, createBulkPlaces, createPlace, createSession, deletePlace, getBeatPolygons, getDashboardFreshness, getDashboardSummary, getIncidentDetails, getNeighborhoodAnalysis, streamAssistantChat, streamAssistantCommand, updatePlace } from "../api/client";
 import { currentYearAnalysisWindow } from "../lib/analysisDefaults";
 import { snapHeightPx } from "../lib/drawer";
 import { encodeView } from "../lib/savedView";
@@ -168,6 +168,32 @@ afterEach(() => {
 });
 
 describe("MapWorkspace", () => {
+  it("waits for session creation before authenticated bootstrap requests", async () => {
+    let resolveSession!: (value: { session_state: string }) => void;
+    vi.mocked(createSession).mockReturnValue(
+      new Promise((resolve) => {
+        resolveSession = resolve;
+      }),
+    );
+    vi.mocked(getDashboardSummary).mockResolvedValue(makeSummary());
+
+    render(<MapWorkspace />);
+
+    expect(getDashboardSummary).not.toHaveBeenCalled();
+    expect(getDashboardFreshness).not.toHaveBeenCalled();
+    expect(getBeatPolygons).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveSession({ session_state: "created" });
+    });
+
+    await waitFor(() => {
+      expect(getDashboardSummary).toHaveBeenCalledTimes(1);
+      expect(getDashboardFreshness).toHaveBeenCalledTimes(1);
+      expect(getBeatPolygons).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("defaults to the freshest loaded year and disables layers with no rows", async () => {
     localStorage.setItem("compcat.selection", JSON.stringify([home.id]));
     vi.mocked(createSession).mockResolvedValue({ session_state: "ready" });

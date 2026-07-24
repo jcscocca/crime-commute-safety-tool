@@ -20,6 +20,7 @@ from app.analysis.schemas import (
     GeometryType,
     StatisticalComparisonResult,
 )
+from app.crime.sources import SOURCE_SPD_CRIME
 from app.models import (
     StatisticalComparison,
     StatisticalComparisonOption,
@@ -41,6 +42,7 @@ def compare_site_options(
     nibrs_group: str | None,
     sources: Sequence[str] | None = None,
 ) -> dict[str, Any]:
+    effective_sources = tuple(sources) if sources is not None else (SOURCE_SPD_CRIME,)
     site_options = [
         option
         if isinstance(option, AnalysisSiteOption)
@@ -58,7 +60,7 @@ def compare_site_options(
         offense_category=offense_category,
         offense_subcategory=offense_subcategory,
         nibrs_group=nibrs_group,
-        sources=sources,
+        sources=effective_sources,
     )
     option_results: list[AnalysisOptionResult] = []
     period_counts_by_option_id: dict[str, list[int]] = {}
@@ -119,6 +121,7 @@ def compare_site_options(
         nibrs_group=nibrs_group,
         options=option_results,
         period_counts_by_option_id=period_counts_by_option_id,
+        source_dataset=",".join(effective_sources),
     )
     return _persist_and_payload(
         session,

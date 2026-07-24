@@ -98,10 +98,13 @@ def normalize_import(
 def _delete_existing_normalization(session: Session, import_id: str, user_id_hash: str) -> None:
     cluster_ids = list(
         session.scalars(
-            select(PlaceCluster.id).where(
-                PlaceCluster.user_id_hash == user_id_hash,
-                PlaceCluster.cluster_method == CLUSTER_METHOD,
+            select(StopVisit.place_cluster_id)
+            .where(
+                StopVisit.import_id == import_id,
+                StopVisit.user_id_hash == user_id_hash,
+                StopVisit.place_cluster_id.is_not(None),
             )
+            .distinct()
         )
     )
     if cluster_ids:
@@ -109,12 +112,14 @@ def _delete_existing_normalization(session: Session, import_id: str, user_id_has
             delete(PlaceCrimeSummary).where(PlaceCrimeSummary.place_cluster_id.in_(cluster_ids))
         )
     session.execute(delete(StopVisit).where(StopVisit.import_id == import_id))
-    session.execute(
-        delete(PlaceCluster).where(
-            PlaceCluster.user_id_hash == user_id_hash,
-            PlaceCluster.cluster_method == CLUSTER_METHOD,
+    if cluster_ids:
+        session.execute(
+            delete(PlaceCluster).where(
+                PlaceCluster.id.in_(cluster_ids),
+                PlaceCluster.user_id_hash == user_id_hash,
+                PlaceCluster.cluster_method == CLUSTER_METHOD,
+            )
         )
-    )
     session.flush()
 
 

@@ -329,6 +329,29 @@ def test_dashboard_compare_selected_places(tmp_path):
     assert len(response.json()["overview"]["options"]) == 2
 
 
+def test_dashboard_compare_preserves_calls_layer_provenance_and_framing(tmp_path):
+    client = _client_with_places_and_crime(tmp_path)
+    places = client.get("/places").json()["places"]
+
+    response = client.post(
+        "/dashboard/compare",
+        json={
+            "place_ids": [place["id"] for place in places],
+            "analysis_start_date": "2024-01-01",
+            "analysis_end_date": "2024-01-31",
+            "radius_m": 250,
+            "layer": "calls",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["analytical"]["source_dataset"] == "seattle_spd_911"
+    assert "reported incident" not in payload["analytical"]["full_caveat_text"].lower()
+    assert "requests for service" in payload["analytical"]["full_caveat_text"].lower()
+    assert "lower-incident" not in payload["overview"]["caveat_text"].lower()
+
+
 def test_dashboard_compare_uses_public_place_display_coordinates(tmp_path):
     client = _client_with_places_and_crime(tmp_path)
     places_by_id = {place["id"]: place for place in client.get("/places").json()["places"]}
